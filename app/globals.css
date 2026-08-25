@@ -456,18 +456,7 @@ select.filter, input.field, select.field, textarea.field {
 .lp-partner-note { margin: 12px 0 0; font-size: 13px; color: #4A5568; line-height: 1.6; }
 .lp-section.alt .lp-partner { background: var(--bg); }
 
-/* the application is taller than the enquiry form; give its grid more room */
-#heloc .lp-hero-grid { grid-template-columns: .82fr 1.18fr; align-items: start; }
-@media (max-width: 900px) { #heloc .lp-hero-grid { grid-template-columns: 1fr; } }
-
-/* HELOC call-to-action band on the landing page */
-.lp-cta-band {
-  display: grid; grid-template-columns: 1.25fr .75fr; gap: 44px; align-items: center;
-  background: #fff; border: 1px solid #E4EAF3; border-radius: 14px;
-  padding: 36px 38px; box-shadow: 0 10px 30px rgba(4, 22, 42, .06);
-}
-.lp-cta-band .lp-partner { box-shadow: none; }
-@media (max-width: 860px) {
-  .lp-cta-band { grid-template-columns: 1fr; gap: 26px; padding: 26px 22px; }
-  .lp-cta-band .lp-btn { width: 100%; text-align: center; }
-}
+/* on /heloc the application is taller than the copy beside it, so the form
+   gets the wider column */
+.heloc-page .lp-hero-grid { grid-template-columns: .82fr 1.18fr; align-items: start; }
+@media (max-width: 900px) { .heloc-page .lp-hero-grid { grid-template-columns: 1fr; } }

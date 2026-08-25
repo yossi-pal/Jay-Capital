@@ -30,16 +30,16 @@ const POINTS = [
 
 export default function HelocPage() {
   return (
-    <div className="lp">
+    <div className="lp heloc-page">
       <header className="lp-nav">
         <div className="lp-shell lp-nav-in">
           <Link href="/" aria-label="Jay Capital Funding home" style={{ textDecoration: 'none' }}>
             <Logo size={34} />
           </Link>
+          {/* Deliberately bare: someone mid-application should not be offered
+              three ways to leave it. */}
           <nav className="lp-nav-links">
-            <Link href="/">Home</Link>
-            <a href={PHONE_HREF}>{PHONE}</a>
-            <Link className="lp-btn" href="/login">Borrower Portal</Link>
+            <Link href="/">&larr; Back to site</Link>
           </nav>
         </div>
       </header>

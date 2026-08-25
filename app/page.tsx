@@ -48,7 +48,7 @@ export default function LandingPage() {
             <a href="#services">Lending</a>
             <a href="#how">How it works</a>
             <a href="#contact">Contact</a>
-            <a href="#heloc">HELOC</a>
+            <Link href="/heloc">HELOC</Link>
             <Link className="lp-btn" href="/login">Borrower Portal</Link>
           </nav>
         </div>
@@ -117,7 +117,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="lp-section" id="how">
+      {/* Sits directly after the four products, where a reader has just seen
+          HELOC listed -- rather than buried at the bottom of the page. Styled
+          like every other section so it reads as part of the flow. */}
+      <section className="lp-section" id="heloc" style={{ scrollMarginTop: 80 }}>
+        <div className="lp-shell">
+          <div className="lp-head">
+            <div className="lp-eyebrow">Home equity line of credit</div>
+            <h2 style={{ marginTop: 14 }}>Put your equity to work.</h2>
+            <p>
+              Draw against the equity you have already built and pay interest only on
+              what you actually use. It takes a couple of minutes to apply, and nothing
+              here touches your credit.
+            </p>
+          </div>
+
+          <div className="lp-grid">
+            <article className="lp-card">
+              <span className="lp-tag">Pay for what you use</span>
+              <p>Interest applies only to the portion you have drawn. An unused line costs you nothing.</p>
+            </article>
+            <article className="lp-card">
+              <span className="lp-tag">Draw on your own timing</span>
+              <p>Take what you need when you need it, rather than borrowing against a date you are still guessing at.</p>
+            </article>
+            <article className="lp-card">
+              <span className="lp-tag">Keep your first mortgage</span>
+              <p>A line sits behind the loan you already have, so the rate on it is untouched.</p>
+            </article>
+          </div>
+
+          <div className="lp-cta-row" style={{ marginTop: 30 }}>
+            <Link className="lp-btn brass" href="/heloc">Apply for a HELOC</Link>
+            <a className="lp-btn ghost" href="#contact">Ask a question first</a>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section alt" id="how">
         <div className="lp-shell">
           <div className="lp-head">
             <div className="lp-eyebrow">How it works</div>
@@ -135,7 +172,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="lp-section alt">
+      <section className="lp-section">
         <div className="lp-shell lp-hero-grid">
           <div>
             <div className="lp-eyebrow">The borrower portal</div>
@@ -161,37 +198,6 @@ export default function LandingPage() {
                 <span className="k" style={{ fontSize: 16 }}>Amount Due</span>
                 <span className="v" style={{ fontWeight: 800, fontSize: 16, color: 'var(--navy)' }}>$12,283.83</span>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* A short pitch and one button. The application itself lives on its own
-          page, which keeps this page scannable and gives the form room. */}
-      <section className="lp-section" id="heloc" style={{ scrollMarginTop: 80 }}>
-        <div className="lp-shell">
-          <div className="lp-cta-band">
-            <div>
-              <div className="lp-eyebrow">Home equity line of credit</div>
-              <h2 style={{ marginTop: 12 }}>Put your equity to work.</h2>
-              <p style={{ color: '#4A5568', fontSize: 16.5, maxWidth: '52ch', marginTop: 12 }}>
-                Draw against the equity you have already built and pay interest only on
-                what you actually use. A couple of minutes to apply, and nothing here
-                touches your credit.
-              </p>
-              <div className="lp-cta-row" style={{ marginTop: 24 }}>
-                <Link className="lp-btn brass" href="/heloc">Apply for a HELOC</Link>
-              </div>
-            </div>
-
-            <div className="lp-partner" style={{ marginTop: 0 }}>
-              <span className="lp-partner-lbl">Processed through</span>
-              <img src="/onyx-equity-partners.svg" alt="Onyx Equity Partners"
-                   width="200" style={{ display: 'block', width: 200, maxWidth: '100%', height: 'auto' }} />
-              <p className="lp-partner-note">
-                Jay Capital Funding places all home equity lines of credit through
-                Onyx Equity Partners.
-              </p>
             </div>
           </div>
         </div>
