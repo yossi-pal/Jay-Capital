@@ -19,11 +19,25 @@ function formatPhone(raw: string): string {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
-/** Currency as they type: digits in, grouped dollars out. */
+/**
+ * Currency as they type, cents allowed.
+ *
+ * Keeps a trailing "." and a lone "0" after it, so typing 1234.05 is not
+ * fought character by character -- stripping either would make the decimal
+ * point impossible to enter.
+ */
 function formatMoney(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 12);
-  if (!d) return '';
-  return '$' + Number(d).toLocaleString('en-US');
+  let v = raw.replace(/[^\d.]/g, '');
+  const dot = v.indexOf('.');
+  if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '');
+
+  let [int = '', dec] = v.split('.');
+  int = int.slice(0, 12).replace(/^0+(?=\d)/, '');
+  if (dec !== undefined) dec = dec.slice(0, 2);
+
+  if (!int && dec === undefined) return '';
+  const grouped = int ? Number(int).toLocaleString('en-US') : '0';
+  return '$' + grouped + (dec !== undefined ? '.' + dec : '');
 }
 
 const USES = [

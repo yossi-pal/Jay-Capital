@@ -35,6 +35,16 @@ export interface HelocApplication {
 }
 
 const digits = (v: string) => String(v ?? '').replace(/\D/g, '');
+
+/**
+ * Parse a currency field. Stripping every non-digit would read "$1,234.56"
+ * as 123456 -- a hundredfold error on every amount the applicant enters.
+ */
+const parseMoney = (v: string): number => {
+  const cleaned = String(v ?? '').replace(/[^\d.]/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : NaN;
+};
 const esc = (v: string) =>
   String(v ?? '').replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
 
@@ -71,6 +81,16 @@ export async function submitHelocApplication(input: HelocApplication) {
     if (digits(input.phone).length < 10) throw new Error('Please enter a valid phone number.');
     if (digits(input.ssn).length !== 9) throw new Error('Please enter a valid 9-digit Social Security number.');
 
+    for (const [k, label] of [
+      ['propertyValue', 'Estimated current property value'],
+      ['mortgageBalance', 'Approximate outstanding mortgage balance'],
+      ['monthlyPayment', 'Approximate current monthly payment'],
+      ['annualIncome', 'Approximate annual income'],
+    ] as [keyof HelocApplication, string][]) {
+      const n = parseMoney(String(input[k] ?? ''));
+      if (!Number.isFinite(n) || n <= 0) throw new Error(`Please enter a valid amount for ${label}.`);
+    }
+
     const age = (Date.now() - new Date(input.dob).getTime()) / (365.25 * 86400000);
     if (!Number.isFinite(age) || age < 18 || age > 120) {
       throw new Error('Please check the date of birth. Applicants must be at least 18.');
@@ -80,8 +100,10 @@ export async function submitHelocApplication(input: HelocApplication) {
     const ssnFormatted = `${ssnDigits.slice(0, 3)}-${ssnDigits.slice(3, 5)}-${ssnDigits.slice(5)}`;
 
     const money = (v: string) => {
-      const n = Number(digits(v));
-      return Number.isFinite(n) ? '$' + n.toLocaleString('en-US') : String(v);
+      const n = parseMoney(v);
+      return Number.isFinite(n)
+        ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : String(v);
     };
 
     const navy = '#04162A', muted = '#6B7A90', pale = '#EDF2F8';
