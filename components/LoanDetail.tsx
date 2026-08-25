@@ -11,7 +11,7 @@ import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
 import AddDrawModal from '@/components/AddDrawModal';
 import AddBorrowerModal from '@/components/AddBorrowerModal';
-import { ConfirmDialog, AlertDialog } from '@/components/Modal';
+import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 import LoanPager from '@/components/LoanPager';
 
 interface Summary {
@@ -19,6 +19,7 @@ interface Summary {
   acquisition: number; construction: number; annual_rate: number; closing_date: string;
   status: string; borrower_id: string; borrower_name: string;
   is_entity?: boolean | null; entity_name?: string | null;
+  paid_off_date?: string | null;
   borrower_email: string | null; borrower_phone: string | null; lender_name: string | null;
   total_disbursed: number; remaining_draw: number; accrued_interest: number;
 }
@@ -36,16 +37,20 @@ export default function LoanDetail({
   const [busy, setBusy] = useState(false);
   const rate = Number(summary.annual_rate);
   const [stmtDate, setStmtDate] = useState(() => clampMonth(firstOfMonth(todayInAppTz(), 1), summary.closing_date));
-  const months = statementMonths(summary.closing_date);
+  const months = statementMonths(summary.closing_date, summary.paid_off_date);
 
   const [confirmDeleteLoan, setConfirmDeleteLoan] = useState(false);
   const [confirmDeleteDraw, setConfirmDeleteDraw] = useState<string | null>(null);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
+  const [payoffOpen, setPayoffOpen] = useState(false);
+  const [payoffDate, setPayoffDate] = useState(summary.paid_off_date ?? '');
+  const [payoffErr, setPayoffErr] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
   const engineLoan = {
     loan_amount: Number(summary.loan_amount), acquisition: Number(summary.acquisition),
     annual_rate: rate, closing_date: summary.closing_date,
+    paid_off_date: summary.paid_off_date ?? null,
   };
   const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
   const stmt = buildStatement(engineLoan, engineDraws, stmtDate);
@@ -111,8 +116,17 @@ export default function LoanDetail({
               <>
                 <select className="filter" defaultValue={summary.status} disabled={busy}
                   onChange={async e => {
+                    const next = e.target.value;
+                    // Paid off needs a date before anything is written.
+                    if (next === 'paid_off') {
+                      setPayoffErr('');
+                      setPayoffDate(summary.paid_off_date ?? '');
+                      setPayoffOpen(true);
+                      e.target.value = summary.status;   // revert until confirmed
+                      return;
+                    }
                     setBusy(true);
-                    const res = await setLoanStatus(summary.loan_id, e.target.value);
+                    const res = await setLoanStatus(summary.loan_id, next);
                     setBusy(false);
                     if (!res.ok) { setActionError(res.error || 'Could not change the status.'); return; }
                     router.refresh();
@@ -192,7 +206,12 @@ export default function LoanDetail({
           <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
           <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
         </div>
-        {overdueNow.length > 0 && (
+        {summary.status === 'paid_off' && summary.paid_off_date && (
+          <p style={{ marginBottom: 0, color: 'var(--ok)', fontWeight: 600 }}>
+            Paid off {fmtDate(summary.paid_off_date)} · no further interest or statements.
+          </p>
+        )}
+        {summary.status !== 'paid_off' && overdueNow.length > 0 && (
           <p style={{ marginBottom: 0, color: 'var(--danger)', fontWeight: 600 }}>
             Past due {money(overdueNow.reduce((s, r) => s + r.balance, 0))} across{' '}
             {overdueNow.length} statement{overdueNow.length === 1 ? '' : 's'}, oldest{' '}
@@ -324,6 +343,37 @@ export default function LoanDetail({
         }}
         onCancel={() => setConfirmDeletePayment(null)}
       />
+      <Modal open={payoffOpen} onClose={() => !busy && setPayoffOpen(false)} title="Mark Loan Paid Off" maxWidth={460}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Interest stops at the payoff date and no further statements are issued.
+            Interest from the 1st of the payoff month up to this date will come from the
+            payoff statement.
+          </p>
+          <div className="field-wrap">
+            <label>Payoff date</label>
+            <input className="field" type="date" value={payoffDate}
+              min={summary.closing_date}
+              onChange={e => setPayoffDate(e.target.value)} />
+          </div>
+          {payoffErr && <div className="alert error" style={{ margin: 0 }}>{payoffErr}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button className="btn secondary" disabled={busy} onClick={() => setPayoffOpen(false)}>Cancel</button>
+            <button className="btn" disabled={busy} onClick={async () => {
+              if (!payoffDate) { setPayoffErr('Please enter the payoff date.'); return; }
+              setBusy(true);
+              const res = await setLoanStatus(summary.loan_id, 'paid_off', payoffDate);
+              setBusy(false);
+              if (!res.ok) { setPayoffErr(res.error || 'Could not mark the loan paid off.'); return; }
+              setPayoffOpen(false);
+              router.refresh();
+            }}>
+              {busy ? 'Saving…' : 'Mark paid off'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <AlertDialog
         open={!!actionError}
         title="That didn't work"

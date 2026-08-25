@@ -91,14 +91,36 @@ export function periodEndOf(periodMonth: string): string {
 }
 
 /** Every charge period from the closing month through `periodMonth`, oldest first. */
-export function periodsThrough(closingDate: string, periodMonth: string): string[] {
+export function periodsThrough(
+  closingDate: string, periodMonth: string, paidOffDate?: string | null,
+): string[] {
+  // A paid-off loan stops accruing. The last billable period is the month
+  // BEFORE the payoff month: interest from the 1st up to the payoff date is a
+  // stub that belongs on the payoff statement, and billing a whole month here
+  // would charge for days after the loan was settled.
+  let end = periodMonth;
+  if (paidOffDate) {
+    const lastBillable = firstOfMonth(paidOffDate, -1);
+    if (lastBillable < end) end = lastBillable;
+  }
+
   const out: string[] = [];
   let cur = firstOfMonth(closingDate);
-  for (let i = 0; i < 600 && cur <= periodMonth; i++) {
+  for (let i = 0; i < 600 && cur <= end; i++) {
     out.push(cur);
     cur = firstOfMonth(cur, 1);
   }
   return out;
+}
+
+/** The loan fields the ledger needs beyond the interest engine's. */
+export interface LedgerLoan extends Loan {
+  paid_off_date?: string | null;
+}
+
+/** Statement dates that make sense for a loan: none past its payoff. */
+export function lastStatementDate(paidOffDate?: string | null): string | null {
+  return paidOffDate ? firstOfMonth(paidOffDate) : null;
 }
 
 /** Interest charged for one period. */
@@ -126,7 +148,7 @@ export function buildLedger(
   // Normally that is just the month it covers, but the first billed statement
   // also carries the deferred closing month.
   const statementMonth = firstOfMonth(statementDate);
-  const allPeriods = periodsThrough(loan.closing_date, periodMonth);
+  const allPeriods = periodsThrough(loan.closing_date, periodMonth, (loan as LedgerLoan).paid_off_date);
   const currentPeriodMonths = allPeriods.filter(p => dueDateFor(p, loan.closing_date) === statementMonth);
   const priorPeriods = allPeriods.filter(p => dueDateFor(p, loan.closing_date) < statementMonth);
 
@@ -250,7 +272,7 @@ export function pastDueAsOf(
 
   // Periods whose due date is on or before today.
   const thisMonth = firstOfMonth(today);
-  return periodsThrough(loan.closing_date, firstOfMonth(today, -1))
+  return periodsThrough(loan.closing_date, firstOfMonth(today, -1), (loan as LedgerLoan).paid_off_date)
     .filter(p => dueDateFor(p, loan.closing_date) <= thisMonth)
     .map(p => {
       const charge = chargeForPeriod(loan, draws, p);
@@ -287,7 +309,7 @@ export function openCharges(
     const key = firstOfMonth(a.period_month);
     paidByPeriod.set(key, (paidByPeriod.get(key) ?? 0) + Number(a.amount));
   }
-  return periodsThrough(loan.closing_date, throughPeriodMonth)
+  return periodsThrough(loan.closing_date, throughPeriodMonth, (loan as LedgerLoan).paid_off_date)
     .map(p => {
       const charge = chargeForPeriod(loan, draws, p);
       const paid = paidByPeriod.get(p) ?? 0;

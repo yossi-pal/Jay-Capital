@@ -66,6 +66,7 @@ export default async function InsightsPage() {
     const engineLoan = {
       loan_amount: Number(l.loan_amount), acquisition: Number(l.acquisition),
       annual_rate: Number(l.annual_rate), closing_date: l.closing_date,
+      paid_off_date: l.paid_off_date,
     };
     const d = drawList.filter((x: any) => x.loan_id === l.loan_id)
       .map((x: any) => ({ draw_date: x.draw_date, amount: Number(x.amount), description: x.description }));
@@ -78,6 +79,9 @@ export default async function InsightsPage() {
       billed += chargeForPeriod(engineLoan, d, per);
     }
     collected += p.reduce((s, x) => s + x.amount, 0);
+
+    // A paid-off loan is settled: it neither owes nor can be late.
+    if (l.status === 'paid_off') continue;
 
     const led = buildLedger(engineLoan, d, p, a, firstOfMonth(todayInAppTz()));
     outstanding += Math.max(0, led.amountDue);

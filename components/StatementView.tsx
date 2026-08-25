@@ -15,6 +15,7 @@ export interface StatementData {
   lender_name: string | null; total_disbursed: number; remaining_draw: number;
   accrued_interest: number;
   is_entity?: boolean | null; entity_name?: string | null;
+  paid_off_date?: string | null;
 }
 export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; }
 export interface PayInfo { method: string | null; instructions: string | null }
@@ -28,7 +29,7 @@ export default function StatementView({
   /** Sit flush under the loan tab strip, as the open pocket of a folder. */
   flushTop?: boolean;
 }) {
-  const months = statementMonths(loan.closing_date);
+  const months = statementMonths(loan.closing_date, loan.paid_off_date);
   // Default to the statement for the month now in progress: this month's bill
   // went out on the 1st, so what's useful to see is what lands next.
   const [asOf, setAsOf] = useState(() => clampMonth(firstOfMonth(todayInAppTz(), 1), loan.closing_date));
@@ -37,6 +38,7 @@ export default function StatementView({
   const engineLoan = {
     loan_amount: Number(loan.loan_amount), acquisition: Number(loan.acquisition),
     annual_rate: rate, closing_date: loan.closing_date,
+    paid_off_date: loan.paid_off_date ?? null,
   };
   const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
 

@@ -300,12 +300,28 @@ export async function deleteDraw(loanId: string, drawId: string) {
   });
 }
 
-export async function setLoanStatus(loanId: string, status: string) {
+export async function setLoanStatus(loanId: string, status: string, paidOffDate?: string) {
   return run(async () => {
     const supabase = await requireAdmin();
-    const { error } = await supabase.from('loans').update({ status }).eq('id', loanId);
+
+    // Paid off needs a date: interest has to stop somewhere, and without one
+    // the ledger would keep accruing on a settled loan.
+    if (status === 'paid_off' && !paidOffDate) {
+      throw new Error('Please enter the payoff date.');
+    }
+    const { data: loan } = await supabase.from('loans').select('closing_date').eq('id', loanId).maybeSingle();
+    if (status === 'paid_off' && loan?.closing_date && paidOffDate! < loan.closing_date) {
+      throw new Error('The payoff date cannot be before the closing date.');
+    }
+
+    const { error } = await supabase.from('loans').update({
+      status,
+      // Moving off paid off clears the date, so the loan resumes accruing.
+      paid_off_date: status === 'paid_off' ? paidOffDate : null,
+    }).eq('id', loanId);
     if (error) throw new Error(error.message);
-    await logActivity('loan_status_changed', loanId, await actorId(), `Set to ${status.replace('_', ' ')}`);
+    await logActivity('loan_status_changed', loanId, await actorId(),
+      status === 'paid_off' ? `Paid off ${paidOffDate}` : `Set to ${status.replace('_', ' ')}`);
     revalidatePath(`/admin/loans/${loanId}`);
     revalidatePath('/admin');
   });

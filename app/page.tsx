@@ -4,6 +4,7 @@ import Logo from '@/components/Logo';
 import { todayInAppTz } from '@/lib/format';
 import ContactForm from '@/components/ContactForm';
 import EmailUs from '@/components/EmailUs';
+import HelocApplication from '@/components/HelocApplication';
 
 export const metadata: Metadata = {
   title: 'Jay Capital Funding — Residential, Commercial, HELOC & Hard Money Lending',
@@ -48,6 +49,7 @@ export default function LandingPage() {
             <a href="#services">Lending</a>
             <a href="#how">How it works</a>
             <a href="#contact">Contact</a>
+            <a href="#heloc">HELOC</a>
             <Link className="lp-btn" href="/login">Borrower Portal</Link>
           </nav>
         </div>
@@ -162,6 +164,32 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="lp-section" id="heloc" style={{ scrollMarginTop: 80 }}>
+        <div className="lp-shell lp-hero-grid">
+          <div>
+            <div className="lp-eyebrow">Home equity line of credit</div>
+            <h2 style={{ marginTop: 14 }}>Apply for a HELOC.</h2>
+            <p style={{ color: '#4A5568', fontSize: 17, maxWidth: '46ch', marginTop: 14 }}>
+              Draw against the equity you have already built, and pay interest only on
+              what you actually use. Tell us about the property and we will come back
+              with what is available.
+            </p>
+
+            <div className="lp-partner">
+              <span className="lp-partner-lbl">Processed through</span>
+              <img src="/onyx-equity-partners.svg" alt="Onyx Equity Partners"
+                   width="210" style={{ display: 'block', width: 210, maxWidth: '100%', height: 'auto' }} />
+              <p className="lp-partner-note">
+                Jay Capital Funding places all home equity lines of credit through
+                Onyx Equity Partners.
+              </p>
+            </div>
+          </div>
+
+          <HelocApplication />
         </div>
       </section>
 

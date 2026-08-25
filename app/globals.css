@@ -442,3 +442,20 @@ select.filter, input.field, select.field, textarea.field {
   border-radius: 8px; -webkit-overflow-scrolling: touch;
 }
 .activity-scroll thead th { position: sticky; top: 0; z-index: 2; }
+
+/* HELOC application: the Onyx co-brand beside the form */
+.lp-partner {
+  margin-top: 30px; padding: 20px 22px;
+  background: #fff; border: 1px solid #E4EAF3; border-radius: 12px;
+  max-width: 340px;
+}
+.lp-partner-lbl {
+  display: block; font-size: 11px; font-weight: 900; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+}
+.lp-partner-note { margin: 12px 0 0; font-size: 13px; color: #4A5568; line-height: 1.6; }
+.lp-section.alt .lp-partner { background: var(--bg); }
+
+/* the application is taller than the enquiry form; give its grid more room */
+#heloc .lp-hero-grid { grid-template-columns: .82fr 1.18fr; align-items: start; }
+@media (max-width: 900px) { #heloc .lp-hero-grid { grid-template-columns: 1fr; } }

@@ -127,9 +127,14 @@ export function monthName(dateStr: string): string {
  * Ends one month past the current month, so the period now in progress can be
  * previewed.
  */
-export function statementMonths(closingDate: string): string[] {
+export function statementMonths(closingDate: string, paidOffDate?: string | null): string[] {
   const start = firstOfMonth(closingDate, 1);       // month after closing
-  const end = firstOfMonth(todayInAppTz(), 1);       // next month, New York time
+  let end = firstOfMonth(todayInAppTz(), 1);         // next month, New York time
+  // A paid-off loan issues no statements past its payoff month.
+  if (paidOffDate) {
+    const last = firstOfMonth(paidOffDate);
+    if (last < end) end = last;
+  }
   const out: string[] = [];
   let cur = start;
   // guard against inverted ranges (closing in the future)
