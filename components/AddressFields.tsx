@@ -114,6 +114,8 @@ export default function AddressFields({
         widget = new g.maps.places.Autocomplete(streetRef.current, {
           types: ['address'],
           componentRestrictions: { country: 'us' },
+          // Only the components we actually use. Requesting more fields moves
+          // the Place Details call into a dearer SKU for no benefit here.
           fields: ['address_components'],
         });
         widget.addListener('place_changed', () => {
@@ -218,7 +220,7 @@ export default function AddressFields({
       <legend className="lp-legend">{legend}</legend>
 
       <div ref={boxRef} className="lp-field" style={{ position: 'relative' }}>
-        <span>Street address</span>
+        <span>Street</span>
         <input
           ref={streetRef}
           value={value.street}

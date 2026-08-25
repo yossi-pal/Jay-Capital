@@ -7,7 +7,7 @@ import { todayInAppTz } from '@/lib/format';
 export const metadata: Metadata = {
   title: 'Apply for a HELOC — Jay Capital Funding',
   description:
-    'Apply for a home equity line of credit with Jay Capital Funding, placed through Onyx Equity Partners. Draw against equity you have already built and pay interest only on what you use.',
+    'Apply for a home equity line of credit with Jay Capital Funding, placed through Onyx Equity Partners. Draw against the equity in your home and pay interest only on what you use.',
 };
 
 const PHONE = '(845) 828-0731';
@@ -49,11 +49,11 @@ export default function HelocPage() {
           <div style={{ maxWidth: '62ch' }}>
             <div className="lp-eyebrow">Home equity line of credit</div>
             <div className="lp-rule" style={{ marginTop: 18 }} />
-            <h1>Borrow against<br />what you have built.</h1>
+            <h1>Your home&rsquo;s equity,<br />ready when you need it.</h1>
             <p className="lp-lede">
-              Tell us about the property and roughly where the numbers sit. We will come
-              back with what is available to you — and if it is not the right product for
-              what you are trying to do, we will say so.
+              Tell us about the property and roughly where the numbers sit. We work with a
+              broad range of lenders and situations, so we will come back with the options
+              that fit and the strongest terms we can put together for you.
             </p>
           </div>
 

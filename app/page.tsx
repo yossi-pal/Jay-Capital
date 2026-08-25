@@ -22,7 +22,7 @@ const SERVICES = [
   { tag: 'Commercial', title: 'Income-producing property',
     body: 'Multifamily, mixed-use, retail and office. Acquisition, refinance, and cash-out against property you already hold.' },
   { tag: 'HELOC', title: 'Home equity line of credit',
-    body: 'Draw against equity you have already built, and pay interest only on what you actually use — useful when a project’s timing is not yet fixed.' },
+    body: 'Draw against the equity in your home, and pay interest only on what you actually use — useful when a project’s timing is not yet fixed.' },
   { tag: 'Hard money', title: 'Speed and construction',
     body: 'Asset-based capital when a deal will not wait for a conventional timeline, with construction draws released as the work gets done.' },
 ];
@@ -126,9 +126,9 @@ export default function LandingPage() {
             <div className="lp-eyebrow">Home equity line of credit</div>
             <h2 style={{ marginTop: 14 }}>Put your equity to work.</h2>
             <p>
-              Draw against the equity you have already built and pay interest only on
-              what you actually use. It takes a couple of minutes to apply, and nothing
-              here touches your credit.
+              Draw against the equity in your home and pay interest only on what you
+              actually use. It takes a couple of minutes to apply, and nothing here
+              touches your credit.
             </p>
           </div>
 
@@ -208,8 +208,8 @@ export default function LandingPage() {
           <div className="lp-eyebrow" style={{ color: 'var(--brass-lt)' }}>Get in touch</div>
           <h2 style={{ marginTop: 14 }}>Tell us about the deal.</h2>
           <p style={{ marginTop: 14 }}>
-            Call and you will speak to someone who can tell you whether it is financeable.
-            If it is not a fit, we will say so on the first call.
+            Call and you will speak to someone who can tell you exactly what is possible.
+            Whatever the situation, we will work to find the structure that gets it done.
           </p>
           <div className="lp-contact-grid">
             <div className="lp-contact-aside">
