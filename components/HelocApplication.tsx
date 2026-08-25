@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import AddressField from '@/components/AddressField';
+import { useEffect, useState } from 'react';
+import AddressFields, { EMPTY_ADDRESS, formatAddress, type AddressValue } from '@/components/AddressFields';
 import { submitHelocApplication } from '@/lib/heloc';
 
 /** ###-##-#### as they type, without fighting backspace. */
@@ -49,11 +49,23 @@ const USES = [
 export default function HelocApplication() {
   const [f, setF] = useState({
     firstName: '', lastName: '', email: '', phone: '', dob: '', ssn: '',
-    propertyAddress: '', propertyUse: '', primaryAddress: '',
+    propertyUse: '',
     propertyValue: '', mortgageBalance: '', monthlyPayment: '', annualIncome: '',
     notes: '', website: '',
   });
+  const [propertyAddress, setPropertyAddress] = useState<AddressValue>({ ...EMPTY_ADDRESS });
+  const [primaryAddress, setPrimaryAddress] = useState<AddressValue>({ ...EMPTY_ADDRESS });
   const [showSsn, setShowSsn] = useState(false);
+
+  // Masking with -webkit-text-security keeps the input type="text", so browser
+  // and password-manager autofill treat it as an ordinary field instead of
+  // offering saved logins. Firefox has no such property, so it falls back to
+  // type="password" rather than showing the number in the clear.
+  const [maskable, setMaskable] = useState(true);
+  useEffect(() => {
+    setMaskable(typeof CSS !== 'undefined'
+      && CSS.supports?.('-webkit-text-security', 'disc') === true);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
@@ -64,7 +76,13 @@ export default function HelocApplication() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setErr('');
-    const res = await submitHelocApplication(f);
+    const res = await submitHelocApplication({
+      ...f,
+      propertyAddress: formatAddress(propertyAddress),
+      primaryAddress: needsPrimary ? formatAddress(primaryAddress) : '',
+      propertyAddressParts: propertyAddress,
+      primaryAddressParts: needsPrimary ? primaryAddress : undefined,
+    });
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'Could not submit your application.'); return; }
     setDone(res.message || 'Thank you — your application has been received.');
@@ -112,14 +130,23 @@ export default function HelocApplication() {
           <span>Social Security number</span>
           <div style={{ position: 'relative', display: 'flex' }}>
             <input
-              type={showSsn ? 'text' : 'password'}
+              type={showSsn || maskable ? 'text' : 'password'}
               inputMode="numeric"
+              name="ssn"
               value={f.ssn}
               onChange={e => set('ssn')(formatSSN(e.target.value))}
-              placeholder="•••-••-••••"
+              placeholder="123-45-6789"
               required
               autoComplete="off"
-              style={{ paddingRight: 66 }}
+              // tell the common password managers to stay out of this field
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-form-type="other"
+              style={{
+                paddingRight: 66,
+                ...(maskable && !showSsn ? { WebkitTextSecurity: 'disc' } as any : {}),
+              }}
             />
             <button
               type="button"
@@ -139,11 +166,8 @@ export default function HelocApplication() {
         </div>
       </div>
 
-      <label className="lp-field">
-        <span>Subject property address</span>
-        <AddressField value={f.propertyAddress} onChange={set('propertyAddress')}
-          placeholder="Start typing the address…" required />
-      </label>
+      <AddressFields legend="Subject property address" required
+        value={propertyAddress} onChange={setPropertyAddress} />
 
       <div className="lp-form-grid">
         <label className="lp-field">
@@ -161,11 +185,8 @@ export default function HelocApplication() {
       </div>
 
       {needsPrimary && (
-        <label className="lp-field">
-          <span>Your primary address</span>
-          <AddressField value={f.primaryAddress} onChange={set('primaryAddress')}
-            placeholder="Start typing the address…" required />
-        </label>
+        <AddressFields legend="Your primary address" required
+          value={primaryAddress} onChange={setPrimaryAddress} />
       )}
 
       <div className="lp-form-grid">

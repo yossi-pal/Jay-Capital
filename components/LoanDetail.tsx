@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz } from '@/lib/format';
@@ -45,6 +45,13 @@ export default function LoanDetail({
   const [payoffOpen, setPayoffOpen] = useState(false);
   const [payoffDate, setPayoffDate] = useState(summary.paid_off_date ?? '');
   const [payoffErr, setPayoffErr] = useState('');
+
+  // Controlled, not defaultValue: defaultValue only applies on mount, so after
+  // the payoff modal reverted the select and refreshed, it kept showing the old
+  // status until a full reload. Active and Defaulted looked instant only
+  // because the user's own click had already moved the select.
+  const [statusValue, setStatusValue] = useState(summary.status);
+  useEffect(() => { setStatusValue(summary.status); }, [summary.status]);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const engineLoan = {
@@ -114,7 +121,7 @@ export default function LoanDetail({
             <span className={`badge ${summary.status === 'active' ? 'staff' : 'borrower'}`}>{summary.status.replace('_', ' ')}</span>
             {canEdit && (
               <>
-                <select className="filter" defaultValue={summary.status} disabled={busy}
+                <select className="filter" value={statusValue} disabled={busy}
                   onChange={async e => {
                     const next = e.target.value;
                     // Paid off needs a date before anything is written.
@@ -122,13 +129,18 @@ export default function LoanDetail({
                       setPayoffErr('');
                       setPayoffDate(summary.paid_off_date ?? '');
                       setPayoffOpen(true);
-                      e.target.value = summary.status;   // revert until confirmed
-                      return;
+                      return;   // the select stays put until the date is confirmed
                     }
+                    const previous = statusValue;
+                    setStatusValue(next);
                     setBusy(true);
                     const res = await setLoanStatus(summary.loan_id, next);
                     setBusy(false);
-                    if (!res.ok) { setActionError(res.error || 'Could not change the status.'); return; }
+                    if (!res.ok) {
+                      setStatusValue(previous);   // put it back if the write failed
+                      setActionError(res.error || 'Could not change the status.');
+                      return;
+                    }
                     router.refresh();
                   }}>
                   <option value="active">Active</option>
@@ -358,13 +370,15 @@ export default function LoanDetail({
           </div>
           {payoffErr && <div className="alert error" style={{ margin: 0 }}>{payoffErr}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button className="btn secondary" disabled={busy} onClick={() => setPayoffOpen(false)}>Cancel</button>
+            <button className="btn secondary" disabled={busy}
+              onClick={() => { setPayoffOpen(false); setStatusValue(summary.status); }}>Cancel</button>
             <button className="btn" disabled={busy} onClick={async () => {
               if (!payoffDate) { setPayoffErr('Please enter the payoff date.'); return; }
               setBusy(true);
               const res = await setLoanStatus(summary.loan_id, 'paid_off', payoffDate);
               setBusy(false);
               if (!res.ok) { setPayoffErr(res.error || 'Could not mark the loan paid off.'); return; }
+              setStatusValue('paid_off');   // reflect it immediately
               setPayoffOpen(false);
               router.refresh();
             }}>

@@ -460,3 +460,13 @@ select.filter, input.field, select.field, textarea.field {
    gets the wider column */
 .heloc-page .lp-hero-grid { grid-template-columns: .82fr 1.18fr; align-items: start; }
 @media (max-width: 900px) { .heloc-page .lp-hero-grid { grid-template-columns: 1fr; } }
+
+/* Split address block on the application form */
+.lp-fieldset { border: none; padding: 0; margin: 0 0 14px; }
+.lp-legend {
+  padding: 0; margin-bottom: 10px;
+  font-size: 11px; font-weight: 900; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--navy);
+}
+.lp-addr-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .lp-addr-grid { grid-template-columns: 1fr 1fr; } }

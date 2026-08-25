@@ -27,6 +27,9 @@ export interface HelocApplication {
   firstName: string; lastName: string; email: string; phone: string;
   dob: string; ssn: string;
   propertyAddress: string; propertyUse: string; primaryAddress?: string;
+  /** The same addresses split up, so the email can show them cleanly. */
+  propertyAddressParts?: { street: string; city: string; state: string; zip: string };
+  primaryAddressParts?: { street: string; city: string; state: string; zip: string };
   propertyValue: string; mortgageBalance: string; monthlyPayment: string;
   annualIncome: string;
   notes?: string;
@@ -73,6 +76,20 @@ export async function submitHelocApplication(input: HelocApplication) {
     if (input.propertyUse && input.propertyUse !== 'primary' && !String(input.primaryAddress ?? '').trim()) {
       missing.push('Primary address');
     }
+    // The address arrives split, so check the parts rather than a joined string
+    // that could look complete while missing a ZIP.
+    const addrParts: [any, string][] = [[input.propertyAddressParts, 'Subject property']];
+    if (input.propertyUse && input.propertyUse !== 'primary') {
+      addrParts.push([input.primaryAddressParts, 'Primary']);
+    }
+    for (const [a, label] of addrParts) {
+      if (!a) continue;
+      if (!String(a.street ?? '').trim()) missing.push(`${label} street address`);
+      if (!String(a.city ?? '').trim()) missing.push(`${label} city`);
+      if (!String(a.state ?? '').trim()) missing.push(`${label} state`);
+      if (!/^\d{5}(-\d{4})?$/.test(String(a.zip ?? '').trim())) missing.push(`${label} ZIP code`);
+    }
+
     if (missing.length) throw new Error(`Please complete: ${missing.join(', ')}.`);
 
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.email.trim())) {
