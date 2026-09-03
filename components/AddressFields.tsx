@@ -1,6 +1,20 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import {
+  activeProvider, fetchSuggestions, formatAddress, providerCredit,
+  type AddressValue, type Suggestion,
+} from '@/lib/address-providers';
+
+export { formatAddress, type AddressValue };
+
+export const EMPTY_ADDRESS: AddressValue = { street: '', city: '', state: '', zip: '' };
+
+export const STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY',
+  'LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH',
+  'OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+];
 
 /**
  * Street / City / State / ZIP, with suggestions on the street line that fill
@@ -15,24 +29,6 @@ import { useEffect, useId, useRef, useState } from 'react';
  *      house-number coverage, needs a billing account.
  *   2. PHOTON otherwise -- free, keyless, OpenStreetMap. No account at all.
  */
-
-const PHOTON_URL = 'https://photon.komoot.io/api/';
-
-export interface AddressValue { street: string; city: string; state: string; zip: string }
-
-export const EMPTY_ADDRESS: AddressValue = { street: '', city: '', state: '', zip: '' };
-
-export const STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY',
-  'LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH',
-  'OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
-];
-
-/** "73 West Church Street, Spring Valley, NY 10977" from the four parts. */
-export function formatAddress(a: AddressValue): string {
-  const tail = [a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  return [a.street, tail].filter(Boolean).join(', ');
-}
 
 let googleScript: Promise<void> | null = null;
 function loadGoogle(key: string): Promise<void> {
@@ -49,8 +45,6 @@ function loadGoogle(key: string): Promise<void> {
   });
   return googleScript;
 }
-
-interface Suggestion { label: string; value: AddressValue }
 
 function fromPhoton(p: Record<string, any>): Suggestion | null {
   const street = [p.housenumber, p.street || p.name].filter(Boolean).join(' ').trim();
@@ -96,8 +90,9 @@ export default function AddressFields({
   const [searched, setSearched] = useState(false);
   const listId = useId();
 
+  const provider = activeProvider();
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const usingGoogle = !!key;
+  const usingGoogle = provider === 'google' && !!key;
 
   const set = (patch: Partial<AddressValue>) => onChange({ ...value, ...patch });
 
@@ -145,9 +140,10 @@ export default function AddressFields({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usingGoogle]);
 
-  // ---- Photon
+  // ---- keyless / token providers (Radar, Mapbox, Photon)
   useEffect(() => {
     if (usingGoogle) return;
+    // Picking a suggestion sets the value; that must not start a new search.
     if (justChose.current) { justChose.current = false; return; }
 
     const street = value.street.trim();
@@ -159,29 +155,16 @@ export default function AddressFields({
     const t = window.setTimeout(async () => {
       setLoading(true);
       try {
-        // Feed the city and state back into the query when they are known --
-        // "73 West Church Street" alone is ambiguous across the country, and
-        // this is what makes a specific address findable.
+        // Fold in city and state once known -- "73 West Church Street" alone
+        // competes with every street of that name in the country.
         const q = [street, value.city, value.state].filter(Boolean).join(', ');
-        const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=8&lang=en`
-          + '&layer=house&layer=street';
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-
-        const seen = new Set<string>();
-        const out: Suggestion[] = [];
-        for (const f of data?.features ?? []) {
-          const p = f?.properties ?? {};
-          if (p.countrycode && p.countrycode !== 'US') continue;
-          const sug = fromPhoton(p);
-          if (sug && !seen.has(sug.label)) { seen.add(sug.label); out.push(sug); }
-        }
+        const out = await fetchSuggestions(provider, q, controller.signal);
         setItems(out);
         setOpen(true);
         setSearched(true);
         setActive(-1);
       } catch {
+        // Aborted, offline, rate-limited: the field still works as plain text.
         setItems([]); setOpen(false);
       } finally {
         setLoading(false);
@@ -189,7 +172,7 @@ export default function AddressFields({
     }, 160);
 
     return () => { window.clearTimeout(t); controller.abort(); setLoading(false); };
-  }, [value.street, value.city, value.state, usingGoogle]);
+  }, [value.street, value.city, value.state, usingGoogle, provider]);
 
   useEffect(() => {
     if (!open) return;
@@ -273,7 +256,7 @@ export default function AddressFields({
             )}
 
             <li style={{ padding: '6px 11px 4px', fontSize: 11, color: 'var(--muted)' }}>
-              {loading ? 'Searching…' : 'Suggestions from OpenStreetMap'}
+              {loading ? 'Searching…' : providerCredit(provider)}
             </li>
           </ul>
         )}
