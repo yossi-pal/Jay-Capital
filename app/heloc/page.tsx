@@ -7,7 +7,7 @@ import { todayInAppTz } from '@/lib/format';
 export const metadata: Metadata = {
   title: 'Apply for a HELOC — Jay Capital Funding',
   description:
-    'Apply for a home equity line of credit with Jay Capital Funding, placed through Onyx Equity Partners. Draw against the equity in your home and pay interest only on what you use.',
+    'Apply for a home equity line of credit with Jay Capital Funding. Draw against the equity in your home, pay interest only on what you use, and get a clear answer fast.',
 };
 
 const PHONE = '(845) 828-0731';
@@ -79,13 +79,15 @@ export default function HelocPage() {
             </p>
 
             <div className="lp-partner">
-              <span className="lp-partner-lbl">Processed through</span>
-              <img src="/onyx-equity-partners.svg" alt="Onyx Equity Partners"
-                   width="210" style={{ display: 'block', width: 210, maxWidth: '100%', height: 'auto' }} />
+              <span className="lp-partner-lbl">Why borrowers come to us</span>
+              <ul className="lp-trust">
+                <li><b>Answers in days, not weeks.</b> We know which lenders move quickly, and we go straight to them.</li>
+                <li><b>One point of contact.</b> The person who takes your call stays with the file to closing.</li>
+                <li><b>Handled with care.</b> Your details go to our team and nowhere else, and we keep you posted at every step.</li>
+              </ul>
               <p className="lp-partner-note">
-                Jay Capital Funding places all home equity lines of credit through
-                Onyx Equity Partners. Your application goes to our team first, and we
-                handle it from there.
+                We have built this around getting borrowers a clear answer fast, and then
+                getting it done.
               </p>
             </div>
 

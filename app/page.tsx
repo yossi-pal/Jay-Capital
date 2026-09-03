@@ -45,10 +45,11 @@ export default function LandingPage() {
             <Logo size={34} />
           </Link>
           <nav className="lp-nav-links">
+            {/* same order as the page, so the nav mirrors the scroll */}
             <a href="#services">Lending</a>
+            <a href="#heloc">HELOC</a>
             <a href="#how">How it works</a>
             <a href="#contact">Contact</a>
-            <Link href="/heloc">HELOC</Link>
             <Link className="lp-btn" href="/login">Borrower Portal</Link>
           </nav>
         </div>

@@ -470,3 +470,22 @@ select.filter, input.field, select.field, textarea.field {
 }
 .lp-addr-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
 @media (max-width: 620px) { .lp-addr-grid { grid-template-columns: 1fr 1fr; } }
+
+/* Anchor links glide rather than jump. Honoured only when the visitor has not
+   asked for reduced motion -- for them a jump is the correct behaviour. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Trust points on the HELOC page */
+.lp-trust { margin: 0; padding-left: 18px; list-style: none; }
+.lp-trust li {
+  position: relative; margin-bottom: 12px; font-size: 13.5px;
+  color: #4A5568; line-height: 1.6;
+}
+.lp-trust li:last-child { margin-bottom: 0; }
+.lp-trust li::before {
+  content: ''; position: absolute; left: -18px; top: 8px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--brass);
+}
+.lp-trust b { color: var(--navy); }
