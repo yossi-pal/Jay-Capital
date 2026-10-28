@@ -1,9 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Jay Capital Funding',
   description: 'Residential, commercial, home equity and hard money lending.',
+  // Name under the icon when added to an iPhone or iPad home screen.
+  appleWebApp: { capable: true, title: 'Jay Capital', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#04162A',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
