@@ -23,7 +23,7 @@ interface Summary {
   borrower_email: string | null; borrower_phone: string | null; lender_name: string | null;
   total_disbursed: number; remaining_draw: number; accrued_interest: number;
 }
-interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; }
+interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
   summary, draws, payments = [], allocations = [], canEdit, canSend, fallbackOrder = [],
@@ -299,12 +299,13 @@ export default function LoanDetail({
         </div>
         <div className="tablescroll" style={{ marginTop: 12 }}>
           <table className="bordered">
-            <thead><tr><th>Date</th><th>Description</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
+            <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
             <tbody>
               {construction.map(d => (
                 <tr key={d.id}>
                   <td>{fmtDate(d.draw_date)}</td>
-                  <td>{d.description}</td>
+                  <td>{d.method || ''}</td>
+                  <td>{d.note || ''}</td>
                   <td className="num">{money(d.amount)}</td>
                   <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
                   {canEdit && (
@@ -318,7 +319,7 @@ export default function LoanDetail({
                   )}
                 </tr>
               ))}
-              {construction.length === 0 && <tr><td colSpan={canEdit ? 5 : 4} className="muted" style={{ textAlign: 'center' }}>No draws yet.</td></tr>}
+              {construction.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center' }}>No draws yet.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -254,6 +254,8 @@ export async function addDraw(loanId: string, form: FormData) {
       loan_id: loanId,
       draw_date: String(form.get('draw_date') || ''),
       description: String(form.get('description') || 'Construction Draw').trim() || 'Construction Draw',
+      method: String(form.get('method') || '').trim() || null,
+      note: String(form.get('note') || '').trim() || null,
       amount: Number(form.get('amount') || 0),
     });
     if (error) throw new Error(error.message);
@@ -276,6 +278,8 @@ export async function updateDraw(loanId: string, drawId: string, form: FormData)
       draw_date: drawDate,
       amount,
       description: String(form.get('description') || 'Construction Draw').trim() || 'Construction Draw',
+      method: String(form.get('method') || '').trim() || null,
+      note: String(form.get('note') || '').trim() || null,
     }).eq('id', drawId);
     if (error) throw new Error(error.message);
     await logActivity('draw_updated', loanId, await actorId(),
