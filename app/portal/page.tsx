@@ -5,7 +5,6 @@ import IdleTimeout from '@/components/IdleTimeout';
 import Logo from '@/components/Logo';
 import PortalLoans, { type PortalLoan } from '@/components/PortalLoans';
 import { fetchStatementExtras } from '@/lib/statement-data';
-import { borrowerDisplayName } from '@/lib/format';
 import { logActivity } from '@/lib/activity';
 import ChangeEmailButton from '@/components/ChangeEmailButton';
 
@@ -22,7 +21,8 @@ export default async function PortalPage() {
   const { data: loans } = await supabase.from('loan_summary').select('*').order('loan_number');
   const list = loans ?? [];
 
-  const borrowerName = list.length ? borrowerDisplayName(list[0]) : '';
+  // The person, not the entity: statements are the only place the entity leads.
+  const borrowerName = list.length ? list[0].borrower_name : '';
 
   const Nav = (
     <nav className="nav nav-borrower">

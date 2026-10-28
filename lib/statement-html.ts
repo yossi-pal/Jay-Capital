@@ -6,6 +6,7 @@ export interface StatementLoan {
   construction: number; annual_rate: number; closing_date: string;
   borrower_name: string; borrower_email: string | null; borrower_phone: string | null;
   lender_name: string | null;
+  is_entity?: boolean | null; entity_name?: string | null;
 }
 export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; }
 

@@ -90,6 +90,7 @@ export default function StatementView({
           <div>
             <div className="name">{borrowerDisplayName(loan)}</div>
             <div className="muted">{loan.property}</div>
+            {loan.is_entity && loan.entity_name && <div className="muted">{loan.borrower_name}</div>}
             {loan.borrower_phone && <div className="muted">{loan.borrower_phone}</div>}
             {loan.borrower_email && <div className="muted">{loan.borrower_email}</div>}
           </div>
