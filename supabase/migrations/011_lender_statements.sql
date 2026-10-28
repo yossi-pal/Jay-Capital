@@ -1,6 +1,6 @@
 -- ============================================================
 -- 011  Lender statements
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-10-28.
 --
 -- One lender statement per loan. The loan amount, acquisition and
 -- construction holdback are NOT copied here: the statement reads them from
