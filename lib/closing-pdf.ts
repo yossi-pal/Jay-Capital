@@ -16,7 +16,7 @@ const WHITE = rgb(1, 1, 1);
 
 export interface ClosingPdfLoan {
   loan_number: string; property: string; annual_rate: number | string; closing_date: string;
-  borrower_name: string; is_entity?: boolean | null; entity_name?: string | null;
+  borrower_name: string; borrower_phone?: string | null; borrower_email?: string | null; is_entity?: boolean | null; entity_name?: string | null;
   lender_name: string | null;
 }
 
@@ -94,6 +94,8 @@ export async function closingPDF(
   text(borrowerDisplayName(loan), M, y, 13, bold, NAVY); y -= 15;
   for (const l of wrap(loan.property || '', 10, 300)) { text(l, M, y, 10, font, MUTED); y -= 13; }
   if (loan.is_entity && loan.entity_name) { text(loan.borrower_name, M, y, 10, font, MUTED); y -= 13; }
+  if (loan.borrower_phone) { text(loan.borrower_phone, M, y, 10, font, MUTED); y -= 13; }
+  if (loan.borrower_email) { text(loan.borrower_email, M, y, 10, font, MUTED); y -= 13; }
   let ry = topY;
   rightText('Closing Date', PW - M, ry, 9, font, MUTED); ry -= 14;
   rightText(fmtDate(loan.closing_date), PW - M, ry, 11, bold, NAVY); ry -= 16;

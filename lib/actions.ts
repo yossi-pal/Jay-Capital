@@ -188,7 +188,7 @@ export async function createLoan(form: FormData) {
 export async function saveClosingStatement(loanId: string, opts: {
   lenderPointsPct: number; interestReserveMonths: number;
   brokerFeePct: number; processingFee: number; legalFee: number;
-  otherFees: { label: string; amount: number }[]; notes: string;
+  otherFees: { label: string; amount: number }[]; notes: string; lenderNotes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
@@ -226,6 +226,7 @@ export async function saveClosingStatement(loanId: string, opts: {
     const { error } = await supabase.from('closing_statements').upsert({
       loan_id: loanId, ...row,
       notes: String(opts.notes ?? '').trim() || null,
+      lender_notes: String(opts.lenderNotes ?? '').trim() || null,
     }, { onConflict: 'loan_id' });
     if (error) throw new Error(error.message);
     await logActivity('closing_statement_saved', loanId, await actorId(),

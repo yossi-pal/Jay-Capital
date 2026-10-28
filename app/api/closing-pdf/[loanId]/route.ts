@@ -25,13 +25,13 @@ export async function GET(req: NextRequest, { params }: { params: { loanId: stri
     .from('loan_summary').select('*').eq('loan_id', params.loanId).maybeSingle();
   if (!loan) return new Response('Not found', { status: 404 });
   const { data: cs } = await supabase.from('closing_statements')
-    .select('lender_points_pct, interest_reserve_months, broker_fee_pct, processing_fee, legal_fee, other_fees, notes')
+    .select('lender_points_pct, interest_reserve_months, broker_fee_pct, processing_fee, legal_fee, other_fees, notes, lender_notes')
     .eq('loan_id', loan.loan_id).maybeSingle();
   if (!cs) return new Response('No closing statement for this loan yet', { status: 404 });
 
   const kind = new URL(req.url).searchParams.get('doc') === 'lender' ? 'lender' : 'closing';
   const fig = closingFigures({ ...loan, ...cs });
-  const pdf = await closingPDF(kind, loan, fig, cs.notes);
+  const pdf = await closingPDF(kind, loan, fig, kind === 'lender' ? cs.lender_notes : cs.notes);
 
   const label = kind === 'lender' ? 'Lender Statement' : 'Closing Statement';
   await logActivity('pdf_download', loan.loan_id, user.id, `${label} · ${loan.loan_number} · ${loan.property}`);

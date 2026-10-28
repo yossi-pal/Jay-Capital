@@ -17,6 +17,7 @@ interface Stored {
   legal_fee: number | string;
   other_fees: OtherFee[] | null;
   notes: string | null;
+  lender_notes: string | null;
   updated_at: string;
 }
 
@@ -33,6 +34,7 @@ function formFrom(s: Stored | null) {
     legal: n(s?.legal_fee),
     other: (s?.other_fees ?? []).map(f => ({ label: f.label, amount: String(f.amount) })),
     notes: s?.notes ?? '',
+    lenderNotes: s?.lender_notes ?? '',
   };
 }
 
@@ -63,7 +65,9 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
     loan_amount: loan.loan_amount, acquisition: loan.acquisition, construction: loan.construction,
     annual_rate: loan.annual_rate, closing_date: loan.closing_date, ...source,
   });
-  const notes = editing ? form.notes : statement?.notes ?? '';
+  const notes = view === 'lender'
+    ? (editing ? form.lenderNotes : statement?.lender_notes ?? '')
+    : (editing ? form.notes : statement?.notes ?? '');
 
   function cancel() {
     setForm(formFrom(statement));
@@ -81,6 +85,7 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
       legalFee: Number(form.legal) || 0,
       otherFees: form.other.map(o => ({ label: o.label, amount: Number(o.amount) || 0 })),
       notes: form.notes,
+      lenderNotes: form.lenderNotes,
     });
     setBusy(false);
     if (!res.ok) { setError(res.error || 'Could not save the closing statement.'); return; }
@@ -183,9 +188,16 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
             </div>
           </div>
 
-          <div className="field-wrap" style={{ marginTop: 16 }}>
-            <label>Notes &middot; shown on both statements</label>
-            <textarea className="field" rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} />
+          <div className="form-section">Notes</div>
+          <div className="form-grid">
+            <div className="field-wrap">
+              <label>Closing Statement Notes</label>
+              <textarea className="field" rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} />
+            </div>
+            <div className="field-wrap">
+              <label>Lender Statement Notes</label>
+              <textarea className="field" rows={3} value={form.lenderNotes} onChange={e => set('lenderNotes', e.target.value)} />
+            </div>
           </div>
 
           <div className="totals-strip">
@@ -229,6 +241,8 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
           <div className="name">{borrowerDisplayName(loan)}</div>
           <div className="muted">{loan.property}</div>
           {loan.is_entity && loan.entity_name && <div className="muted">{loan.borrower_name}</div>}
+          {loan.borrower_phone && <div className="muted">{loan.borrower_phone}</div>}
+          {loan.borrower_email && <div className="muted">{loan.borrower_email}</div>}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="muted">Closing Date</div>
