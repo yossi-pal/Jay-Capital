@@ -15,9 +15,11 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     background_color: '#04162A',
     theme_color: '#04162A',
+    // Desktop icons are renamed (not overwritten) whenever they change: browsers
+    // keep the old picture under the old address, even after a reinstall.
     icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/app-192-v2.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/app-512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
