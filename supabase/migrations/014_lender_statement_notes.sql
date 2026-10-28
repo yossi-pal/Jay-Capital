@@ -1,6 +1,6 @@
 -- ============================================================
 -- 014  Separate notes for the lender statement
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-10-28.
 --
 -- `notes` stays as the Closing Statement's notes; `lender_notes` is new and
 -- shows only on the Lender Statement. Until now one note showed on both, so
