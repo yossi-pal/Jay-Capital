@@ -1,6 +1,6 @@
 -- ============================================================
 -- 012  Lender statements: interest reserve in place of construction reserves
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-10-28.
 --
 -- The reserve is now a number of months of interest on the total loan
 -- amount. Only the month count is stored; the dollar figure is worked out
