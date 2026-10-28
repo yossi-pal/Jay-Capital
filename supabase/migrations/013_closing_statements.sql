@@ -1,6 +1,6 @@
 -- ============================================================
 -- 013  Closing statements (with the lender statement inside them)
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-10-28.
 --
 -- One form now produces two documents: the full Closing Statement (every
 -- fee, totalling to Total Closing Cost) and the Lender Statement extracted
