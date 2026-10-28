@@ -10,7 +10,7 @@ export default async function LenderStatementPage({ params }: { params: { id: st
   if (!loan) notFound();
   // Readable by staff and admins only (row level security); never borrowers.
   const { data: statement } = await supabase.from('lender_statements')
-    .select('lender_points_pct, reserves, notes, updated_at').eq('loan_id', params.id).maybeSingle();
+    .select('lender_points_pct, interest_reserve_months, notes, updated_at').eq('loan_id', params.id).maybeSingle();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
   return <LenderStatement loan={loan} statement={statement ?? null} canEdit={profile?.role === 'admin'} />;

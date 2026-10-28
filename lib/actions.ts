@@ -9,7 +9,7 @@ import { sendMail, brandShell, button, rawLink } from '@/lib/mailer';
 import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import { money as fmtMoney } from '@/lib/format';
-import { lenderFigures, cleanReserves } from '@/lib/lender-statement';
+import { lenderFigures } from '@/lib/lender-statement';
 
 /** The signed-in user's id, for attributing an admin action. */
 async function actorId(): Promise<string | null> {
@@ -182,11 +182,11 @@ export async function createLoan(form: FormData) {
 /**
  * Create or update a loan's lender statement. Loan amount, acquisition,
  * construction, rate and closing date come from the loan itself (so does the
- * daily interest); only the lender's points and the construction reserves
- * are stored.
+ * daily interest); only the lender's points and the number of months of
+ * interest reserve are stored.
  */
 export async function saveLenderStatement(loanId: string, opts: {
-  lenderPointsPct: number; reserves: { label: string; amount: number }[]; notes: string;
+  lenderPointsPct: number; interestReserveMonths: number; notes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
@@ -196,20 +196,17 @@ export async function saveLenderStatement(loanId: string, opts: {
 
     const pct = Number(opts.lenderPointsPct);
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error('Points to the lender must be between 0 and 100.');
-    for (const r of opts.reserves ?? []) {
-      if (!Number.isFinite(Number(r.amount)) || Number(r.amount) < 0) throw new Error('Reserve amounts cannot be negative.');
-      if (Number(r.amount) > 0 && !String(r.label ?? '').trim()) throw new Error('Give each construction reserve a description.');
-    }
-    const reserves = cleanReserves(opts.reserves);
-    const fig = lenderFigures({ ...loan, lender_points_pct: pct, reserves });
+    const months = Number(opts.interestReserveMonths);
+    if (!Number.isInteger(months) || months < 0 || months > 60) throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
+    const fig = lenderFigures({ ...loan, lender_points_pct: pct, interest_reserve_months: months });
     if (fig.netWire < 0) {
-      throw new Error(`The deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and reserves.`);
+      throw new Error(`The deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and interest reserve.`);
     }
 
     const { error } = await supabase.from('lender_statements').upsert({
       loan_id: loanId,
       lender_points_pct: pct,
-      reserves,
+      interest_reserve_months: months,
       notes: String(opts.notes ?? '').trim() || null,
     }, { onConflict: 'loan_id' });
     if (error) throw new Error(error.message);

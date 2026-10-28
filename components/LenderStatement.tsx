@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { saveLenderStatement } from '@/lib/actions';
-import { lenderFigures, type Reserve } from '@/lib/lender-statement';
+import { lenderFigures } from '@/lib/lender-statement';
 import { money, pct, fmtDate, fmtDateTime } from '@/lib/format';
 
 interface Statement {
   lender_points_pct: number | string;
-  reserves: Reserve[] | null;
+  interest_reserve_months: number | null;
   notes: string | null;
   updated_at: string;
 }
@@ -25,9 +25,7 @@ export default function LenderStatement({ loan, statement, canEdit }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [points, setPoints] = useState(statement ? String(Number(statement.lender_points_pct)) : '');
-  const [reserves, setReserves] = useState<{ label: string; amount: string }[]>(
-    (statement?.reserves ?? []).map(r => ({ label: r.label, amount: String(r.amount) })),
-  );
+  const [months, setMonths] = useState(statement ? String(statement.interest_reserve_months ?? 0) : '');
   const [notes, setNotes] = useState(statement?.notes ?? '');
 
   // On screen the figures follow what is typed; once saved they come from the stored row.
@@ -38,14 +36,12 @@ export default function LenderStatement({ loan, statement, canEdit }: {
     annual_rate: loan.annual_rate,
     closing_date: loan.closing_date,
     lender_points_pct: editing ? points : statement?.lender_points_pct ?? 0,
-    reserves: editing
-      ? reserves.map(r => ({ label: r.label.trim(), amount: Number(r.amount) || 0 })).filter(r => r.label || r.amount)
-      : statement?.reserves ?? [],
+    interest_reserve_months: editing ? months : statement?.interest_reserve_months ?? 0,
   });
 
   function cancel() {
     setPoints(statement ? String(Number(statement.lender_points_pct)) : '');
-    setReserves((statement?.reserves ?? []).map(r => ({ label: r.label, amount: String(r.amount) })));
+    setMonths(statement ? String(statement.interest_reserve_months ?? 0) : '');
     setNotes(statement?.notes ?? '');
     setError('');
     if (statement) setEditing(false); else router.push(`/admin/loans/${loan.loan_id}`);
@@ -55,7 +51,7 @@ export default function LenderStatement({ loan, statement, canEdit }: {
     setBusy(true); setError('');
     const res = await saveLenderStatement(loan.loan_id, {
       lenderPointsPct: Number(points) || 0,
-      reserves: reserves.map(r => ({ label: r.label, amount: Number(r.amount) || 0 })),
+      interestReserveMonths: Number(months) || 0,
       notes,
     });
     setBusy(false);
@@ -106,25 +102,15 @@ export default function LenderStatement({ loan, statement, canEdit }: {
                 <label>Points to Lender (%)</label>
                 <input className="field" type="number" step="0.001" min="0" max="100" inputMode="decimal"
                   value={points} onChange={e => setPoints(e.target.value)} placeholder="2" />
-                <span className="muted" style={{ fontSize: 12 }}>Charged on the acquisition ({money(fig.acquisition)}) only.</span>
+                <span className="muted" style={{ fontSize: 12 }}>Charged on the total loan amount ({money(fig.loanAmount)}).</span>
               </div>
-            </div>
-
-            <div className="field-wrap" style={{ marginTop: 16 }}>
-              <label>Construction Reserves</label>
-              {reserves.map((r, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input className="field" style={{ flex: '2 1 200px', width: 'auto' }} placeholder="Description"
-                    value={r.label} onChange={e => setReserves(rs => rs.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                  <input className="field" style={{ flex: '1 1 120px', width: 'auto' }} type="number" step="0.01" min="0" inputMode="decimal" placeholder="Amount"
-                    value={r.amount} onChange={e => setReserves(rs => rs.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} />
-                  <button type="button" className="btn secondary" onClick={() => setReserves(rs => rs.filter((_, j) => j !== i))}>Remove</button>
-                </div>
-              ))}
-              <div>
-                <button type="button" className="btn secondary" onClick={() => setReserves(rs => [...rs, { label: '', amount: '' }])}>
-                  + Add construction reserve
-                </button>
+              <div className="field-wrap">
+                <label>Interest Reserve (months)</label>
+                <input className="field" type="number" step="1" min="0" max="60" inputMode="numeric"
+                  value={months} onChange={e => setMonths(e.target.value)} placeholder="3" />
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Interest on the total loan amount at {pct(fig.rate)}: {money(fig.loanAmount * fig.rate / 12)} a month.
+                </span>
               </div>
             </div>
 
@@ -142,12 +128,13 @@ export default function LenderStatement({ loan, statement, canEdit }: {
             <div style={sub}><span>Construction</span><span>{money(fig.construction)}</span></div>
             <div style={line}><span>Less: Construction Holdback</span><span>({money(fig.construction)})</span></div>
             <div style={line}>
-              <span>Less: Points to Lender ({fig.pointsPct}% of acquisition)</span>
+              <span>Less: Points to Lender ({fig.pointsPct}% of total loan amount)</span>
               <span>({money(fig.points)})</span>
             </div>
-            {fig.reserves.map((r, i) => (
-              <div key={i} style={line}><span>Less: Construction Reserve{r.label ? ` · ${r.label}` : ''}</span><span>({money(r.amount)})</span></div>
-            ))}
+            <div style={line}>
+              <span>Less: Interest Reserve ({fig.reserveMonths} month{fig.reserveMonths === 1 ? '' : 's'} on total loan amount)</span>
+              <span>({money(fig.interestReserve)})</span>
+            </div>
             <div style={line}>
               <span>
                 Less: Daily Interest ({fig.interestDays} day{fig.interestDays === 1 ? '' : 's'} on acquisition, {fmtDate(loan.closing_date)} – {fmtDate(fig.interestThrough)})
