@@ -105,11 +105,11 @@ export default function LoanDetail({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ color: 'var(--navy)', margin: '0 0 4px' }}>
-              {summary.is_entity && summary.entity_name ? summary.entity_name : summary.borrower_name}
+              {summary.borrower_name}
             </h1>
             {summary.is_entity && summary.entity_name && (
               <div className="muted" style={{ marginBottom: 2 }}>
-                Personal name: <b>{summary.borrower_name}</b>
+                Entity: <b>{summary.entity_name}</b>
                 <span style={{ marginLeft: 8 }} className="badge staff">entity</span>
               </div>
             )}

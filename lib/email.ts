@@ -76,7 +76,7 @@ export async function emailStatement(loanId: string, months: string[]) {
     // brandShell carries the logo and the contact footer, so a statement email
     // looks like every other message we send instead of a plainer variant.
     const body = brandShell(
-      `<p style="margin:0 0 14px">Hi ${loan.is_entity && loan.entity_name ? loan.entity_name : (loan.borrower_name.split(' ')[0] || loan.borrower_name)},</p>
+      `<p style="margin:0 0 14px">Hi ${loan.borrower_name.split(' ')[0] || loan.borrower_name},</p>
         <p style="margin:0 0 14px">Please find ${multi ? 'your statements' : 'your statement'} attached for <b>${loan.property}</b>${multi ? '' : `, dated ${dues[0].label}`}. ${multi ? 'A summary of the amounts due is below.' : `The amount due is <b>${money(dues[0].due)}</b>.`}</p>
         ${multi ? `<table style="width:100%;border-collapse:collapse;background:${pale};border-radius:8px;padding:8px;margin:0 0 16px">
           <tr><td style="padding:8px 12px 4px;color:${muted};font-size:12px;text-transform:uppercase">Statement Date</td><td style="padding:8px 12px 4px;color:${muted};font-size:12px;text-transform:uppercase;text-align:right">Amount Due</td></tr>
@@ -118,7 +118,7 @@ export async function sendPortalWelcome(loanId: string, toEmail: string) {
 
     const navy = '#1F3864', muted = '#6B7A90', pale = '#EEF2F9';
     const html = brandShell(
-      `<p style="margin:0 0 14px">Hi ${loan.is_entity && loan.entity_name ? loan.entity_name : (loan.borrower_name.split(' ')[0] || loan.borrower_name)},</p>
+      `<p style="margin:0 0 14px">Hi ${loan.borrower_name.split(' ')[0] || loan.borrower_name},</p>
         <p style="margin:0 0 14px">Welcome to your Jay Capital borrower portal for <b>${loan.property}</b>. You can view your loan online any time by signing in.</p>
         <div style="background:${pale};border-radius:8px;padding:14px 16px;margin:0 0 18px">
           <div style="color:${navy};font-weight:700;margin-bottom:8px">In your portal you can:</div>

@@ -170,10 +170,10 @@ export function statementPeriod(statementDate: string): { start: string; end: st
 }
 
 /**
- * Who the loan is presented as on borrower-facing screens.
+ * Who the loan is presented as on a statement (on screen and PDF).
  * Entity loans show the entity; everything else shows the person.
- * The admin dashboard deliberately does NOT use this -- it always lists the
- * personal name so a portfolio stays searchable by who is behind it.
+ * Everywhere else (portal, admin screens, emails) leads with the personal
+ * name, so this is deliberately not used there.
  */
 export function borrowerDisplayName(loan: {
   is_entity?: boolean | null; entity_name?: string | null; borrower_name: string;
