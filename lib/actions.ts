@@ -9,7 +9,7 @@ import { sendMail, brandShell, button, rawLink } from '@/lib/mailer';
 import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import { money as fmtMoney } from '@/lib/format';
-import { lenderFigures } from '@/lib/lender-statement';
+import { closingFigures, cleanFees } from '@/lib/closing-statement';
 
 /** The signed-in user's id, for attributing an admin action. */
 async function actorId(): Promise<string | null> {
@@ -180,13 +180,15 @@ export async function createLoan(form: FormData) {
 }
 
 /**
- * Create or update a loan's lender statement. Loan amount, acquisition,
- * construction, rate and closing date come from the loan itself (so does the
- * daily interest); only the lender's points and the number of months of
- * interest reserve are stored.
+ * Create or update a loan's closing statement (the lender statement is drawn
+ * from the same record). Loan amount, acquisition, construction, rate and
+ * closing date come from the loan itself, and so does the daily interest;
+ * only what the loan doesn't know is stored.
  */
-export async function saveLenderStatement(loanId: string, opts: {
-  lenderPointsPct: number; interestReserveMonths: number; notes: string;
+export async function saveClosingStatement(loanId: string, opts: {
+  lenderPointsPct: number; interestReserveMonths: number;
+  brokerFeePct: number; processingFee: number; legalFee: number;
+  otherFees: { label: string; amount: number }[]; notes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
@@ -194,27 +196,43 @@ export async function saveLenderStatement(loanId: string, opts: {
       .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date').eq('id', loanId).maybeSingle();
     if (!loan) throw new Error('That loan could not be found.');
 
-    const pct = Number(opts.lenderPointsPct);
-    if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error('Points to the lender must be between 0 and 100.');
+    const points = Number(opts.lenderPointsPct);
+    if (!Number.isFinite(points) || points < 0 || points > 100) throw new Error('Points to the lender must be between 0 and 100.');
+    const broker = Number(opts.brokerFeePct);
+    if (!Number.isFinite(broker) || broker < 0 || broker > 100) throw new Error('The broker origination fee must be between 0 and 100 percent.');
     const months = Number(opts.interestReserveMonths);
     if (!Number.isInteger(months) || months < 0 || months > 60) throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
-    const fig = lenderFigures({ ...loan, lender_points_pct: pct, interest_reserve_months: months });
-    if (fig.netWire < 0) {
-      throw new Error(`The deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and interest reserve.`);
+    for (const [name, v] of [['processing fee', opts.processingFee], ['legal fee', opts.legalFee]] as const) {
+      if (!Number.isFinite(Number(v)) || Number(v) < 0) throw new Error(`The ${name} cannot be negative.`);
+    }
+    for (const f of opts.otherFees ?? []) {
+      if (!Number.isFinite(Number(f.amount)) || Number(f.amount) < 0) throw new Error('Fee amounts cannot be negative.');
+      if (Number(f.amount) > 0 && !String(f.label ?? '').trim()) throw new Error('Give each other fee a name.');
     }
 
-    const { error } = await supabase.from('lender_statements').upsert({
-      loan_id: loanId,
-      lender_points_pct: pct,
+    const row = {
+      lender_points_pct: points,
       interest_reserve_months: months,
+      broker_fee_pct: broker,
+      processing_fee: Number(opts.processingFee) || 0,
+      legal_fee: Number(opts.legalFee) || 0,
+      other_fees: cleanFees(opts.otherFees),
+    };
+    const fig = closingFigures({ ...loan, ...row });
+    if (fig.netWire < 0) {
+      throw new Error(`The lender deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and interest reserve.`);
+    }
+
+    const { error } = await supabase.from('closing_statements').upsert({
+      loan_id: loanId, ...row,
       notes: String(opts.notes ?? '').trim() || null,
     }, { onConflict: 'loan_id' });
     if (error) throw new Error(error.message);
-    await logActivity('lender_statement_saved', loanId, await actorId(),
-      `${loan.loan_number} · net wire ${fmtMoney(fig.netWire)}`);
+    await logActivity('closing_statement_saved', loanId, await actorId(),
+      `${loan.loan_number} · total closing cost ${fmtMoney(fig.totalClosingCost)} · net wire ${fmtMoney(fig.netWire)}`);
     revalidatePath(`/admin/loans/${loanId}`);
-    revalidatePath(`/admin/loans/${loanId}/lender-statement`);
-    return { message: 'Lender statement saved.' };
+    revalidatePath(`/admin/loans/${loanId}/closing-statement`);
+    return { message: 'Closing statement saved.' };
   });
 }
 

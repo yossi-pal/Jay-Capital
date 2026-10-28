@@ -17,11 +17,11 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
   const [acquisition, setAcquisition] = useState(0);
   const [phone, setPhone] = useState('');
   const [property, setProperty] = useState('');
-  // Set once the loan is saved: offers the lender statement next.
+  // Set once the loan is saved: offers the closing statement next.
   const [created, setCreated] = useState<{ id: string; message: string } | null>(null);
   const construction = Math.max(0, loanAmount - acquisition);
 
-  function skipLenderStatement() { router.push('/admin'); router.refresh(); }
+  function skipClosingStatement() { router.push('/admin'); router.refresh(); }
 
   return (
     <div className="wrap">
@@ -75,15 +75,15 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
           <div style={{ marginTop: 12 }}><button className="btn" disabled={busy} type="submit">{busy ? 'Creating...' : 'Create Loan'}</button></div>
         </form>
       </div>
-      <Modal open={!!created} onClose={skipLenderStatement} title="Loan created">
+      <Modal open={!!created} onClose={skipClosingStatement} title="Loan created">
         <p style={{ margin: '0 0 20px', lineHeight: 1.5 }}>
-          {created?.message} Would you like to create the lender statement now? You can
+          {created?.message} Would you like to create the closing statement now? You can
           also do it later from the loan&apos;s page.
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn secondary" onClick={skipLenderStatement}>Skip for now</button>
-          <button className="btn" onClick={() => created && router.push(`/admin/loans/${created.id}/lender-statement`)}>
-            Create Lender Statement
+          <button className="btn secondary" onClick={skipClosingStatement}>Skip for now</button>
+          <button className="btn" onClick={() => created && router.push(`/admin/loans/${created.id}/closing-statement`)}>
+            Create Closing Statement
           </button>
         </div>
       </Modal>
