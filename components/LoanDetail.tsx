@@ -26,11 +26,11 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, fallbackOrder = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
-  canEdit: boolean; canSend: boolean;
+  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean;
   fallbackOrder?: { id: string; label: string }[];
 }) {
   const router = useRouter();
@@ -147,11 +147,18 @@ export default function LoanDetail({
                   <option value="paid_off">Paid off</option>
                   <option value="defaulted">Defaulted</option>
                 </select>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>
-                  <button className="btn danger" disabled={busy} onClick={() => setConfirmDeleteLoan(true)}>Delete loan</button>
-                </div>
               </>
+            )}
+            {(canEdit || canSend) && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {(hasClosingStatement || canEdit) && (
+                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/closing-statement`}>
+                    {hasClosingStatement ? 'Closing Statement' : 'Create Closing Statement'}
+                  </Link>
+                )}
+                {canEdit && <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>}
+                {canEdit && <button className="btn danger" disabled={busy} onClick={() => setConfirmDeleteLoan(true)}>Delete loan</button>}
+              </div>
             )}
           </div>
         </div>

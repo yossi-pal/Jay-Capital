@@ -20,6 +20,8 @@ export interface ActionResult<T = unknown> {
   email?: string;
   /** account setup: how many borrower records were linked to the login. */
   linked?: number;
+  /** createLoan: the new loan's id, so the next screen can open it. */
+  loanId?: string;
 }
 
 /** Turn a caught error into something a non-technical user can act on. */
