@@ -37,7 +37,14 @@ export async function statementPDF(
     loan_amount: Number(loan.loan_amount), acquisition: Number(loan.acquisition),
     annual_rate: rate, closing_date: loan.closing_date,
   };
-  const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
+  // The engine hands back the same draw objects it was given, so this map
+  // recovers each period draw's method and note for the table below.
+  const sourceOf = new Map<EngineDraw, StatementDraw>();
+  const engineDraws: EngineDraw[] = draws.map(d => {
+    const e = { draw_date: d.draw_date, amount: Number(d.amount), description: d.description };
+    sourceOf.set(e, d);
+    return e;
+  });
   const stmt = buildStatement(engineLoan, engineDraws, statementDate);
   const ledger = buildLedger(engineLoan, engineDraws, extras.payments ?? [], extras.allocations ?? [], statementDate);
   const period = statementPeriod(String(statementDate).slice(0, 10));
@@ -76,6 +83,14 @@ export async function statementPDF(
   const rightText = (s: string, xRight: number, yy: number, size = 10, f = font, color = INK) => {
     const w = f.widthOfTextAtSize(s, size);
     page.drawText(s, { x: xRight - w, y: yy, size, font: f, color });
+  };
+  // Shortens free text to fit its column at 9pt, so a long note cannot run
+  // into the amount beside it.
+  const clip = (s: string | null | undefined, maxW: number) => {
+    let t = String(s || '');
+    if (font.widthOfTextAtSize(t, 9) <= maxW) return t;
+    while (t && font.widthOfTextAtSize(t + '…', 9) > maxW) t = t.slice(0, -1);
+    return t + '…';
   };
   // 78pt floor keeps content clear of the footer band.
   const ensure = (need: number) => { if (y - need < 74) { page = newPage(); y = 748; } };
@@ -219,8 +234,9 @@ export async function statementPDF(
   y -= 18;   // heading sits close to its table, with a little white space
   page.drawRectangle({ x: M, y: y - 4, width: width - 2 * M, height: 20, color: NAVY_MED });
   text('DATE', M + 6, y + 2, 9, bold, rgb(1, 1, 1));
-  text('DESCRIPTION', M + 96, y + 2, 9, bold, rgb(1, 1, 1));
-  rightText('AMOUNT', M + 330, y + 2, 9, bold, rgb(1, 1, 1));
+  text('METHOD', M + 80, y + 2, 9, bold, rgb(1, 1, 1));
+  text('NOTE', M + 170, y + 2, 9, bold, rgb(1, 1, 1));
+  rightText('AMOUNT', M + 385, y + 2, 9, bold, rgb(1, 1, 1));
   rightText('INTEREST ACCRUED', width - M - 6, y + 2, 9, bold, rgb(1, 1, 1));
   y -= 22;
 
@@ -231,15 +247,16 @@ export async function statementPDF(
     for (const d of stmt.periodDraws) {
       ensure(18);
       text(fmtDate(d.draw_date), M + 6, y, 9);
-      text(String(d.description).slice(0, 40), M + 96, y, 9);
-      rightText(money(d.amount), M + 330, y, 9);
+      text(clip(sourceOf.get(d)?.method, 84), M + 80, y, 9);
+      text(clip(sourceOf.get(d)?.note, 150), M + 170, y, 9);
+      rightText(money(d.amount), M + 385, y, 9);
       rightText(money(drawInterest(Number(d.amount), rate, d.draw_date)), width - M - 6, y, 9);
       page.drawLine({ start: { x: M, y: y - 5 }, end: { x: width - M, y: y - 5 }, thickness: 0.4, color: rgb(0.93, 0.945, 0.97) });
       y -= 18;
     }
     ensure(20);
     text('Total for period', M + 6, y - 2, 9.5, bold, NAVY);
-    rightText(money(stmt.periodDrawTotal), M + 330, y - 2, 9.5, bold, NAVY);
+    rightText(money(stmt.periodDrawTotal), M + 385, y - 2, 9.5, bold, NAVY);
     rightText(money(stmt.periodDrawInterest), width - M - 6, y - 2, 9.5, bold, NAVY);
     y -= 22;
   }

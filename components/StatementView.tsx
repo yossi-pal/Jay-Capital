@@ -17,7 +17,7 @@ export interface StatementData {
   is_entity?: boolean | null; entity_name?: string | null;
   paid_off_date?: string | null;
 }
-export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; }
+export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 export interface PayInfo { method: string | null; instructions: string | null }
 
 export default function StatementView({
@@ -40,7 +40,14 @@ export default function StatementView({
     annual_rate: rate, closing_date: loan.closing_date,
     paid_off_date: loan.paid_off_date ?? null,
   };
-  const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
+  // The engine hands back the same draw objects it was given, so this map
+  // recovers each period draw's method and note for the table below.
+  const sourceOf = new Map<EngineDraw, StatementDraw>();
+  const engineDraws: EngineDraw[] = draws.map(d => {
+    const e = { draw_date: d.draw_date, amount: Number(d.amount), description: d.description };
+    sourceOf.set(e, d);
+    return e;
+  });
 
   const stmt = buildStatement(engineLoan, engineDraws, asOf);
   const ledger = buildLedger(engineLoan, engineDraws, payments, allocations, asOf);
@@ -187,18 +194,19 @@ export default function StatementView({
         <div style={{ color: 'var(--navy)', fontWeight: 700, margin: '28px 0 8px' }}>Construction Draws ({stmt.periodLabel})</div>
         {stmt.periodDraws.length > 0 ? (
           <div className="tablescroll narrow"><table className="bordered">
-            <thead><tr><th>Date</th><th>Description</th><th className="num">Amount</th><th className="num">Interest Accrued</th></tr></thead>
+            <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th></tr></thead>
             <tbody>
               {stmt.periodDraws.map((d, i) => (
                 <tr key={i}>
                   <td>{fmtDate(d.draw_date)}</td>
-                  <td>{d.description}</td>
+                  <td>{sourceOf.get(d)?.method || ''}</td>
+                  <td>{sourceOf.get(d)?.note || ''}</td>
                   <td className="num">{money(d.amount)}</td>
                   <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
                 </tr>
               ))}
               <tr>
-                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--navy)' }}>Total for period</td>
+                <td colSpan={3} style={{ fontWeight: 700, color: 'var(--navy)' }}>Total for period</td>
                 <td className="num" style={{ fontWeight: 700, color: 'var(--navy)' }}>{money(stmt.periodDrawTotal)}</td>
                 <td className="num" style={{ fontWeight: 700, color: 'var(--navy)' }}>{money(stmt.periodDrawInterest)}</td>
               </tr>

@@ -1,5 +1,6 @@
 -- ============================================================
 -- 010  Method and note on construction draws
+-- Already applied to production on 2026-10-28.
 --
 -- Draws get the same Method / Note pair payments already have, so the admin
 -- Construction Draws table can read like the Payments table. `description`

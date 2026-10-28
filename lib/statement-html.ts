@@ -8,7 +8,7 @@ export interface StatementLoan {
   lender_name: string | null;
   is_entity?: boolean | null; entity_name?: string | null;
 }
-export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; }
+export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 /**
  * Canonical statement markup, used for BOTH the on-screen statement and the
