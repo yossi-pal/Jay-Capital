@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { saveClosingStatement } from '@/lib/actions';
-import { closingFigures, type Reserve } from '@/lib/closing';
+import { saveLenderStatement } from '@/lib/actions';
+import { lenderFigures, type Reserve } from '@/lib/lender-statement';
 import { money, pct, fmtDate, fmtDateTime } from '@/lib/format';
 
 interface Statement {
@@ -17,7 +17,7 @@ interface Statement {
 const line: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 16, padding: '9px 0', borderBottom: '1px solid var(--navy-soft)' };
 const sub: React.CSSProperties = { ...line, paddingLeft: 18, color: 'var(--muted)', fontSize: 14 };
 
-export default function ClosingStatement({ loan, statement, canEdit }: {
+export default function LenderStatement({ loan, statement, canEdit }: {
   loan: any; statement: Statement | null; canEdit: boolean;
 }) {
   const router = useRouter();
@@ -31,10 +31,12 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
   const [notes, setNotes] = useState(statement?.notes ?? '');
 
   // On screen the figures follow what is typed; once saved they come from the stored row.
-  const fig = closingFigures({
+  const fig = lenderFigures({
     loan_amount: loan.loan_amount,
     acquisition: loan.acquisition,
     construction: loan.construction,
+    annual_rate: loan.annual_rate,
+    closing_date: loan.closing_date,
     lender_points_pct: editing ? points : statement?.lender_points_pct ?? 0,
     reserves: editing
       ? reserves.map(r => ({ label: r.label.trim(), amount: Number(r.amount) || 0 })).filter(r => r.label || r.amount)
@@ -51,13 +53,13 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
 
   async function save() {
     setBusy(true); setError('');
-    const res = await saveClosingStatement(loan.loan_id, {
+    const res = await saveLenderStatement(loan.loan_id, {
       lenderPointsPct: Number(points) || 0,
       reserves: reserves.map(r => ({ label: r.label, amount: Number(r.amount) || 0 })),
       notes,
     });
     setBusy(false);
-    if (!res.ok) { setError(res.error || 'Could not save the closing statement.'); return; }
+    if (!res.ok) { setError(res.error || 'Could not save the lender statement.'); return; }
     setEditing(false);
     router.refresh();
   }
@@ -72,7 +74,7 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
       <div className="card" style={{ maxWidth: 820, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 className="title" style={{ margin: 0 }}>Closing Statement</h1>
+            <h1 className="title" style={{ margin: 0 }}>Lender Statement</h1>
             <div className="muted">{loan.loan_number} &middot; Internal: not shown to the borrower</div>
           </div>
           {statement && !editing && (
@@ -93,7 +95,7 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
         </div>
 
         {!statement && !canEdit && (
-          <div className="alert info">No closing statement has been created for this loan yet. An admin can create one.</div>
+          <div className="alert info">No lender statement has been created for this loan yet. An admin can create one.</div>
         )}
 
         {editing && (
@@ -146,6 +148,12 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
             {fig.reserves.map((r, i) => (
               <div key={i} style={line}><span>Less: Construction Reserve{r.label ? ` · ${r.label}` : ''}</span><span>({money(r.amount)})</span></div>
             ))}
+            <div style={line}>
+              <span>
+                Less: Daily Interest ({fig.interestDays} day{fig.interestDays === 1 ? '' : 's'} on acquisition, {fmtDate(loan.closing_date)} – {fmtDate(fig.interestThrough)})
+              </span>
+              <span>({money(fig.dailyInterest)})</span>
+            </div>
             <div style={{ ...line, borderBottom: 'none', background: 'var(--pale)', borderRadius: 6, padding: '12px', marginTop: 8, fontWeight: 800, fontSize: 17, color: fig.netWire < 0 ? 'var(--danger)' : 'var(--navy)' }}>
               <span>Net Wire</span><span>{money(fig.netWire)}</span>
             </div>
@@ -162,7 +170,7 @@ export default function ClosingStatement({ loan, statement, canEdit }: {
           <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
             <button className="btn secondary" disabled={busy} onClick={cancel}>Cancel</button>
             <button className="btn" disabled={busy} onClick={save}>
-              {busy ? 'Saving...' : statement ? 'Save changes' : 'Create Closing Statement'}
+              {busy ? 'Saving...' : statement ? 'Save changes' : 'Create Lender Statement'}
             </button>
           </div>
         )}

@@ -9,7 +9,7 @@ import { sendMail, brandShell, button, rawLink } from '@/lib/mailer';
 import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import { money as fmtMoney } from '@/lib/format';
-import { closingFigures, cleanReserves } from '@/lib/closing';
+import { lenderFigures, cleanReserves } from '@/lib/lender-statement';
 
 /** The signed-in user's id, for attributing an admin action. */
 async function actorId(): Promise<string | null> {
@@ -180,17 +180,18 @@ export async function createLoan(form: FormData) {
 }
 
 /**
- * Create or update a loan's closing statement. Loan amount, acquisition and
- * construction come from the loan itself; only the lender's points and the
- * construction reserves are stored.
+ * Create or update a loan's lender statement. Loan amount, acquisition,
+ * construction, rate and closing date come from the loan itself (so does the
+ * daily interest); only the lender's points and the construction reserves
+ * are stored.
  */
-export async function saveClosingStatement(loanId: string, opts: {
+export async function saveLenderStatement(loanId: string, opts: {
   lenderPointsPct: number; reserves: { label: string; amount: number }[]; notes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: loan } = await supabase.from('loans')
-      .select('loan_number, loan_amount, acquisition, construction').eq('id', loanId).maybeSingle();
+      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date').eq('id', loanId).maybeSingle();
     if (!loan) throw new Error('That loan could not be found.');
 
     const pct = Number(opts.lenderPointsPct);
@@ -200,23 +201,23 @@ export async function saveClosingStatement(loanId: string, opts: {
       if (Number(r.amount) > 0 && !String(r.label ?? '').trim()) throw new Error('Give each construction reserve a description.');
     }
     const reserves = cleanReserves(opts.reserves);
-    const fig = closingFigures({ ...loan, lender_points_pct: pct, reserves });
+    const fig = lenderFigures({ ...loan, lender_points_pct: pct, reserves });
     if (fig.netWire < 0) {
       throw new Error(`The deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and reserves.`);
     }
 
-    const { error } = await supabase.from('closing_statements').upsert({
+    const { error } = await supabase.from('lender_statements').upsert({
       loan_id: loanId,
       lender_points_pct: pct,
       reserves,
       notes: String(opts.notes ?? '').trim() || null,
     }, { onConflict: 'loan_id' });
     if (error) throw new Error(error.message);
-    await logActivity('closing_statement_saved', loanId, await actorId(),
+    await logActivity('lender_statement_saved', loanId, await actorId(),
       `${loan.loan_number} · net wire ${fmtMoney(fig.netWire)}`);
     revalidatePath(`/admin/loans/${loanId}`);
-    revalidatePath(`/admin/loans/${loanId}/closing`);
-    return { message: 'Closing statement saved.' };
+    revalidatePath(`/admin/loans/${loanId}/lender-statement`);
+    return { message: 'Lender statement saved.' };
   });
 }
 

@@ -21,7 +21,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
     id: l.loan_id, label: `${l.loan_number} · ${l.borrower_name}`,
   }));
-  const { data: closing } = await supabase.from('closing_statements')
+  const { data: lenderStatement } = await supabase.from('lender_statements')
     .select('id').eq('loan_id', params.id).maybeSingle();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
@@ -35,7 +35,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       fallbackOrder={fallbackOrder}
       canEdit={role === 'admin'}
       canSend={role === 'admin' || role === 'staff'}
-      hasClosing={!!closing}
+      hasLenderStatement={!!lenderStatement}
     />
   );
 }
