@@ -121,7 +121,6 @@ export async function statementPDF(
   // ---- Borrower (full address, wrapped) on the left, date + period on the right
   const topY = y;
   text(borrowerDisplayName(loan), M, y, 13, bold, NAVY); y -= 15;
-  if (loan.is_entity && loan.entity_name) { text(loan.borrower_name, M, y, 9, font, MUTED); y -= 13; }
   const words = (loan.property || '').split(' ');
   let line = '';
   for (const w of words) {
@@ -130,6 +129,7 @@ export async function statementPDF(
     else line = test;
   }
   if (line) { text(line, M, y, 10, font, MUTED); y -= 13; }
+  if (loan.is_entity && loan.entity_name) { text(loan.borrower_name, M, y, 10, font, MUTED); y -= 13; }
   if (loan.borrower_phone) { text(loan.borrower_phone, M, y, 10, font, MUTED); y -= 13; }
   if (loan.borrower_email) { text(loan.borrower_email, M, y, 10, font, MUTED); y -= 13; }
 
