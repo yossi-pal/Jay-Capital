@@ -6,14 +6,14 @@ import { addDraw, updateDraw } from '@/lib/actions';
 import { Modal, AlertDialog } from '@/components/Modal';
 
 /**
- * "Add draw" button that opens a popup with only Date + Amount.
+ * "Add draw" button that opens a popup with Date, Amount, Method and Note.
  * Description is always saved as "Construction Draw".
  */
 export default function AddDrawModal({
   loanId, editing,
 }: {
   loanId: string;
-  editing?: { id: string; draw_date: string; amount: number; description: string } | null;
+  editing?: { id: string; draw_date: string; amount: number; description: string; method?: string | null; note?: string | null } | null;
 }) {
   const router = useRouter();
   const isEdit = !!editing;
@@ -21,6 +21,8 @@ export default function AddDrawModal({
   const [busy, setBusy] = useState(false);
   const [date, setDate] = useState(editing?.draw_date ?? '');
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '');
+  const [method, setMethod] = useState(editing?.method ?? '');
+  const [note, setNote] = useState(editing?.note ?? '');
   const [err, setErr] = useState('');
 
   async function submit() {
@@ -30,6 +32,8 @@ export default function AddDrawModal({
       const fd = new FormData();
       fd.set('draw_date', date);
       fd.set('amount', amount);
+      fd.set('method', method);
+      fd.set('note', note);
       fd.set('description', editing?.description || 'Construction Draw');
 
       const res = isEdit
@@ -39,7 +43,7 @@ export default function AddDrawModal({
       if (!res.ok) { setErr(res.error || 'Could not save the draw.'); setBusy(false); return; }
 
       setOpen(false);
-      if (!isEdit) { setDate(''); setAmount(''); }
+      if (!isEdit) { setDate(''); setAmount(''); setMethod(''); setNote(''); }
       router.refresh();
     } catch (e: any) {
       setErr(e.message);
@@ -62,6 +66,14 @@ export default function AddDrawModal({
           <div className="field-wrap">
             <label>Amount</label>
             <input className="field" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
+          </div>
+          <div className="field-wrap">
+            <label>Method</label>
+            <input className="field" value={method} onChange={e => setMethod(e.target.value)} placeholder="Wire, check…" />
+          </div>
+          <div className="field-wrap">
+            <label>Note</label>
+            <input className="field" value={note} onChange={e => setNote(e.target.value)} placeholder="Optional" />
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
