@@ -489,3 +489,11 @@ select.filter, input.field, select.field, textarea.field {
   width: 6px; height: 6px; border-radius: 50%; background: var(--brass);
 }
 .lp-trust b { color: var(--navy); }
+
+/* Printing a page (e.g. the closing statement): drop the app chrome. */
+@media print {
+  .nav, .no-print { display: none !important; }
+  body { background: #fff; }
+  .wrap { padding: 0; }
+  .card { box-shadow: none; border: none; }
+}
