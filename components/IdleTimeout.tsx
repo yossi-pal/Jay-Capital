@@ -22,7 +22,7 @@ import { browserClient } from '@/lib/supabase-browser';
 
 // Tunable without a code change: set NEXT_PUBLIC_IDLE_MINUTES in Vercel.
 const envMinutes = Number(process.env.NEXT_PUBLIC_IDLE_MINUTES);
-const IDLE_MS = (Number.isFinite(envMinutes) && envMinutes > 0 ? envMinutes : 20) * 60 * 1000;
+const IDLE_MS = (Number.isFinite(envMinutes) && envMinutes > 0 ? envMinutes : 60) * 60 * 1000;
 const WARN_MS = 60 * 1000;        // warn for the final minute
 const KEY = 'jcf:lastActivity';
 const CHECK_MS = 5000;
