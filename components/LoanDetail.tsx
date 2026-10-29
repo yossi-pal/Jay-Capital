@@ -114,7 +114,6 @@ export default function LoanDetail({
               </div>
             )}
             <div className="muted">{summary.loan_number} &middot; {summary.property}</div>
-            <div className="muted">Lien position: <b>{lienPositionLabel(lienPosition) || 'Not set'}</b></div>
             {summary.borrower_email && <div className="muted">{summary.borrower_email}</div>}
             {summary.borrower_phone && <div className="muted">{summary.borrower_phone}</div>}
           </div>
@@ -177,6 +176,7 @@ export default function LoanDetail({
             <div className="row"><span className="k">Remaining Draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
             <div className="row"><span className="k">Total Draw</span><span className="v">{money(Number(summary.total_disbursed) - Number(summary.acquisition))}</span></div>
             <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
+            <div className="row"><span className="k">Position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
           </div>
         </div>
 
