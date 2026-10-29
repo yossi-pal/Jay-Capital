@@ -254,27 +254,17 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
       </div>
 
       <div className="summary">
-        {/* The grid fills left, right, left, right. Position sits under
-            Interest Rate in the right column, so Servicer is pushed to the
-            right of the last row (col2) to keep that column together. */}
-        <div className="row"><span className="k">Total Loan Amount</span><span className="v">{money(fig.loanAmount)}</span></div>
-        <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
-        {position ? (
-          <>
-            <div className="row"><span className="k">Acquisition</span><span className="v">{money(fig.acquisition)}</span></div>
-            <div className="row"><span className="k">Position</span><span className="v">{position}</span></div>
-            <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
-            <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
-            <div className="row col2"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
-          </>
-        ) : (
-          <>
-            <div className="row"><span className="k">Acquisition</span><span className="v">{money(fig.acquisition)}</span></div>
-            <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
-            <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
-            <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
-          </>
-        )}
+        <div className="col">
+          <div className="row"><span className="k">Total Loan Amount</span><span className="v">{money(fig.loanAmount)}</span></div>
+          <div className="row"><span className="k">Acquisition</span><span className="v">{money(fig.acquisition)}</span></div>
+          <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
+        </div>
+        <div className="col">
+          <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
+          {position && <div className="row"><span className="k">Position</span><span className="v">{position}</span></div>}
+          <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
+          <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
+        </div>
       </div>
 
       <div className="doc-table">
