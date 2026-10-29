@@ -1,5 +1,6 @@
 -- ============================================================
 -- 015  Lien position (first or second) on each loan
+-- Already applied to production on 2026-10-29.
 --
 -- Internal only: staff and admins can read, only admins can write, and there
 -- is deliberately no borrower read policy. It lives in its own table rather
