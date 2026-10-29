@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { saveClosingStatement } from '@/lib/actions';
 import { closingFigures, lenderLines, closingCostLines, type OtherFee, type ClosingFigures } from '@/lib/closing-statement';
-import { money, pct, fmtDate, fmtDateTime, borrowerDisplayName } from '@/lib/format';
+import { money, pct, fmtDate, fmtDateTime, borrowerDisplayName, lienPositionLabel } from '@/lib/format';
 import Logo from '@/components/Logo';
 import { BRAND } from '@/lib/brand-assets';
 
@@ -228,6 +228,8 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
 }) {
   const lender = kind === 'lender';
   const lines = lender ? lenderLines(fig) : closingCostLines(fig);
+  // Lien position is for the lender only; never on the Closing Statement.
+  const position = lender ? lienPositionLabel(loan.lien_position) : '';
   return (
     <div className="card doc">
       <div className="doc-head">
@@ -252,12 +254,17 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
       </div>
 
       <div className="summary">
-        <div className="row"><span className="k">Total Loan Amount</span><span className="v">{money(fig.loanAmount)}</span></div>
-        <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
-        <div className="row"><span className="k">Acquisition</span><span className="v">{money(fig.acquisition)}</span></div>
-        <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
-        <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
-        <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
+        <div className="col">
+          <div className="row"><span className="k">Total Loan Amount</span><span className="v">{money(fig.loanAmount)}</span></div>
+          <div className="row"><span className="k">Acquisition</span><span className="v">{money(fig.acquisition)}</span></div>
+          <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
+        </div>
+        <div className="col">
+          <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
+          {position && <div className="row"><span className="k">Position</span><span className="v">{position}</span></div>}
+          <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
+          <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
+        </div>
       </div>
 
       <div className="doc-table">

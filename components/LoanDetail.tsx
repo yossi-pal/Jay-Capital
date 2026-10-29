@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz } from '@/lib/format';
+import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, lienPositionLabel } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { deleteDraw, setLoanStatus, deleteLoan, deletePayment } from '@/lib/actions';
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
@@ -26,11 +26,11 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, lienPosition = null, fallbackOrder = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
-  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean;
+  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean; lienPosition?: number | null;
   fallbackOrder?: { id: string; label: string }[];
 }) {
   const router = useRouter();
@@ -114,6 +114,7 @@ export default function LoanDetail({
               </div>
             )}
             <div className="muted">{summary.loan_number} &middot; {summary.property}</div>
+            <div className="muted">Lien position: <b>{lienPositionLabel(lienPosition) || 'Not set'}</b></div>
             {summary.borrower_email && <div className="muted">{summary.borrower_email}</div>}
             {summary.borrower_phone && <div className="muted">{summary.borrower_phone}</div>}
           </div>
@@ -164,15 +165,19 @@ export default function LoanDetail({
         </div>
 
         <div className="summary" style={{ marginTop: 20 }}>
-          <div className="row"><span className="k">Loan Amount</span><span className="v">{money(summary.loan_amount)}</span></div>
-          <div className="row"><span className="k">Total Disbursed</span><span className="v">{money(summary.total_disbursed)}</span></div>
-          <div className="row"><span className="k">Acquisition</span><span className="v">{money(summary.acquisition)}</span></div>
-          <div className="row"><span className="k">Remaining Draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
-          <div className="row"><span className="k">Construction Budget</span><span className="v">{money(summary.construction)}</span></div>
-          <div className="row"><span className="k">Total Draw</span><span className="v">{money(Number(summary.total_disbursed) - Number(summary.acquisition))}</span></div>
-          <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
-          <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
-          <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
+          <div className="col">
+            <div className="row"><span className="k">Loan Amount</span><span className="v">{money(summary.loan_amount)}</span></div>
+            <div className="row"><span className="k">Acquisition</span><span className="v">{money(summary.acquisition)}</span></div>
+            <div className="row"><span className="k">Construction Budget</span><span className="v">{money(summary.construction)}</span></div>
+            <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
+            <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
+          </div>
+          <div className="col">
+            <div className="row"><span className="k">Total Disbursed</span><span className="v">{money(summary.total_disbursed)}</span></div>
+            <div className="row"><span className="k">Remaining Draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
+            <div className="row"><span className="k">Total Draw</span><span className="v">{money(Number(summary.total_disbursed) - Number(summary.acquisition))}</span></div>
+            <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
+          </div>
         </div>
 
         {canEdit && (
@@ -215,15 +220,22 @@ export default function LoanDetail({
             ` · bills ${ledger.currentPeriods.map(c => c.label).join(' + ')}`}
         </p>
         <div className="summary">
-          <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
-          <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
-          <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
-          <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
-          <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
-          <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
-          <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
-          <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
-          <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
+          <div className="col">
+            <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
+            <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
+            <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
+            <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
+          </div>
+          <div className="col">
+            <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
+            <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
+            <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
+            <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
+          </div>
+          {/* Its own grid cell: under the left column on a computer, last on a phone. */}
+          <div className="col">
+            <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
+          </div>
         </div>
         {summary.status === 'paid_off' && summary.paid_off_date && (
           <p style={{ marginBottom: 0, color: 'var(--ok)', fontWeight: 600 }}>

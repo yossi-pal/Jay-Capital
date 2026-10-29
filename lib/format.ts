@@ -180,3 +180,11 @@ export function borrowerDisplayName(loan: {
 }): string {
   return loan.is_entity && loan.entity_name ? loan.entity_name : loan.borrower_name;
 }
+
+/**
+ * A loan's lien position (1 or 2) in words, or '' when it hasn't been set.
+ * Internal only: shown to staff and admins, never on borrower screens.
+ */
+export function lienPositionLabel(position: number | null | undefined): string {
+  return position === 1 ? 'First Position' : position === 2 ? 'Second Position' : '';
+}

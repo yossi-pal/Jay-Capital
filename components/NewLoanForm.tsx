@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createLoan } from '@/lib/actions';
 import LenderSelect, { type LenderOption } from '@/components/LenderSelect';
 import EntityFields from '@/components/EntityFields';
+import LienPositionField from '@/components/LienPositionField';
 import { formatPhone, formatAddress } from '@/lib/formatting';
 import { Modal } from '@/components/Modal';
 
@@ -61,6 +62,7 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
             </div>
             <EntityFields />
             <LenderSelect lenders={lenders} />
+            <LienPositionField />
             <div className="field-wrap"><label>Loan Amount *</label><input className="field" type="number" step="0.01" name="loan_amount" value={loanAmount || ''} onChange={e => setLoanAmount(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Acquisition *</label><input className="field" type="number" step="0.01" name="acquisition" value={acquisition || ''} onChange={e => setAcquisition(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Construction (auto)</label><input className="field" type="number" value={construction.toFixed(2)} readOnly style={{ background: 'var(--pale)' }} /></div>

@@ -129,12 +129,21 @@ function requireLoanFields(form: FormData, lenderId: string | null) {
   ];
   const missing = need.filter(([k]) => !String(form.get(k) || '').trim()).map(([, label]) => label);
   if (!lenderId) missing.push('Lender');
+  if (!['1', '2'].includes(String(form.get('lien_position') || ''))) missing.push('Lien position');
   if (String(form.get('is_entity') || '') === 'on' && !String(form.get('entity_name') || '').trim()) {
     missing.push('Entity name');
   }
   if (missing.length) {
     throw new Error(`Please fill in: ${missing.join(', ')}.`);
   }
+}
+
+/** Lien position is kept apart from `loans` so borrowers can never read it (migration 015). */
+async function saveLienPosition(supabase: any, loanId: string, form: FormData) {
+  const { error } = await supabase.from('loan_positions').upsert({
+    loan_id: loanId, lien_position: Number(form.get('lien_position')),
+  }, { onConflict: 'loan_id' });
+  if (error) throw new Error(`The loan was saved, but its lien position was not: ${error.message}`);
 }
 
 export async function createLoan(form: FormData) {
@@ -172,6 +181,7 @@ export async function createLoan(form: FormData) {
       closing_date: String(form.get('closing_date') || ''),
     }).select('id').single();
     if (error) throw new Error(error.message);
+    await saveLienPosition(supabase, created.id, form);
     await logActivity('loan_created', null, await actorId(),
       `${loanNumber} · ${borrowerName} · ${String(form.get('property') || '').trim()} · ${fmtMoney(loanAmount)}`);
     revalidatePath('/admin');
@@ -284,6 +294,7 @@ export async function updateLoan(loanId: string, form: FormData) {
       updated_at: new Date().toISOString(),
     }).eq('id', loanId);
     if (error) throw new Error(error.message);
+    await saveLienPosition(supabase, loanId, form);
     await logActivity('loan_updated', loanId, await actorId(),
       `${String(form.get('borrower_name') || '').trim()} · ${String(form.get('property') || '').trim()}`);
     revalidatePath('/admin');

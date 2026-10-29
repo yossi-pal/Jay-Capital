@@ -110,17 +110,21 @@ export default function StatementView({
 
         {/* left column: the loan.  right column: this statement's numbers. */}
         <div className="summary">
-          <div className="row"><span className="k">Loan Amount</span><span className="v">{money(loan.loan_amount)}</span></div>
-          <div className="row"><span className="k">Total Disbursed</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
-          <div className="row"><span className="k">Acquisition</span><span className="v">{money(loan.acquisition)}</span></div>
-          <div className="row"><span className="k">Remaining Draw Balance</span><span className="v">{money(stmt.remainingDraw)}</span></div>
-          <div className="row"><span className="k">Construction Budget</span><span className="v">{money(loan.construction)}</span></div>
-          <div className="row"><span className="k">Total Draws {shortPeriod}</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
-          <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
-          <div className="row"><span className="k">Base Balance Interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
-          <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(loan.closing_date)}</span></div>
-          <div className="row"><span className="k">Interest Accrued {shortPeriod}</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
-          <div className="row"><span className="k">Servicer</span><span className="v">{SERVICER}</span></div>
+          <div className="col">
+            <div className="row"><span className="k">Loan Amount</span><span className="v">{money(loan.loan_amount)}</span></div>
+            <div className="row"><span className="k">Acquisition</span><span className="v">{money(loan.acquisition)}</span></div>
+            <div className="row"><span className="k">Construction Budget</span><span className="v">{money(loan.construction)}</span></div>
+            <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
+            <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(loan.closing_date)}</span></div>
+            <div className="row"><span className="k">Servicer</span><span className="v">{SERVICER}</span></div>
+          </div>
+          <div className="col">
+            <div className="row"><span className="k">Total Disbursed</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
+            <div className="row"><span className="k">Remaining Draw Balance</span><span className="v">{money(stmt.remainingDraw)}</span></div>
+            <div className="row"><span className="k">Total Draws {shortPeriod}</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
+            <div className="row"><span className="k">Base Balance Interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
+            <div className="row"><span className="k">Interest Accrued {shortPeriod}</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
+          </div>
         </div>
 
         {/* Running balance */}
