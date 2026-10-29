@@ -14,5 +14,6 @@ export default async function EditLoanPage({ params }: { params: { id: string } 
   const { data: loan } = await supabase.from('loan_summary').select('*').eq('loan_id', params.id).single();
   if (!loan) notFound();
   const { data: lenders } = await supabase.from('lenders').select('id, name, active').order('name');
-  return <EditLoanForm loan={loan} lenders={lenders ?? []} />;
+  const { data: position } = await supabase.from('loan_positions').select('lien_position').eq('loan_id', params.id).maybeSingle();
+  return <EditLoanForm loan={{ ...loan, lien_position: position?.lien_position ?? null }} lenders={lenders ?? []} />;
 }

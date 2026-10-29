@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { MARK_PNG_BASE64, BRAND } from '@/lib/brand-assets';
-import { money, pct, fmtDate, borrowerDisplayName } from '@/lib/format';
+import { money, pct, fmtDate, borrowerDisplayName, lienPositionLabel } from '@/lib/format';
 import { lenderLines, closingCostLines, type ClosingFigures } from '@/lib/closing-statement';
 
 // Same palette and letterhead as the monthly statement PDF (lib/statement-pdf.ts).
@@ -18,6 +18,7 @@ export interface ClosingPdfLoan {
   loan_number: string; property: string; annual_rate: number | string; closing_date: string;
   borrower_name: string; borrower_phone?: string | null; borrower_email?: string | null; is_entity?: boolean | null; entity_name?: string | null;
   lender_name: string | null;
+  lien_position?: number | null;
 }
 
 /**
@@ -114,6 +115,7 @@ export async function closingPDF(
     ['Lender', loan.lender_name ?? ''],
     ['Servicer', BRAND.legal],
   ];
+  if (lender && lienPositionLabel(loan.lien_position)) left.push(['Position', lienPositionLabel(loan.lien_position)]);
   const col = (rows: [string, string][], x: number, xr: number) => {
     let cy = y;
     for (const [k, v] of rows) {

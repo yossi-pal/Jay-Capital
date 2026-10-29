@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz } from '@/lib/format';
+import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, lienPositionLabel } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { deleteDraw, setLoanStatus, deleteLoan, deletePayment } from '@/lib/actions';
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
@@ -26,11 +26,11 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, lienPosition = null, fallbackOrder = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
-  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean;
+  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean; lienPosition?: number | null;
   fallbackOrder?: { id: string; label: string }[];
 }) {
   const router = useRouter();
@@ -114,6 +114,7 @@ export default function LoanDetail({
               </div>
             )}
             <div className="muted">{summary.loan_number} &middot; {summary.property}</div>
+            <div className="muted">Lien position: <b>{lienPositionLabel(lienPosition) || 'Not set'}</b></div>
             {summary.borrower_email && <div className="muted">{summary.borrower_email}</div>}
             {summary.borrower_phone && <div className="muted">{summary.borrower_phone}</div>}
           </div>

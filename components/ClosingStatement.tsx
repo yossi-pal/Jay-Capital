@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { saveClosingStatement } from '@/lib/actions';
 import { closingFigures, lenderLines, closingCostLines, type OtherFee, type ClosingFigures } from '@/lib/closing-statement';
-import { money, pct, fmtDate, fmtDateTime, borrowerDisplayName } from '@/lib/format';
+import { money, pct, fmtDate, fmtDateTime, borrowerDisplayName, lienPositionLabel } from '@/lib/format';
 import Logo from '@/components/Logo';
 import { BRAND } from '@/lib/brand-assets';
 
@@ -258,6 +258,9 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
         <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
         <div className="row"><span className="k">Construction Holdback</span><span className="v">{money(fig.construction)}</span></div>
         <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
+        {lender && lienPositionLabel(loan.lien_position) && (
+          <div className="row"><span className="k">Position</span><span className="v">{lienPositionLabel(loan.lien_position)}</span></div>
+        )}
       </div>
 
       <div className="doc-table">
