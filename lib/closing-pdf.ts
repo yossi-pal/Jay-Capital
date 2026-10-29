@@ -112,10 +112,12 @@ export async function closingPDF(
   ];
   const right: [string, string][] = [
     ['Interest Rate', pct(loan.annual_rate)],
+    // Lien position is for the lender only; never on the Closing Statement.
+    ...(lender && lienPositionLabel(loan.lien_position)
+      ? [['Position', lienPositionLabel(loan.lien_position)] as [string, string]] : []),
     ['Lender', loan.lender_name ?? ''],
     ['Servicer', BRAND.legal],
   ];
-  if (lender && lienPositionLabel(loan.lien_position)) left.push(['Position', lienPositionLabel(loan.lien_position)]);
   const col = (rows: [string, string][], x: number, xr: number) => {
     let cy = y;
     for (const [k, v] of rows) {
