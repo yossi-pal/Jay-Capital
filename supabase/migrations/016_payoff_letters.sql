@@ -1,6 +1,6 @@
 -- ============================================================
 -- 016  Payoff letters
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-10-30.
 --
 -- One payoff letter per loan, saved like the closing statement so it can be
 -- reopened, edited and downloaded again. Principal, interest, the draw count
