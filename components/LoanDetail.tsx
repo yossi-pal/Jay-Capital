@@ -26,11 +26,11 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, lienPosition = null, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, lienPosition = null, fallbackOrder = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
-  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean; lienPosition?: number | null;
+  canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean; hasPayoffLetter?: boolean; lienPosition?: number | null;
   fallbackOrder?: { id: string; label: string }[];
 }) {
   const router = useRouter();
@@ -154,6 +154,11 @@ export default function LoanDetail({
                 {(hasClosingStatement || canEdit) && (
                   <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/closing-statement`}>
                     {hasClosingStatement ? 'Closing Statement' : 'Create Closing Statement'}
+                  </Link>
+                )}
+                {(hasPayoffLetter || canEdit) && (
+                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/payoff`}>
+                    {hasPayoffLetter ? 'Payoff Letter' : 'Request Payoff'}
                   </Link>
                 )}
                 {canEdit && <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>}

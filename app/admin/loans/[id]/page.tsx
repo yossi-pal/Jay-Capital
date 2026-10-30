@@ -26,6 +26,8 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
     .select('lien_position').eq('loan_id', params.id).maybeSingle();
   const { data: closingStatement } = await supabase.from('closing_statements')
     .select('id').eq('loan_id', params.id).maybeSingle();
+  const { data: payoffLetter } = await supabase.from('payoff_letters')
+    .select('id').eq('loan_id', params.id).maybeSingle();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
   const role = profile?.role;
@@ -39,6 +41,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       canEdit={role === 'admin'}
       canSend={role === 'admin' || role === 'staff'}
       hasClosingStatement={!!closingStatement}
+      hasPayoffLetter={!!payoffLetter}
       lienPosition={position?.lien_position ?? null}
     />
   );

@@ -8,7 +8,7 @@ import { randomBytes } from 'crypto';
 import { sendMail, brandShell, button, rawLink } from '@/lib/mailer';
 import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
-import { money as fmtMoney } from '@/lib/format';
+import { money as fmtMoney, todayInAppTz } from '@/lib/format';
 import { closingFigures, cleanFees } from '@/lib/closing-statement';
 
 /** The signed-in user's id, for attributing an admin action. */
@@ -244,6 +244,61 @@ export async function saveClosingStatement(loanId: string, opts: {
     revalidatePath(`/admin/loans/${loanId}`);
     revalidatePath(`/admin/loans/${loanId}/closing-statement`);
     return { message: 'Closing statement saved.' };
+  });
+}
+
+/**
+ * Create or update a loan's payoff letter. Principal, interest and the draw
+ * count come from the loan, its draws and payments; only the through date,
+ * the fees, an interest start date the admin changed and one-off wire
+ * details are stored. Saving re-issues the letter as of today.
+ */
+export async function savePayoffLetter(loanId: string, opts: {
+  throughDate: string; interestFrom: string | null;
+  demandPrepFee: number; wiringFee: number; dischargeFee: number;
+  drawFee: number; lateFee: number; prepaymentPct: number;
+  wireInstructions: string | null;
+}) {
+  return run(async () => {
+    const supabase = await requireAdmin();
+    const { data: loan } = await supabase.from('loans').select('loan_number, closing_date').eq('id', loanId).maybeSingle();
+    if (!loan) throw new Error('That loan could not be found.');
+
+    const isDate = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if (!isDate(opts.throughDate)) throw new Error('Pick the date the payoff statement runs through.');
+    if (opts.throughDate < loan.closing_date) throw new Error('The through date cannot be before the closing date.');
+    if (opts.interestFrom !== null && !isDate(opts.interestFrom)) throw new Error('The interest start date is not a valid date.');
+    if (opts.interestFrom && opts.interestFrom > opts.throughDate) throw new Error('Interest cannot start after the through date.');
+    if (opts.interestFrom && opts.interestFrom < loan.closing_date) throw new Error('Interest cannot start before the closing date.');
+    const fees = [['demand prep fee', opts.demandPrepFee], ['wiring and processing fee', opts.wiringFee],
+      ['discharge fee', opts.dischargeFee], ['draw fee', opts.drawFee], ['late fee', opts.lateFee]] as const;
+    for (const [name, v] of fees) {
+      if (!Number.isFinite(Number(v)) || Number(v) < 0) throw new Error(`The ${name} cannot be negative.`);
+    }
+    const pct = Number(opts.prepaymentPct);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error('The prepayment penalty must be between 0 and 100 percent.');
+
+    const t = todayInAppTz();
+    const issuedOn = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    const { error } = await supabase.from('payoff_letters').upsert({
+      loan_id: loanId,
+      issued_on: issuedOn,
+      through_date: opts.throughDate,
+      interest_from: opts.interestFrom,
+      demand_prep_fee: Number(opts.demandPrepFee) || 0,
+      wiring_fee: Number(opts.wiringFee) || 0,
+      discharge_fee: Number(opts.dischargeFee) || 0,
+      draw_fee: Number(opts.drawFee) || 0,
+      late_fee: Number(opts.lateFee) || 0,
+      prepayment_pct: pct || 0,
+      wire_instructions: String(opts.wireInstructions ?? '').trim() || null,
+    }, { onConflict: 'loan_id' });
+    if (error) throw new Error(error.message);
+    await logActivity('payoff_letter_saved', loanId, await actorId(),
+      `${loan.loan_number} · through ${opts.throughDate}`);
+    revalidatePath(`/admin/loans/${loanId}`);
+    revalidatePath(`/admin/loans/${loanId}/payoff`);
+    return { message: 'Payoff letter saved.' };
   });
 }
 
