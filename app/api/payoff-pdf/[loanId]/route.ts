@@ -1,6 +1,6 @@
 import { serverClient } from '@/lib/supabase-server';
 import { payoffPDF } from '@/lib/payoff-pdf';
-import { payoffFigures, STANDARD_WIRE } from '@/lib/payoff';
+import { payoffFigures, STANDARD_WIRE, type PayoffFigures } from '@/lib/payoff';
 import { logActivity } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
@@ -22,16 +22,19 @@ export async function GET(_req: Request, { params }: { params: { loanId: string 
   const { data: loan } = await supabase.from('loan_summary').select('*').eq('loan_id', params.loanId).maybeSingle();
   if (!loan) return new Response('Not found', { status: 404 });
   const { data: letter } = await supabase.from('payoff_letters')
-    .select('issued_on, through_date, interest_from, demand_prep_fee, wiring_fee, discharge_fee, draw_fee, late_fee, prepayment_pct, wire_instructions')
+    .select('issued_on, through_date, interest_from, demand_prep_fee, wiring_fee, discharge_fee, draw_fee, late_fee, prepayment_pct, wire_instructions, figures')
     .eq('loan_id', loan.loan_id).maybeSingle();
   if (!letter) return new Response('No payoff letter for this loan yet', { status: 404 });
-  const [{ data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
-    supabase.from('draw_details').select('draw_date, amount, description').eq('loan_id', loan.loan_id),
-    supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loan.loan_id),
-    supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loan.loan_id),
-  ]);
-
-  const fig = payoffFigures(loan, draws ?? [], payments ?? [], allocations ?? [], letter);
+  // The amounts locked when the letter was saved, so a re-download is identical.
+  let fig = letter.figures as PayoffFigures | null;
+  if (!fig) {
+    const [{ data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
+      supabase.from('draw_details').select('draw_date, amount, description').eq('loan_id', loan.loan_id),
+      supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loan.loan_id),
+      supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loan.loan_id),
+    ]);
+    fig = payoffFigures(loan, draws ?? [], payments ?? [], allocations ?? [], letter);
+  }
   const pdf = await payoffPDF(loan, fig, letter.wire_instructions || STANDARD_WIRE, letter.issued_on);
   await logActivity('pdf_download', loan.loan_id, user.id, `Payoff Letter · ${loan.loan_number} · ${loan.property}`);
 

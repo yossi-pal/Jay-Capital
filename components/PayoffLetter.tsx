@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { savePayoffLetter } from '@/lib/actions';
+import { savePayoffLetter, refreshPayoffLetter } from '@/lib/actions';
 import { payoffFigures, autoInterestFrom, longDate, monthEnd, STANDARD_WIRE, type PayoffFigures } from '@/lib/payoff';
 import { money, pct, fmtDate, fmtDateTime, todayInAppTz, borrowerDisplayName } from '@/lib/format';
 import type { Draw } from '@/lib/interest';
@@ -22,6 +22,7 @@ interface Stored {
   late_fee: number | string;
   prepayment_pct: number | string;
   wire_instructions: string | null;
+  figures: PayoffFigures | null;   // the amounts as issued, locked at save
   updated_at: string;
 }
 
@@ -37,9 +38,9 @@ function formFrom(s: Stored | null, today: string) {
     demandPrep: n(s?.demand_prep_fee),
     wiring: n(s?.wiring_fee),
     discharge: n(s?.discharge_fee),
-    drawOn: !!Number(s?.draw_fee), drawFee: n(s?.draw_fee),
-    lateOn: !!Number(s?.late_fee), lateFee: n(s?.late_fee),
-    prepayOn: !!Number(s?.prepayment_pct), prepayPct: n(s?.prepayment_pct),
+    drawFee: n(s?.draw_fee),
+    lateFee: n(s?.late_fee),
+    prepayPct: n(s?.prepayment_pct),
     wire: s?.wire_instructions ?? '',              // '' = the standard wire details
   };
 }
@@ -57,18 +58,20 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
   const [wireEditing, setWireEditing] = useState(false);
   const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }));
 
-  // On screen the letter follows what is typed; once saved it comes from the stored row.
+  // While editing the letter follows what is typed. Once saved it shows the
+  // amounts locked at save; `live` is what they would be today, to spot when
+  // a new draw or payment means the letter needs refreshing.
   const input = editing
     ? {
         through_date: form.through || today,
         interest_from: form.interestFrom || null,
         demand_prep_fee: form.demandPrep, wiring_fee: form.wiring, discharge_fee: form.discharge,
-        draw_fee: form.drawOn ? form.drawFee : 0,
-        late_fee: form.lateOn ? form.lateFee : 0,
-        prepayment_pct: form.prepayOn ? form.prepayPct : 0,
+        draw_fee: form.drawFee, late_fee: form.lateFee, prepayment_pct: form.prepayPct,
       }
     : { ...letter!, through_date: letter?.through_date ?? today };
-  const fig = payoffFigures(loan, draws, payments, allocations, input);
+  const live = payoffFigures(loan, draws, payments, allocations, input);
+  const fig = !editing && letter?.figures ? letter.figures : live;
+  const outOfDate = !editing && !!letter?.figures && Math.abs(live.total - letter.figures.total) > 0.005;
   const auto = autoInterestFrom(loan, draws, allocations, input.through_date);
   const wire = (editing ? form.wire : letter?.wire_instructions ?? '') || STANDARD_WIRE;
 
@@ -87,9 +90,9 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
       demandPrepFee: Number(form.demandPrep) || 0,
       wiringFee: Number(form.wiring) || 0,
       dischargeFee: Number(form.discharge) || 0,
-      drawFee: form.drawOn ? Number(form.drawFee) || 0 : 0,
-      lateFee: form.lateOn ? Number(form.lateFee) || 0 : 0,
-      prepaymentPct: form.prepayOn ? Number(form.prepayPct) || 0 : 0,
+      drawFee: Number(form.drawFee) || 0,
+      lateFee: Number(form.lateFee) || 0,
+      prepaymentPct: Number(form.prepayPct) || 0,
       // Unchanged standard details are not stored, so they stay standard.
       wireInstructions: form.wire.trim() && form.wire.trim() !== STANDARD_WIRE ? form.wire : null,
     });
@@ -97,6 +100,14 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
     if (!res.ok) { setError(res.error || 'Could not save the payoff letter.'); return; }
     setEditing(false);
     setWireEditing(false);
+    router.refresh();
+  }
+
+  async function refresh() {
+    setBusy(true); setError('');
+    const res = await refreshPayoffLetter(loan.loan_id);
+    setBusy(false);
+    if (!res.ok) { setError(res.error || 'Could not refresh the payoff letter.'); return; }
     router.refresh();
   }
 
@@ -111,9 +122,25 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
         <div className="no-print doc-tabs">
           <h2 style={{ color: 'var(--navy)', margin: 0 }}>Payoff Letter</h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {canEdit && <button className="btn secondary" onClick={() => setEditing(true)}>Edit</button>}
+            {canEdit && <button className="btn secondary" disabled={busy} onClick={refresh}>{busy ? 'Refreshing...' : 'Refresh figures'}</button>}
+            {canEdit && <button className="btn secondary" disabled={busy} onClick={() => setEditing(true)}>Edit</button>}
             <a className="btn" style={{ textDecoration: 'none' }} href={`/api/payoff-pdf/${loan.loan_id}`} target="_blank" rel="noopener">Download PDF</a>
           </div>
+        </div>
+      )}
+      {letter && !editing && (
+        <div className="no-print">
+          {error && <div className="alert error">{error}</div>}
+          {outOfDate ? (
+            <div className="alert error">
+              New draws or payments have been recorded since this letter was issued. Today it would come to {money(live.total)}{' '}
+              instead of {money(fig.total)}.{canEdit ? ' Click Refresh figures to update it.' : ''}
+            </div>
+          ) : (
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 12px' }}>
+              The amounts are locked as issued on {fmtDate(letter.issued_on)}. Refresh figures picks up any new draws or payments.
+            </p>
+          )}
         </div>
       )}
 
@@ -170,29 +197,29 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
                   value={form[k]} onChange={e => set(k, e.target.value)} placeholder="0.00" />
               </div>
             ))}
-          </div>
-
-          <div className="addon-list">
-            <Addon on={form.drawOn} onToggle={v => set('drawOn', v)} label="Add draw fee">
-              <input className="field" type="number" step="0.01" min="0" inputMode="decimal" placeholder="Amount per draw"
+            <div className="field-wrap">
+              <label>Draw Fee ($ per draw)</label>
+              <input className="field" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00"
                 value={form.drawFee} onChange={e => set('drawFee', e.target.value)} />
-              <span className="muted hint">{fig.drawCount} draw{fig.drawCount === 1 ? '' : 's'} on this loan &middot; {money(fig.fees.drawFeeTotal)}</span>
-            </Addon>
-            <Addon on={form.lateOn} onToggle={v => set('lateOn', v)} label="Add late fee">
-              <input className="field" type="number" step="0.01" min="0" inputMode="decimal" placeholder="Amount ($)"
+              <span className="muted hint">{fig.drawCount} draw{fig.drawCount === 1 ? '' : 's'} on this loan{fig.fees.drawFeeTotal ? ` · ${money(fig.fees.drawFeeTotal)}` : ''}</span>
+            </div>
+            <div className="field-wrap">
+              <label>Late Fee ($)</label>
+              <input className="field" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0.00"
                 value={form.lateFee} onChange={e => set('lateFee', e.target.value)} />
-            </Addon>
-            <Addon on={form.prepayOn} onToggle={v => set('prepayOn', v)} label="Add prepayment penalty">
-              <input className="field" type="number" step="0.001" min="0" max="100" inputMode="decimal" placeholder="% of principal"
+            </div>
+            <div className="field-wrap">
+              <label>Prepayment Penalty (% of principal)</label>
+              <input className="field" type="number" step="0.001" min="0" max="100" inputMode="decimal" placeholder="0"
                 value={form.prepayPct} onChange={e => set('prepayPct', e.target.value)} />
-              <span className="muted hint">{money(fig.fees.prepayment)} &middot; on the outstanding principal</span>
-            </Addon>
+              {fig.fees.prepayment > 0 && <span className="muted hint">{money(fig.fees.prepayment)} on {money(fig.principal)}</span>}
+            </div>
           </div>
 
           <div className="form-section">Wire instructions</div>
           {wireEditing ? (
             <div className="field-wrap">
-              <textarea className="field" rows={9} style={{ fontFamily: 'inherit', lineHeight: 1.5 }} value={form.wire || STANDARD_WIRE} onChange={e => set('wire', e.target.value)} />
+              <textarea className="field" rows={9} value={form.wire || STANDARD_WIRE} onChange={e => set('wire', e.target.value)} />
               <span className="muted hint">
                 Changes apply to this letter only.{' '}
                 <button type="button" className="linkish" onClick={() => { set('wire', ''); setWireEditing(false); }}>Use the standard wire details</button>
@@ -225,19 +252,6 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
           issuedOn={editing ? today : letter!.issued_on}
           updatedAt={!editing ? letter?.updated_at : undefined} />
       )}
-    </div>
-  );
-}
-
-function Addon({ on, onToggle, label, children }: {
-  on: boolean; onToggle: (v: boolean) => void; label: string; children: React.ReactNode;
-}) {
-  return (
-    <div className="addon">
-      <label className="addon-toggle">
-        <input type="checkbox" checked={on} onChange={e => onToggle(e.target.checked)} /> {label}
-      </label>
-      {on && <div className="addon-body">{children}</div>}
     </div>
   );
 }

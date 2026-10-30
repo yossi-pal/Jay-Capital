@@ -94,6 +94,8 @@ th.sort-desc::after { content: ' \25BC'; font-size: 9px; }
 select.filter, input.field, select.field, textarea.field {
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff;
 }
+/* Browsers give text boxes a typewriter font by default; use the site's. */
+textarea.field { font-family: inherit; line-height: 1.5; }
 .btn { padding: 10px 16px; border: none; border-radius: 8px; background: var(--navy-med); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn:hover { background: var(--navy); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -532,10 +534,6 @@ select.filter, input.field, select.field, textarea.field {
    Payoff letter: the form's add-ons and wire box, and the letter itself.
    ============================================================ */
 .linkish { background: none; border: none; padding: 0; color: var(--navy-med); text-decoration: underline; cursor: pointer; font: inherit; }
-.addon-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 16px; margin-top: 16px; }
-.addon { border: 1px solid var(--navy-soft); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.addon-toggle { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--navy); cursor: pointer; font-size: 14px; }
-.addon-body { display: flex; flex-direction: column; gap: 6px; }
 .wire-view { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--pale); border-radius: 8px; font-size: 14px; line-height: 1.5; }
 .icon-btn { flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--navy-med); font-size: 16px; cursor: pointer; }
 .icon-btn:hover { background: var(--pale); }

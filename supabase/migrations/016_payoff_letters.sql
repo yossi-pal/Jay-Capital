@@ -7,6 +7,10 @@
 -- and the loan details are worked out from the loan, its draws and payments;
 -- only what the admin chooses is stored here.
 --
+-- The amounts are locked when the letter is saved: `figures` holds them
+-- exactly as issued, so reopening or re-downloading never changes the letter.
+-- Refreshing recalculates them with any new draws or payments.
+--
 -- A fee of 0 is left off the letter. interest_from is null while the start
 -- date follows the last payment automatically, and holds a date only when
 -- the admin has changed it. wire_instructions is null while the letter uses
@@ -29,6 +33,7 @@ create table if not exists public.payoff_letters (
   late_fee           numeric(14,2) not null default 0 check (late_fee >= 0),
   prepayment_pct     numeric(6,3)  not null default 0 check (prepayment_pct >= 0 and prepayment_pct <= 100),  -- % of principal
   wire_instructions  text,
+  figures            jsonb not null,   -- the letter's amounts, locked at save
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );

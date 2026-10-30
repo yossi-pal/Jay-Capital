@@ -14,7 +14,7 @@ export default async function PayoffPage({ params }: { params: { id: string } })
     supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', params.id),
     // Readable by staff and admins only (row level security); never borrowers.
     supabase.from('payoff_letters')
-      .select('issued_on, through_date, interest_from, demand_prep_fee, wiring_fee, discharge_fee, draw_fee, late_fee, prepayment_pct, wire_instructions, updated_at')
+      .select('issued_on, through_date, interest_from, demand_prep_fee, wiring_fee, discharge_fee, draw_fee, late_fee, prepayment_pct, wire_instructions, figures, updated_at')
       .eq('loan_id', params.id).maybeSingle(),
   ]);
   const { data: { user } } = await supabase.auth.getUser();

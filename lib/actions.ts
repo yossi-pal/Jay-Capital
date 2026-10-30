@@ -10,6 +10,7 @@ import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import { money as fmtMoney, todayInAppTz } from '@/lib/format';
 import { closingFigures, cleanFees } from '@/lib/closing-statement';
+import { payoffFigures } from '@/lib/payoff';
 
 /** The signed-in user's id, for attributing an admin action. */
 async function actorId(): Promise<string | null> {
@@ -247,11 +248,29 @@ export async function saveClosingStatement(loanId: string, opts: {
   });
 }
 
+/** Everything a payoff letter's amounts are worked out from, read fresh. */
+async function payoffSources(supabase: any, loanId: string) {
+  const [{ data: loan }, { data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
+    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date').eq('id', loanId).maybeSingle(),
+    supabase.from('draws').select('draw_date, amount, description').eq('loan_id', loanId),
+    supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loanId),
+    supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loanId),
+  ]);
+  if (!loan) throw new Error('That loan could not be found.');
+  return { loan, draws: draws ?? [], payments: payments ?? [], allocations: allocations ?? [] };
+}
+
+function todayIso(): string {
+  const t = todayInAppTz();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+
 /**
- * Create or update a loan's payoff letter. Principal, interest and the draw
- * count come from the loan, its draws and payments; only the through date,
- * the fees, an interest start date the admin changed and one-off wire
- * details are stored. Saving re-issues the letter as of today.
+ * Create or update a loan's payoff letter. The amounts are worked out here,
+ * from the loan, its draws and payments, and locked into the saved letter;
+ * only the through date, the fees, an interest start date the admin changed
+ * and one-off wire details are kept as inputs. Saving re-issues the letter
+ * as of today.
  */
 export async function savePayoffLetter(loanId: string, opts: {
   throughDate: string; interestFrom: string | null;
@@ -261,15 +280,15 @@ export async function savePayoffLetter(loanId: string, opts: {
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
-    const { data: loan } = await supabase.from('loans').select('loan_number, closing_date').eq('id', loanId).maybeSingle();
-    if (!loan) throw new Error('That loan could not be found.');
+    const src = await payoffSources(supabase, loanId);
+    const closing = src.loan.closing_date;
 
     const isDate = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
     if (!isDate(opts.throughDate)) throw new Error('Pick the date the payoff statement runs through.');
-    if (opts.throughDate < loan.closing_date) throw new Error('The through date cannot be before the closing date.');
+    if (opts.throughDate < closing) throw new Error('The through date cannot be before the closing date.');
     if (opts.interestFrom !== null && !isDate(opts.interestFrom)) throw new Error('The interest start date is not a valid date.');
     if (opts.interestFrom && opts.interestFrom > opts.throughDate) throw new Error('Interest cannot start after the through date.');
-    if (opts.interestFrom && opts.interestFrom < loan.closing_date) throw new Error('Interest cannot start before the closing date.');
+    if (opts.interestFrom && opts.interestFrom < closing) throw new Error('Interest cannot start before the closing date.');
     const fees = [['demand prep fee', opts.demandPrepFee], ['wiring and processing fee', opts.wiringFee],
       ['discharge fee', opts.dischargeFee], ['draw fee', opts.drawFee], ['late fee', opts.lateFee]] as const;
     for (const [name, v] of fees) {
@@ -278,11 +297,7 @@ export async function savePayoffLetter(loanId: string, opts: {
     const pct = Number(opts.prepaymentPct);
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error('The prepayment penalty must be between 0 and 100 percent.');
 
-    const t = todayInAppTz();
-    const issuedOn = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-    const { error } = await supabase.from('payoff_letters').upsert({
-      loan_id: loanId,
-      issued_on: issuedOn,
+    const inputs = {
       through_date: opts.throughDate,
       interest_from: opts.interestFrom,
       demand_prep_fee: Number(opts.demandPrepFee) || 0,
@@ -291,14 +306,38 @@ export async function savePayoffLetter(loanId: string, opts: {
       draw_fee: Number(opts.drawFee) || 0,
       late_fee: Number(opts.lateFee) || 0,
       prepayment_pct: pct || 0,
+    };
+    const figures = payoffFigures(src.loan, src.draws, src.payments, src.allocations, inputs);
+    const { error } = await supabase.from('payoff_letters').upsert({
+      loan_id: loanId, issued_on: todayIso(), ...inputs, figures,
       wire_instructions: String(opts.wireInstructions ?? '').trim() || null,
     }, { onConflict: 'loan_id' });
     if (error) throw new Error(error.message);
     await logActivity('payoff_letter_saved', loanId, await actorId(),
-      `${loan.loan_number} · through ${opts.throughDate}`);
+      `${src.loan.loan_number} · through ${opts.throughDate} · ${fmtMoney(figures.total)}`);
     revalidatePath(`/admin/loans/${loanId}`);
     revalidatePath(`/admin/loans/${loanId}/payoff`);
     return { message: 'Payoff letter saved.' };
+  });
+}
+
+/** Recalculate a saved payoff letter's locked amounts with the latest draws and payments. */
+export async function refreshPayoffLetter(loanId: string) {
+  return run(async () => {
+    const supabase = await requireAdmin();
+    const { data: letter } = await supabase.from('payoff_letters')
+      .select('through_date, interest_from, demand_prep_fee, wiring_fee, discharge_fee, draw_fee, late_fee, prepayment_pct')
+      .eq('loan_id', loanId).maybeSingle();
+    if (!letter) throw new Error('This loan has no payoff letter to refresh.');
+    const src = await payoffSources(supabase, loanId);
+    const figures = payoffFigures(src.loan, src.draws, src.payments, src.allocations, letter);
+    const { error } = await supabase.from('payoff_letters')
+      .update({ figures, issued_on: todayIso() }).eq('loan_id', loanId);
+    if (error) throw new Error(error.message);
+    await logActivity('payoff_letter_saved', loanId, await actorId(),
+      `${src.loan.loan_number} · refreshed · ${fmtMoney(figures.total)}`);
+    revalidatePath(`/admin/loans/${loanId}/payoff`);
+    return { message: 'Payoff letter refreshed.' };
   });
 }
 
