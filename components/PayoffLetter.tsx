@@ -173,8 +173,13 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
                   ? <>Changed by you. <button type="button" className="linkish" onClick={() => set('interestFrom', '')}>Use the date from the last payment ({fmtDate(auto.from)})</button></>
                   : auto.paidThrough
                     ? <>From the last payment: interest is paid through {fmtDate(auto.paidThrough)}.</>
-                    : <>No interest payments recorded yet, so it starts at closing.</>}
+                    : <>No month has been paid in full yet, so it starts at closing.</>}
               </span>
+              {fig.unpaidEarlier > 0 && (
+                <span className="muted hint">
+                  Earlier interest still open ({money(fig.unpaidEarlier)}) is added as its own Unpaid Interest line.
+                </span>
+              )}
               {fig.unapplied > 0 && (
                 <span className="hint" style={{ color: 'var(--danger)' }}>
                   {money(fig.unapplied)} in payments has not been applied to a month, so it is not counted here.

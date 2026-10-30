@@ -17,7 +17,7 @@
 
 import { chargeForPeriod, periodEndOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import { DRAW_DESCRIPTION, type Draw } from '@/lib/interest';
-import { firstOfMonth, fmtDate, money } from '@/lib/format';
+import { firstOfMonth, fmtDate, money, monthName } from '@/lib/format';
 
 /** Where payoff funds go unless a letter says otherwise. */
 export const STANDARD_WIRE = [
@@ -63,9 +63,12 @@ function engineLoan(loan: PayoffLoan) {
 }
 
 /**
- * The day interest starts by default: the day after the last month whose
- * interest has been paid in full, counting months in order from closing.
- * A month with nothing charged counts as settled.
+ * The day interest starts by default: the day after the LATEST month whose
+ * interest has been paid in full. An earlier month can still be open -- the
+ * closing-month stub is billed a month late, so a borrower who has paid June
+ * may still owe May's few days -- and that is collected separately as unpaid
+ * interest rather than holding the start date back. A month with nothing
+ * charged counts as settled.
  */
 export function autoInterestFrom(
   loan: PayoffLoan, draws: Draw[], allocations: AllocationRow[], throughDate: string,
@@ -80,8 +83,7 @@ export function autoInterestFrom(
   let paidThrough: string | null = null;
   for (let p = firstOfMonth(loan.closing_date), i = 0; p <= lastMonth && i < 600; p = firstOfMonth(p, 1), i++) {
     const charge = chargeForPeriod(eng, draws, p);
-    if ((paid.get(p) ?? 0) + 0.005 < charge) break;
-    paidThrough = periodEndOf(p);
+    if ((paid.get(p) ?? 0) + 0.005 >= charge) paidThrough = periodEndOf(p);
   }
   return { from: paidThrough ? addDays(paidThrough, 1) : loan.closing_date, paidThrough };
 }
@@ -130,6 +132,18 @@ export function payoffFigures(
   const alreadyPaid = from > through ? 0 : cents(allocations
     .filter(a => { const k = firstOfMonth(a.period_month); return k >= fromMonth && k <= throughMonth; })
     .reduce((s, a) => s + Number(a.amount), 0));
+  // Months before the interest window that are still not paid in full.
+  const paidByMonth = new Map<string, number>();
+  for (const a of allocations) {
+    const k = firstOfMonth(a.period_month);
+    paidByMonth.set(k, (paidByMonth.get(k) ?? 0) + Number(a.amount));
+  }
+  const openEarlier: { month: string; balance: number }[] = [];
+  for (let m = firstOfMonth(loan.closing_date), i = 0; m < fromMonth && i < 600; m = firstOfMonth(m, 1), i++) {
+    const balance = cents(chargeForPeriod(engineLoan(loan), draws, m) - (paidByMonth.get(m) ?? 0));
+    if (balance > 0.005) openEarlier.push({ month: m, balance });
+  }
+  const unpaidEarlier = cents(openEarlier.reduce((s, x) => s + x.balance, 0));
   const paidTotal = payments.reduce((s, x) => s + Number(x.amount), 0);
   const appliedTotal = allocations.reduce((s, a) => s + Number(a.amount), 0);
   const unapplied = cents(Math.max(0, paidTotal - appliedTotal));
@@ -148,6 +162,9 @@ export function payoffFigures(
   const lines: PayoffLine[] = [{ label: 'Outstanding Principal Balance', amount: principal }];
   if (from <= through) lines.push({ label: `Interest from ${fmtDate(from)} through ${fmtDate(through)}`, amount: grossInterest });
   if (alreadyPaid > 0) lines.push({ label: 'Less: Interest Already Paid', amount: -alreadyPaid });
+  if (unpaidEarlier > 0) {
+    lines.push({ label: `Unpaid Interest (${openEarlier.map(x => monthName(x.month)).join(', ')})`, amount: unpaidEarlier });
+  }
   if (fees.demandPrep) lines.push({ label: 'Demand Prep Fee', amount: fees.demandPrep });
   if (fees.wiring) lines.push({ label: 'Wiring & Processing Fee', amount: fees.wiring });
   if (fees.discharge) lines.push({ label: 'Discharge Fee', amount: fees.discharge });
@@ -165,7 +182,7 @@ export function payoffFigures(
 
   return {
     through, from, autoFrom: auto.from, paidThrough: addDays(from, -1),
-    principal, drawCount: construction.length, grossInterest, alreadyPaid, unapplied,
+    principal, drawCount: construction.length, grossInterest, alreadyPaid, unpaidEarlier, unapplied,
     fees, drawFee, prepaymentPct, lines, total, perDiem, validUntil: dayAfter,
   };
 }
