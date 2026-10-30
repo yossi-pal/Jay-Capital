@@ -545,6 +545,7 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .pay-panel .summary .row { padding: 8px 14px; }
 .panel-bar { background: var(--navy-med); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 10px 14px; }
 .wire-body { padding: 12px 14px; white-space: pre-line; line-height: 1.55; background: var(--pale); height: 100%; }
+.wire-ref { margin-top: 10px; font-weight: 700; color: var(--navy); white-space: normal; }
 .pay-terms { margin: 26px 0 18px; padding-top: 14px; border-top: 1px solid var(--navy-soft); font-size: 13px; line-height: 1.55; }
 .pay-sign { line-height: 1.6; }
 .pay-sign .who { font-weight: 800; color: var(--navy); margin-top: 6px; }

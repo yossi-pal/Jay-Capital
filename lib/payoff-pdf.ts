@@ -100,7 +100,7 @@ export async function payoffPDF(
   rtext(`Loan ${loan.loan_number}`, R, ry, 8.5, font, MUTED);
   y = Math.min(y, ry) - 22;
 
-  const auth = 'You are authorized to use the following amounts to payoff the above – mentioned loan.';
+  const auth = 'You are authorized to use the following amounts to pay off the above-mentioned loan.';
   text(auth, (PW - bold.widthOfTextAtSize(auth, 11.5)) / 2, y, 11.5, bold, NAVY);
   y -= 24;
 
@@ -123,7 +123,7 @@ export async function payoffPDF(
   text('TOTAL PAYOFF AMOUNT DUE', M + 10, y - 21, 12.5, bold, NAVY);
   rtext(money(fig.total), R - 10, y - 21, 13, bold, NAVY);
   y -= 46;
-  rtext(`Please add ${money(fig.perDiem)} for each additional day past ${fmtDate(fig.through)}.`, R, y, 10, bold, NAVY);
+  rtext(`Please add ${money(fig.perDiem)} per day for each day after ${fmtDate(fig.through)}.`, R, y, 10, bold, NAVY);
   y -= 24;
 
   // ---- loan details and wire instructions, side by side
@@ -137,7 +137,9 @@ export async function payoffPDF(
     ['Servicer', BRAND.legal],
   ];
   const wireLines = wrap(wire, 9.5, colW - 20);
-  const panelH = Math.max(details.length * 16, wireLines.length * 12) + 8;
+  // The title company knows the deal by its address, not our loan number.
+  const refLines = wrap(`Please reference: ${loan.property}`, 9, colW - 20);
+  const panelH = Math.max(details.length * 16, (wireLines.length + refLines.length) * 12 + 8) + 8;
   ensure(panelH + 40);
   const barTop = y;
   for (const [title, x] of [['LOAN DETAILS', M], ['FUNDS SHOULD BE WIRED TO', wx]] as const) {
@@ -154,6 +156,8 @@ export async function payoffPDF(
   }
   let wy = barTop - 22;
   for (const l of wireLines) { text(l, wx + 10, wy, 9.5); wy -= 12; }
+  wy -= 8;
+  for (const l of refLines) { text(l, wx + 10, wy, 9, bold, NAVY); wy -= 12; }
   y = barTop - 6 - panelH - 25;
 
   // ---- terms and signature

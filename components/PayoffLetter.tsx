@@ -284,7 +284,7 @@ function PayoffDocument({ loan, fig, wire, issuedOn, updatedAt }: {
         </div>
       </div>
 
-      <p className="pay-auth">You are authorized to use the following amounts to payoff the above – mentioned loan.</p>
+      <p className="pay-auth">You are authorized to use the following amounts to pay off the above-mentioned loan.</p>
 
       <div className="doc-table">
         <div className="doc-th"><span>Description</span><span>Amount</span></div>
@@ -299,7 +299,7 @@ function PayoffDocument({ loan, fig, wire, issuedOn, updatedAt }: {
           <span>{money(fig.total)}</span>
         </div>
       </div>
-      <p className="pay-perdiem">Please add {money(fig.perDiem)} for each additional day past {fmtDate(fig.through)}.</p>
+      <p className="pay-perdiem">Please add {money(fig.perDiem)} per day for each day after {fmtDate(fig.through)}.</p>
 
       <div className="pay-panels">
         <div className="pay-panel">
@@ -315,7 +315,10 @@ function PayoffDocument({ loan, fig, wire, issuedOn, updatedAt }: {
         </div>
         <div className="pay-panel">
           <div className="panel-bar">Funds should be wired to</div>
-          <div className="wire-body">{wire}</div>
+          <div className="wire-body">
+            {wire}
+            <div className="wire-ref">Please reference: {loan.property}</div>
+          </div>
         </div>
       </div>
 

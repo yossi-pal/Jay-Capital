@@ -21,15 +21,11 @@ import { firstOfMonth, fmtDate, money } from '@/lib/format';
 
 /** Where payoff funds go unless a letter says otherwise. */
 export const STANDARD_WIRE = [
-  'THALWEI ABSTRACT',
-  '24 Parker St. Suite 202',
+  'Thalwei Abstract',
+  '24 Parker St, Suite 202',
   'Spring Valley, NY 10977',
   'Account # 823195398',
-  '',
-  'Chase',
-  '270 Park Avenue',
-  'New York, NY 10017',
-  'ABA# 021000021',
+  'Chase, ABA # 021000021',
 ].join('\n');
 
 export interface PayoffLoan {
@@ -150,7 +146,7 @@ export function payoffFigures(
   };
 
   const lines: PayoffLine[] = [{ label: 'Outstanding Principal Balance', amount: principal }];
-  if (from <= through) lines.push({ label: `Interest ${fmtDate(from)} – ${fmtDate(through)}`, amount: grossInterest });
+  if (from <= through) lines.push({ label: `Interest from ${fmtDate(from)} through ${fmtDate(through)}`, amount: grossInterest });
   if (alreadyPaid > 0) lines.push({ label: 'Less: Interest Already Paid', amount: -alreadyPaid });
   if (fees.demandPrep) lines.push({ label: 'Demand Prep Fee', amount: fees.demandPrep });
   if (fees.wiring) lines.push({ label: 'Wiring & Processing Fee', amount: fees.wiring });
