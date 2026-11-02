@@ -3,7 +3,7 @@ import { serverClient } from '@/lib/supabase-server';
 import { statementPDF } from '@/lib/statement-pdf';
 import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
-import { firstOfMonth, clampMonth, todayInAppTz } from '@/lib/format';
+import { firstOfMonth, clampMonth, defaultStatementMonth } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: { loanId: stri
     .from('draw_details').select('*').eq('loan_id', loan.loan_id).order('draw_date', { ascending: true });
 
   const monthParam = new URL(req.url).searchParams.get('month');
-  const requested = monthParam ? firstOfMonth(monthParam) : firstOfMonth(todayInAppTz(), 1);
+  const requested = monthParam ? firstOfMonth(monthParam) : defaultStatementMonth();
   const statementDate = clampMonth(requested, loan.closing_date);
 
   const extras = await fetchStatementExtras(loan.loan_id, { requireUserAccess: true });
