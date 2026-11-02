@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createLoan } from '@/lib/actions';
 import LenderSelect, { type LenderOption } from '@/components/LenderSelect';
 import EntityFields from '@/components/EntityFields';
@@ -22,11 +21,10 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
   const [created, setCreated] = useState<{ id: string; message: string } | null>(null);
   const construction = Math.max(0, loanAmount - acquisition);
 
-  function skipClosingStatement() { router.push('/admin'); router.refresh(); }
+  function skipClosingStatement() { router.push('/admin/loans'); router.refresh(); }
 
   return (
     <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
       <div className="card" style={{ maxWidth: 820, margin: '0 auto' }}>
         <h1 className="title">New Loan</h1>
         <div className="rule" />

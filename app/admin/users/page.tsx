@@ -1,5 +1,4 @@
 import { serverClient } from '@/lib/supabase-server';
-import Link from 'next/link';
 import UserRowControls from '@/components/UserRowControls';
 import InviteUser from '@/components/InviteUser';
 import InviteStatus from '@/components/InviteStatus';
@@ -20,7 +19,6 @@ export default async function UsersPage() {
 
   return (
     <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
       <div className="card">
         <h1 className="title">Users &amp; Roles</h1>
         <div className="rule" />

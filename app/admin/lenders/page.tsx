@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { serverClient } from '@/lib/supabase-server';
 import LenderManager from '@/components/LenderManager';
 
@@ -24,7 +23,6 @@ export default async function LendersPage() {
 
   return (
     <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
       <div className="card">
         <h1 className="title">Lenders</h1>
         <div className="rule" />

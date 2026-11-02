@@ -45,7 +45,9 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: 'status',           label: 'Status' },
 ];
 
-export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; canEdit: boolean }) {
+export default function PortfolioTable({
+  loans, canEdit, pastDue = {},
+}: { loans: LoanRow[]; canEdit: boolean; pastDue?: Record<string, number> }) {
   const router = useRouter();
   const [q, setQ] = useState('');
   const [lender, setLender] = useState('');
@@ -93,7 +95,9 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
       total_draw: Number(l.total_disbursed || 0) - Number(l.acquisition || 0),
     }));
     let rows = withDraw.filter(l => {
-      if (status && l.status !== status) return false;
+      if (status === 'late') {
+        if (!(l.status === 'active' && (pastDue[l.loan_id] ?? 0) > 0.005)) return false;
+      } else if (status && l.status !== status) return false;
       if (lender && l.lender_name !== lender) return false;
       if (rateBand) {
         const [lo, hi] = rateBand.split('-').map(Number);
@@ -121,7 +125,7 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
       });
     }
     return rows;
-  }, [loans, q, lender, rateBand, status, sortKey, sortDir]);
+  }, [loans, q, lender, rateBand, status, sortKey, sortDir, pastDue]);
 
   const kpis = useMemo(() => {
     const capital = view.reduce((s, l) => s + Number(l.loan_amount || 0), 0);
@@ -173,11 +177,11 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
   return (
     <>
       <div className="kpis">
-        <div className="kpi"><div className="label">Total Capital</div><div className="value">{money(kpis.capital)}</div></div>
-        <div className="kpi"><div className="label">Total Disbursed</div><div className="value">{money(kpis.deployed)}</div></div>
-        <div className="kpi"><div className="label">Active Loans</div><div className="value">{kpis.count}</div></div>
-        <div className="kpi"><div className="label">Weighted Avg Rate</div><div className="value">{pct(kpis.rate)}</div></div>
-        <div className="kpi"><div className="label">Total Draw</div><div className="value">{money(kpis.totalDraw)}</div></div>
+        <div className="kpi"><div className="label">Total capital</div><div className="value">{money(kpis.capital)}</div></div>
+        <div className="kpi"><div className="label">Total disbursed</div><div className="value">{money(kpis.deployed)}</div></div>
+        <div className="kpi"><div className="label">Loans shown</div><div className="value">{kpis.count}</div></div>
+        <div className="kpi"><div className="label">Weighted avg rate</div><div className="value">{pct(kpis.rate)}</div></div>
+        <div className="kpi"><div className="label">Total draw</div><div className="value">{money(kpis.totalDraw)}</div></div>
       </div>
 
       <div className="card">
@@ -200,11 +204,15 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
           </select>
           <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="active">Active</option>
+            <option value="late">Past due</option>
             <option value="paid_off">Paid off</option>
             <option value="defaulted">Defaulted</option>
             <option value="">All statuses</option>
           </select>
-          <button className="btn" onClick={exportCSV}>Export CSV</button>
+          <button className="btn secondary" onClick={exportCSV}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16" /></svg>
+            Export CSV
+          </button>
           {(q || lender || rateBand || status !== 'active') && (
             <button
               className="btn secondary"
@@ -238,8 +246,8 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
                   className="clickable"
                   onClick={() => router.push(`/admin/loans/${l.loan_id}`)}
                 >
-                  <td>{l.loan_number}</td>
-                  <td>{l.borrower_name}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--navy-med)', whiteSpace: 'nowrap' }}>{l.loan_number}</td>
+                  <td style={{ fontWeight: 600 }}>{l.borrower_name}</td>
                   <td>{shortAddress(l.property)}</td>
                   <td className="num">{money(l.loan_amount)}</td>
                   <td className="num">{money(l.acquisition)}</td>
@@ -250,7 +258,7 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
                   <td className="num">{money(l.total_disbursed)}</td>
                   <td className="num">{money(l.total_draw)}</td>
                   <td className="num">{money(l.remaining_draw)}</td>
-                  <td>{l.status.replace('_', ' ')}</td>
+                  <td><StatusChip status={l.status} late={pastDue[l.loan_id]} /></td>
                 </tr>
               ))}
             </tbody>
@@ -265,4 +273,15 @@ export default function PortfolioTable({ loans, canEdit }: { loans: LoanRow[]; c
       </div>
     </>
   );
+}
+
+/** Status as a coloured label. A late active loan says so in red. */
+function StatusChip({ status, late }: { status: string; late?: number }) {
+  if (status === 'active' && late && late > 0.005) {
+    return <span className="chip late" title={`${money(late)} past due`}>Past due</span>;
+  }
+  if (status === 'active') return <span className="chip ok">Current</span>;
+  if (status === 'defaulted') return <span className="chip late">Defaulted</span>;
+  if (status === 'paid_off') return <span className="chip">Paid off</span>;
+  return <span className="chip">{status.replace('_', ' ')}</span>;
 }

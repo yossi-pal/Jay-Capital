@@ -162,7 +162,6 @@ export default async function InsightsPage() {
 
   return (
     <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
       <h1 className="title">Insights</h1>
       <div className="rule" />
 

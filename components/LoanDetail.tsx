@@ -77,7 +77,7 @@ export default function LoanDetail({
     setBusy(true);
     const res = await deleteLoan(summary.loan_id);
     if (!res.ok) { setActionError(res.error || 'Could not delete the loan.'); setBusy(false); return; }
-    router.push('/admin');
+    router.push('/admin/loans');
     router.refresh();
   }
   async function doDeleteDraw(id: string) {
@@ -97,7 +97,7 @@ export default function LoanDetail({
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         gap: 12, flexWrap: 'wrap', marginBottom: 12,
       }}>
-        <Link href="/admin">&larr; Back to Dashboard</Link>
+        <Link href="/admin/loans" style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
         <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} />
       </div>
 
