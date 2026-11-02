@@ -7,7 +7,7 @@ export type ActivityKind =
   | 'portal_view' | 'statement_view' | 'pdf_download'
   // admin: loans
   | 'loan_created' | 'loan_updated' | 'loan_deleted' | 'loan_status_changed'
-  | 'closing_statement_saved'
+  | 'closing_statement_saved' | 'payoff_letter_saved'
   // admin: draws and payments
   | 'draw_added' | 'draw_updated' | 'draw_deleted'
   | 'payment_added' | 'payment_updated' | 'payment_deleted'
