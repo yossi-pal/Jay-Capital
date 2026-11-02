@@ -157,6 +157,21 @@ export function clampMonth(candidate: string, closingDate: string): string {
 }
 
 /**
+ * The statement to open by default, as YYYY-MM-01 (New York time).
+ *
+ * Through the 15th of the month we keep showing the statement dated the 1st
+ * of this month -- the bill borrowers are still paying. From the 16th on we
+ * move ahead to next month's statement, the period now in progress.
+ * e.g. on 2 Nov the November statement opens; on 16 Nov, December's.
+ * This only picks the starting page; every statement stays in the dropdown.
+ */
+export const STATEMENT_ROLLOVER_DAY = 15;
+export function defaultStatementMonth(): string {
+  const today = todayInAppTz();
+  return firstOfMonth(today, today.getDate() > STATEMENT_ROLLOVER_DAY ? 1 : 0);
+}
+
+/**
  * The period a statement covers: the calendar month BEFORE the statement date.
  * Returns first and last day as YYYY-MM-DD plus a friendly "M/D/YYYY - M/D/YYYY".
  */
