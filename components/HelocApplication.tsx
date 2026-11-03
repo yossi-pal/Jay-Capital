@@ -1,16 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import AddressFields, { EMPTY_ADDRESS, formatAddress, type AddressValue } from '@/components/AddressFields';
 import { submitHelocApplication } from '@/lib/heloc';
-
-/** ###-##-#### as they type, without fighting backspace. */
-function formatSSN(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 9);
-  if (d.length <= 3) return d;
-  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
-  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
-}
 
 function formatPhone(raw: string): string {
   const d = raw.replace(/\D/g, '').slice(0, 10);
@@ -48,24 +40,13 @@ const USES = [
 
 export default function HelocApplication() {
   const [f, setF] = useState({
-    firstName: '', lastName: '', email: '', phone: '', dob: '', ssn: '',
+    firstName: '', lastName: '', email: '', phone: '', dob: '',
     propertyUse: '',
     propertyValue: '', mortgageBalance: '', monthlyPayment: '', annualIncome: '',
     notes: '', website: '',
   });
   const [propertyAddress, setPropertyAddress] = useState<AddressValue>({ ...EMPTY_ADDRESS });
   const [primaryAddress, setPrimaryAddress] = useState<AddressValue>({ ...EMPTY_ADDRESS });
-  const [showSsn, setShowSsn] = useState(false);
-
-  // Masking with -webkit-text-security keeps the input type="text", so browser
-  // and password-manager autofill treat it as an ordinary field instead of
-  // offering saved logins. Firefox has no such property, so it falls back to
-  // type="password" rather than showing the number in the clear.
-  const [maskable, setMaskable] = useState(true);
-  useEffect(() => {
-    setMaskable(typeof CSS !== 'undefined'
-      && CSS.supports?.('-webkit-text-security', 'disc') === true);
-  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
@@ -126,47 +107,9 @@ export default function HelocApplication() {
           <input type="date" value={f.dob} onChange={e => set('dob')(e.target.value)} required />
         </label>
 
-        <div className="lp-field">
-          <span>Social Security number</span>
-          <div style={{ position: 'relative', display: 'flex' }}>
-            <input
-              type={showSsn || maskable ? 'text' : 'password'}
-              inputMode="numeric"
-              name="ssn"
-              value={f.ssn}
-              onChange={e => set('ssn')(formatSSN(e.target.value))}
-              placeholder="123-45-6789"
-              required
-              autoComplete="off"
-              // tell the common password managers to stay out of this field
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              data-form-type="other"
-              style={{
-                paddingRight: 66,
-                ...(maskable && !showSsn ? { WebkitTextSecurity: 'disc' } as any : {}),
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowSsn(s => !s)}
-              aria-pressed={showSsn}
-              aria-label={showSsn ? 'Hide Social Security number' : 'Show Social Security number'}
-              style={{
-                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
-                font: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: '.04em',
-                textTransform: 'uppercase', color: 'var(--navy-med)',
-              }}
-            >
-              {showSsn ? 'Hide' : 'Show'}
-            </button>
-          </div>
-        </div>
       </div>
 
-      <AddressFields legend="Subject property address" required
+      <AddressFields legend="Subject property address" required section="property"
         value={propertyAddress} onChange={setPropertyAddress} />
 
       <div className="lp-form-grid">
@@ -185,7 +128,7 @@ export default function HelocApplication() {
       </div>
 
       {needsPrimary && (
-        <AddressFields legend="Your primary address" required
+        <AddressFields legend="Your primary address" required section="primary"
           value={primaryAddress} onChange={setPrimaryAddress} />
       )}
 
@@ -226,8 +169,7 @@ export default function HelocApplication() {
       </button>
 
       <p className="lp-form-note">
-        Sent securely to Jay Capital Funding. Your Social Security number is used only to
-        process this application and is never stored on this website.
+        Sent securely to Jay Capital Funding and used only to process this application.
       </p>
     </form>
   );

@@ -9,10 +9,9 @@ import { sendMail, brandShell, BRAND } from '@/lib/mailer';
  * Jay Capital places HELOCs through Onyx Equity Partners, so the application
  * is branded for both and the email says where it is going.
  *
- * NOTE ON THE SSN: it is collected because underwriting needs it, and it is
- * transmitted to the server over TLS. It is deliberately NOT stored anywhere
- * -- there is no database row for an application -- it only passes through
- * into the notification email. See the warning in the email body.
+ * The form deliberately does NOT ask for a Social Security number; the team
+ * collects it later, directly from the applicant. Nothing is stored -- there
+ * is no database row for an application -- it only becomes an email.
  */
 
 const APPLY_TO = 'Info@JayCapitalFunding.com';
@@ -25,7 +24,7 @@ const USES: Record<string, string> = {
 
 export interface HelocApplication {
   firstName: string; lastName: string; email: string; phone: string;
-  dob: string; ssn: string;
+  dob: string;
   propertyAddress: string; propertyUse: string; primaryAddress?: string;
   /** The same addresses split up, so the email can show them cleanly. */
   propertyAddressParts?: { street: string; city: string; state: string; zip: string };
@@ -60,7 +59,7 @@ export async function submitHelocApplication(input: HelocApplication) {
     const need: [keyof HelocApplication, string][] = [
       ['firstName', 'First name'], ['lastName', 'Last name'],
       ['email', 'Email address'], ['phone', 'Phone number'],
-      ['dob', 'Date of birth'], ['ssn', 'Social Security number'],
+      ['dob', 'Date of birth'],
       ['propertyAddress', 'Subject property address'], ['propertyUse', 'Property use'],
       ['propertyValue', 'Estimated current property value'],
       ['mortgageBalance', 'Approximate outstanding mortgage balance'],
@@ -96,7 +95,6 @@ export async function submitHelocApplication(input: HelocApplication) {
       throw new Error('Please enter a valid email address.');
     }
     if (digits(input.phone).length < 10) throw new Error('Please enter a valid phone number.');
-    if (digits(input.ssn).length !== 9) throw new Error('Please enter a valid 9-digit Social Security number.');
 
     for (const [k, label] of [
       ['propertyValue', 'Estimated current property value'],
@@ -112,9 +110,6 @@ export async function submitHelocApplication(input: HelocApplication) {
     if (!Number.isFinite(age) || age < 18 || age > 120) {
       throw new Error('Please check the date of birth. Applicants must be at least 18.');
     }
-
-    const ssnDigits = digits(input.ssn);
-    const ssnFormatted = `${ssnDigits.slice(0, 3)}-${ssnDigits.slice(3, 5)}-${ssnDigits.slice(5)}`;
 
     const money = (v: string) => {
       const n = parseMoney(v);
@@ -147,7 +142,6 @@ export async function submitHelocApplication(input: HelocApplication) {
            row('Email', input.email.trim()),
            row('Phone', input.phone.trim()),
            row('Date of birth', input.dob),
-           row('SSN', ssnFormatted),
          ].join(''))}
 
          ${section('Subject property', [
@@ -168,12 +162,7 @@ export async function submitHelocApplication(input: HelocApplication) {
            ? `${section('Notes', '')}<div style="background:${pale};border-radius:8px;padding:12px 14px;white-space:pre-wrap;font-size:14px;line-height:1.55">${esc(input.notes.trim())}</div>`
            : ''}
 
-         <p style="margin:20px 0 0;padding:10px 12px;background:#FDECEA;border-radius:8px;color:#8A1C18;font-size:12px;line-height:1.55">
-           This message contains a Social Security number. Handle it under your
-           information-security policy and do not forward it outside ${esc(BRAND.legal)}.
-         </p>
-
-         <p style="margin:14px 0 0;color:${muted};font-size:12px">Reply to this email to answer ${esc(name)} directly.</p>`
+         <p style="margin:20px 0 0;color:${muted};font-size:12px">Reply to this email to answer ${esc(name)} directly.</p>`
       ),
     });
 
