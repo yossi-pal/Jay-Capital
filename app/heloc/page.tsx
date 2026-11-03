@@ -70,9 +70,9 @@ export default function HelocPage() {
 
       <section className="lp-section alt" style={{ paddingTop: 52 }}>
         <div className="lp-shell lp-hero-grid" style={{ alignItems: 'start' }}>
-          <div className="hx-aside">
+          <div>
             <div className="lp-eyebrow">The application</div>
-            <h2 style={{ marginTop: 16 }}>A few details to get started.</h2>
+            <h2 style={{ marginTop: 14 }}>A few details to get started.</h2>
             <p style={{ color: '#4A5568', fontSize: 16.5, maxWidth: '44ch', marginTop: 14 }}>
               It takes a couple of minutes. Nothing here affects your credit — this is an
               enquiry, not a formal credit application.

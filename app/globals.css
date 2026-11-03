@@ -563,42 +563,15 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 }
 
 /* ============================================================
-   HELOC page: modern, clean look (Inter). Everything is scoped to
-   .heloc-page so the home page and the portal are untouched. The logo
-   keeps the brand face through --logo.
+   HELOC application form: modern, clean look (Inter). Scoped to the
+   form card alone -- the rest of the HELOC page, the home page and the
+   portal keep the brand fonts and layout.
    ============================================================ */
-.heloc-page {
-  --display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  --body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  font-family: var(--body);
-  font-feature-settings: 'cv11', 'ss01';
+.hx-form, .heloc-page .lp-form-done {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: var(--bg);
 }
-.heloc-page h1, .heloc-page h2 { font-weight: 700; letter-spacing: -.025em; }
-.heloc-page h1 { font-size: clamp(32px, 4.6vw, 54px); line-height: 1.08; }
-.heloc-page h2 { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.18; }
-.heloc-page h3 { font-weight: 600; letter-spacing: -.01em; }
-.heloc-page .lp-eyebrow {
-  display: inline-block; font-weight: 600; font-size: 12px; letter-spacing: .04em;
-  text-transform: none; color: var(--navy-med);
-  background: #fff; border: 1px solid #E1E8F1; border-radius: 999px; padding: 6px 12px;
-}
-.heloc-page .lp-rule { display: none; }
-.heloc-page .lp-lede { font-size: 18px; color: #4A5568; }
-.heloc-page .lp-card { border-radius: 14px; padding: 22px 22px 24px; }
-.heloc-page .lp-card h3 { font-size: 16.5px; }
-.heloc-page .lp-card p { font-size: 14.5px; line-height: 1.6; }
-.heloc-page .lp-nav-links a:not(.lp-btn) { font-weight: 500; }
-
-/* the application section: copy on the left stays in view while the form scrolls */
-.heloc-page .lp-section.alt { background: var(--bg); border: none; }
-@media (min-width: 901px) {
-  .heloc-page .lp-hero-grid { grid-template-columns: .75fr 1.25fr; gap: 56px; }
-  .hx-aside { position: sticky; top: 96px; }
-}
-.heloc-page .lp-partner { background: #fff; border-radius: 14px; }
-.heloc-page .lp-partner-lbl { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--navy); }
+.hx-form h3 { font-family: inherit; font-weight: 600; letter-spacing: -.01em; }
 
 /* the form card */
 .hx-form {
@@ -615,26 +588,26 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .hx-step-head h3 { font-size: 17px; margin: 3px 0 2px; color: var(--navy); }
 .hx-step-head p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 
-.heloc-page .lp-field > span, .heloc-page .lp-legend {
+.hx-form .lp-field > span, .hx-form .lp-legend {
   font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #2A3A4F;
 }
-.heloc-page .lp-legend { font-weight: 600; color: var(--navy); margin-bottom: 12px; }
-.heloc-page .lp-field > span em { font-weight: 400; letter-spacing: 0; margin-left: 4px; }
-.heloc-page .lp-field input, .heloc-page .lp-field select, .heloc-page .lp-field textarea {
+.hx-form .lp-legend { font-weight: 600; color: var(--navy); margin-bottom: 12px; }
+.hx-form .lp-field > span em { font-weight: 400; letter-spacing: 0; margin-left: 4px; }
+.hx-form .lp-field input, .hx-form .lp-field select, .hx-form .lp-field textarea {
   min-height: 46px; padding: 11px 14px; border-radius: 10px;
   border: 1px solid #D5DEE9; background: #FBFCFE;
   transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
 }
-.heloc-page .lp-field input:hover, .heloc-page .lp-field select:hover, .heloc-page .lp-field textarea:hover {
+.hx-form .lp-field input:hover, .hx-form .lp-field select:hover, .hx-form .lp-field textarea:hover {
   border-color: #B9C7D8;
 }
-.heloc-page .lp-field input:focus, .heloc-page .lp-field select:focus, .heloc-page .lp-field textarea:focus {
+.hx-form .lp-field input:focus, .hx-form .lp-field select:focus, .hx-form .lp-field textarea:focus {
   background: #fff; border-color: var(--navy-med); box-shadow: 0 0 0 4px rgba(14,42,71,.1);
 }
-.heloc-page .lp-field input::placeholder, .heloc-page .lp-field textarea::placeholder { color: #9AA8BA; }
-.heloc-page .lp-form-grid { gap: 0 16px; margin-bottom: 0; }
-.heloc-page .lp-fieldset { margin-bottom: 4px; }
-.heloc-page .lp-addr-grid { gap: 0 16px; }
+.hx-form .lp-field input::placeholder, .hx-form .lp-field textarea::placeholder { color: #9AA8BA; }
+.hx-form .lp-form-grid { gap: 0 16px; margin-bottom: 0; }
+.hx-form .lp-fieldset { margin-bottom: 4px; }
+.hx-form .lp-addr-grid { gap: 0 16px; }
 
 .hx-submit { padding: 22px 28px 26px; background: #FAFBFD; }
 .hx-btn {
@@ -648,16 +621,13 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .hx-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
 .hx-submit .lp-form-note { text-align: center; margin-top: 12px; }
 
-.heloc-page .lp-form-done { border-radius: 16px; border: 1px solid #E1E8F1; }
-.heloc-page .lp-form-done .lp-eyebrow { color: var(--ok); }
 
-@media (max-width: 900px) { .heloc-page .lp-hero-grid { gap: 32px; } }
 @media (max-width: 760px) {
   .hx-form { padding: 0; }
   .hx-step { padding: 22px 18px 8px; }
   .hx-submit { padding: 18px 18px 22px; }
 }
 @media (max-width: 620px) {
-  .heloc-page .lp-addr-grid { grid-template-columns: 1fr 1fr; }
-  .heloc-page .lp-addr-grid > :first-child { grid-column: 1 / -1; }
+  .hx-form .lp-addr-grid { grid-template-columns: 1fr 1fr; }
+  .hx-form .lp-addr-grid > :first-child { grid-column: 1 / -1; }
 }
