@@ -10,7 +10,7 @@ import { assertStrongPassword } from '@/lib/password';
 import { logActivity } from '@/lib/activity';
 import { money as fmtMoney, todayInAppTz } from '@/lib/format';
 import { closingFigures, cleanFees } from '@/lib/closing-statement';
-import { payoffFigures } from '@/lib/payoff';
+import { payoffFigures, lenderPayoffFigures, type PayoffFigures } from '@/lib/payoff';
 
 /** The signed-in user's id, for attributing an admin action. */
 async function actorId(): Promise<string | null> {
@@ -341,6 +341,56 @@ export async function refreshPayoffLetter(loanId: string) {
   });
 }
 
+/**
+ * Mark a loan paid off, or correct a payoff already recorded: the payoff
+ * date, the amount received, and the lender's late and discharge fees. Sets
+ * the loan's status and payoff date (interest stops there), and locks the
+ * Lender Payoff Statement and the comparison with the payoff letter.
+ */
+export async function markLoanPaidOff(loanId: string, opts: {
+  payoffDate: string; amountReceived: number; lateFee: number; dischargeFee: number;
+}) {
+  return run(async () => {
+    const supabase = await requireAdmin();
+    const src = await payoffSources(supabase, loanId);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(opts.payoffDate))) throw new Error('Please enter the payoff date.');
+    if (opts.payoffDate < src.loan.closing_date) throw new Error('The payoff date cannot be before the closing date.');
+    if (!Number.isFinite(Number(opts.amountReceived)) || Number(opts.amountReceived) <= 0) {
+      throw new Error('Please enter the payoff amount received.');
+    }
+    for (const [name, v] of [['late fee', opts.lateFee], ['discharge fee', opts.dischargeFee]] as const) {
+      if (!Number.isFinite(Number(v)) || Number(v) < 0) throw new Error(`The ${name} cannot be negative.`);
+    }
+
+    const { data: letter } = await supabase.from('payoff_letters').select('figures').eq('loan_id', loanId).maybeSingle();
+    const quoted = letter?.figures as PayoffFigures | undefined;
+    const figures = lenderPayoffFigures(src.loan, src.draws, src.payments, src.allocations, {
+      payoff_date: opts.payoffDate, amount_received: opts.amountReceived,
+      late_fee: opts.lateFee, discharge_fee: opts.dischargeFee,
+    }, quoted ? { total: quoted.total, through: quoted.through, perDiem: quoted.perDiem } : null);
+
+    const { error: loanErr } = await supabase.from('loans')
+      .update({ status: 'paid_off', paid_off_date: opts.payoffDate }).eq('id', loanId);
+    if (loanErr) throw new Error(loanErr.message);
+    const { error } = await supabase.from('loan_payoffs').upsert({
+      loan_id: loanId,
+      payoff_date: opts.payoffDate,
+      amount_received: figures.received,
+      late_fee: figures.lateFee,
+      discharge_fee: figures.dischargeFee,
+      figures,
+    }, { onConflict: 'loan_id' });
+    if (error) throw new Error(error.message);
+    await logActivity('loan_status_changed', loanId, await actorId(),
+      `Paid off ${opts.payoffDate} · received ${fmtMoney(figures.received)}`
+      + (figures.difference !== null ? ` · difference ${fmtMoney(figures.difference)}` : ''));
+    revalidatePath(`/admin/loans/${loanId}`);
+    revalidatePath(`/admin/loans/${loanId}/lender-payoff`);
+    revalidatePath('/admin');
+    return { message: 'Loan marked paid off.' };
+  });
+}
+
 export async function updateLoan(loanId: string, form: FormData) {
   return run(async () => {
     const supabase = await requireAdmin();
@@ -489,6 +539,9 @@ export async function setLoanStatus(loanId: string, status: string, paidOffDate?
       paid_off_date: status === 'paid_off' ? paidOffDate : null,
     }).eq('id', loanId);
     if (error) throw new Error(error.message);
+    // Back off paid off: the payoff it recorded (amount received, lender
+    // payoff statement) no longer applies.
+    if (status !== 'paid_off') await supabase.from('loan_payoffs').delete().eq('loan_id', loanId);
     await logActivity('loan_status_changed', loanId, await actorId(),
       status === 'paid_off' ? `Paid off ${paidOffDate}` : `Set to ${status.replace('_', ' ')}`);
     revalidatePath(`/admin/loans/${loanId}`);

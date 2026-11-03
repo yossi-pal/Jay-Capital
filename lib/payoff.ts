@@ -198,3 +198,50 @@ export function longDate(s: string): string {
 export function monthEnd(s: string): string {
   return periodEndOf(firstOfMonth(s));
 }
+
+/** What the borrower was quoted: the saved payoff letter's locked total, through date and per diem. */
+export interface PayoffQuote { total: number; through: string; perDiem: number }
+
+export interface LenderPayoffInput {
+  payoff_date: string;            // YYYY-MM-DD, the day the funds arrived
+  amount_received: number | string;
+  late_fee?: number | string;
+  discharge_fee?: number | string;
+}
+
+/** The lender's discharge fee, unless changed. */
+export const STANDARD_DISCHARGE_FEE = 250;
+
+/**
+ * The Lender Payoff Statement once a loan is paid off: principal, interest
+ * up to the actual payoff date, and the late and discharge fees -- nothing
+ * else the borrower was charged. Alongside it, for our side only, the amount
+ * received against what the borrower owed that day: the payoff letter's
+ * total plus its per diem for every day past the letter's through date.
+ */
+export function lenderPayoffFigures(
+  loan: PayoffLoan, draws: Draw[], payments: PaymentRow[], allocations: AllocationRow[],
+  p: LenderPayoffInput, quote: PayoffQuote | null,
+) {
+  const payoffDate = p.payoff_date.slice(0, 10);
+  const base = payoffFigures(loan, draws, payments, allocations, { through_date: payoffDate });
+  const lateFee = cents(Number(p.late_fee) || 0);
+  const dischargeFee = cents(Number(p.discharge_fee) || 0);
+  const lines: PayoffLine[] = [...base.lines];
+  if (lateFee) lines.push({ label: 'Late Fee', amount: lateFee });
+  if (dischargeFee) lines.push({ label: 'Discharge Fee', amount: dischargeFee });
+  const total = cents(lines.reduce((s, l) => s + l.amount, 0));
+
+  const received = cents(Number(p.amount_received) || 0);
+  const extraDays = quote ? Math.max(0, Math.round((parse(payoffDate).getTime() - parse(quote.through).getTime()) / 86_400_000)) : 0;
+  const expected = quote ? cents(quote.total + quote.perDiem * extraDays) : null;
+
+  return {
+    payoffDate, principal: base.principal, paidThrough: base.paidThrough,
+    lines, total, lateFee, dischargeFee,
+    received, expected, extraDays, quoteThrough: quote?.through ?? null, quotePerDiem: quote?.perDiem ?? null,
+    difference: expected === null ? null : cents(received - expected),
+  };
+}
+
+export type LenderPayoffFigures = ReturnType<typeof lenderPayoffFigures>;

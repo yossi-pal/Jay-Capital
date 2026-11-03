@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { savePayoffLetter, refreshPayoffLetter } from '@/lib/actions';
-import { payoffFigures, autoInterestFrom, longDate, monthEnd, STANDARD_WIRE, type PayoffFigures } from '@/lib/payoff';
+import { payoffFigures, autoInterestFrom, longDate, monthEnd, STANDARD_WIRE, STANDARD_DISCHARGE_FEE, type PayoffFigures } from '@/lib/payoff';
 import { money, pct, fmtDate, fmtDateTime, todayInAppTz, borrowerDisplayName } from '@/lib/format';
 import type { Draw } from '@/lib/interest';
 import type { PaymentRow, AllocationRow } from '@/lib/ledger';
@@ -37,7 +37,7 @@ function formFrom(s: Stored | null, today: string) {
     interestFrom: s?.interest_from ?? '',          // '' = follow the last payment
     demandPrep: n(s?.demand_prep_fee),
     wiring: n(s?.wiring_fee),
-    discharge: n(s?.discharge_fee),
+    discharge: s ? n(s.discharge_fee) : String(STANDARD_DISCHARGE_FEE),   // a new letter starts at the standard fee
     drawFee: n(s?.draw_fee),
     lateFee: n(s?.late_fee),
     prepayPct: n(s?.prepayment_pct),

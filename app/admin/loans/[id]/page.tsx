@@ -27,7 +27,10 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
   const { data: closingStatement } = await supabase.from('closing_statements')
     .select('id').eq('loan_id', params.id).maybeSingle();
   const { data: payoffLetter } = await supabase.from('payoff_letters')
-    .select('id').eq('loan_id', params.id).maybeSingle();
+    .select('late_fee, discharge_fee, figures').eq('loan_id', params.id).maybeSingle();
+  const { data: loanPayoff } = await supabase.from('loan_payoffs')
+    .select('amount_received, late_fee, discharge_fee, figures').eq('loan_id', params.id).maybeSingle();
+  const quoted = payoffLetter?.figures as any;
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
   const role = profile?.role;
@@ -42,6 +45,12 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       canSend={role === 'admin' || role === 'staff'}
       hasClosingStatement={!!closingStatement}
       hasPayoffLetter={!!payoffLetter}
+      payoffQuote={quoted ? { total: quoted.total, through: quoted.through, perDiem: quoted.perDiem } : null}
+      payoffDefaults={payoffLetter ? { lateFee: Number(payoffLetter.late_fee), dischargeFee: Number(payoffLetter.discharge_fee) } : null}
+      loanPayoff={loanPayoff ? {
+        amount_received: Number(loanPayoff.amount_received), late_fee: Number(loanPayoff.late_fee),
+        discharge_fee: Number(loanPayoff.discharge_fee), difference: (loanPayoff.figures as any)?.difference ?? null,
+      } : null}
       lienPosition={position?.lien_position ?? null}
     />
   );
