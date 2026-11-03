@@ -82,95 +82,117 @@ export default function HelocApplication() {
   }
 
   return (
-    <form className="lp-form" onSubmit={submit}>
-      <div className="lp-form-grid">
-        <label className="lp-field">
-          <span>First name</span>
-          <input value={f.firstName} onChange={e => set('firstName')(e.target.value)} required autoComplete="given-name" />
-        </label>
-        <label className="lp-field">
-          <span>Last name</span>
-          <input value={f.lastName} onChange={e => set('lastName')(e.target.value)} required autoComplete="family-name" />
-        </label>
-        <label className="lp-field">
-          <span>Email address</span>
-          <input type="email" value={f.email} onChange={e => set('email')(e.target.value)} required autoComplete="email" />
-        </label>
-        <label className="lp-field">
-          <span>Phone number</span>
-          <input type="tel" inputMode="tel" value={f.phone}
-            onChange={e => set('phone')(formatPhone(e.target.value))}
-            placeholder="(555) 123-4567" required autoComplete="tel" />
-        </label>
-        <label className="lp-field">
-          <span>Date of birth</span>
-          <input type="date" value={f.dob} onChange={e => set('dob')(e.target.value)} required />
-        </label>
+    <form className="lp-form hx-form" onSubmit={submit}>
+      <Step n={1} title="About you" sub="So we know who to get back to.">
+        <div className="lp-form-grid">
+          <label className="lp-field">
+            <span>First name</span>
+            <input value={f.firstName} onChange={e => set('firstName')(e.target.value)} required autoComplete="given-name" />
+          </label>
+          <label className="lp-field">
+            <span>Last name</span>
+            <input value={f.lastName} onChange={e => set('lastName')(e.target.value)} required autoComplete="family-name" />
+          </label>
+          <label className="lp-field">
+            <span>Email address</span>
+            <input type="email" value={f.email} onChange={e => set('email')(e.target.value)} required autoComplete="email" />
+          </label>
+          <label className="lp-field">
+            <span>Phone number</span>
+            <input type="tel" inputMode="tel" value={f.phone}
+              onChange={e => set('phone')(formatPhone(e.target.value))}
+              placeholder="(555) 123-4567" required autoComplete="tel" />
+          </label>
+          <label className="lp-field">
+            <span>Date of birth</span>
+            <input type="date" value={f.dob} onChange={e => set('dob')(e.target.value)} required />
+          </label>
+        </div>
+      </Step>
 
-      </div>
+      <Step n={2} title="The property" sub="The home you want to borrow against.">
+        <AddressFields legend="Property address" required section="property"
+          value={propertyAddress} onChange={setPropertyAddress} />
 
-      <AddressFields legend="Subject property address" required section="property"
-        value={propertyAddress} onChange={setPropertyAddress} />
+        <div className="lp-form-grid">
+          <label className="lp-field">
+            <span>Property use</span>
+            <select value={f.propertyUse} onChange={e => set('propertyUse')(e.target.value)} required>
+              <option value="">Select…</option>
+              {USES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+            </select>
+          </label>
+          <label className="lp-field">
+            <span>Estimated current value</span>
+            <input inputMode="numeric" value={f.propertyValue}
+              onChange={e => set('propertyValue')(formatMoney(e.target.value))} placeholder="$0" required />
+          </label>
+        </div>
 
-      <div className="lp-form-grid">
+        {needsPrimary && (
+          <AddressFields legend="Where you live now" required section="primary"
+            value={primaryAddress} onChange={setPrimaryAddress} />
+        )}
+      </Step>
+
+      <Step n={3} title="The numbers" sub="Rough figures are fine. We confirm everything later.">
+        <div className="lp-form-grid">
+          <label className="lp-field">
+            <span>Outstanding mortgage balance</span>
+            <input inputMode="numeric" value={f.mortgageBalance}
+              onChange={e => set('mortgageBalance')(formatMoney(e.target.value))} placeholder="$0" required />
+          </label>
+          <label className="lp-field">
+            <span>Current monthly payment</span>
+            <input inputMode="numeric" value={f.monthlyPayment}
+              onChange={e => set('monthlyPayment')(formatMoney(e.target.value))} placeholder="$0" required />
+          </label>
+          <label className="lp-field">
+            <span>Annual income</span>
+            <input inputMode="numeric" value={f.annualIncome}
+              onChange={e => set('annualIncome')(formatMoney(e.target.value))} placeholder="$0" required />
+          </label>
+        </div>
+
         <label className="lp-field">
-          <span>Property use</span>
-          <select value={f.propertyUse} onChange={e => set('propertyUse')(e.target.value)} required>
-            <option value="">Select…</option>
-            {USES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-          </select>
+          <span>Additional notes <em>optional</em></span>
+          <textarea rows={3} value={f.notes} onChange={e => set('notes')(e.target.value)}
+            placeholder="Anything else we should know." />
         </label>
-        <label className="lp-field">
-          <span>Estimated current property value</span>
-          <input inputMode="numeric" value={f.propertyValue}
-            onChange={e => set('propertyValue')(formatMoney(e.target.value))} placeholder="$0" required />
-        </label>
-      </div>
-
-      {needsPrimary && (
-        <AddressFields legend="Your primary address" required section="primary"
-          value={primaryAddress} onChange={setPrimaryAddress} />
-      )}
-
-      <div className="lp-form-grid">
-        <label className="lp-field">
-          <span>Approximate outstanding mortgage balance</span>
-          <input inputMode="numeric" value={f.mortgageBalance}
-            onChange={e => set('mortgageBalance')(formatMoney(e.target.value))} placeholder="$0" required />
-        </label>
-        <label className="lp-field">
-          <span>Approximate current monthly payment</span>
-          <input inputMode="numeric" value={f.monthlyPayment}
-            onChange={e => set('monthlyPayment')(formatMoney(e.target.value))} placeholder="$0" required />
-        </label>
-      </div>
-
-      <label className="lp-field">
-        <span>Approximate annual income</span>
-        <input inputMode="numeric" value={f.annualIncome}
-          onChange={e => set('annualIncome')(formatMoney(e.target.value))} placeholder="$0" required />
-      </label>
-
-      <label className="lp-field">
-        <span>Additional notes <em>optional</em></span>
-        <textarea rows={3} value={f.notes} onChange={e => set('notes')(e.target.value)}
-          placeholder="Anything else we should know." />
-      </label>
+      </Step>
 
       {/* honeypot: off-screen, not hidden, so bots still fill it */}
       <input tabIndex={-1} autoComplete="off" aria-hidden="true"
         value={f.website} onChange={e => set('website')(e.target.value)}
         style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
 
-      {err && <div className="lp-form-err">{err}</div>}
-
-      <button className="lp-btn brass" type="submit" disabled={busy} style={{ border: 'none', cursor: 'pointer' }}>
-        {busy ? 'Submitting…' : 'Submit application'}
-      </button>
-
-      <p className="lp-form-note">
-        Sent securely to Jay Capital Funding and used only to process this application.
-      </p>
+      <div className="hx-submit">
+        {err && <div className="lp-form-err">{err}</div>}
+        <button className="hx-btn" type="submit" disabled={busy}>
+          {busy ? 'Submitting…' : 'Submit application'}
+        </button>
+        <p className="lp-form-note">
+          Sent securely to Jay Capital Funding and used only to process this application.
+        </p>
+      </div>
     </form>
+  );
+}
+
+/** One numbered section of the application. */
+function Step({ n, title, sub, children }: {
+  n: number; title: string; sub: string; children: React.ReactNode;
+}) {
+  return (
+    <section className="hx-step" aria-labelledby={`hx-step-${n}`}>
+      <header className="hx-step-head">
+        <span className="hx-step-n" aria-hidden="true">{n}</span>
+        <div>
+          <h3 id={`hx-step-${n}`}>{title}</h3>
+          <p>{sub}</p>
+        </div>
+      </header>
+      {children}
+    </section>
   );
 }
