@@ -15,8 +15,10 @@ Set ONE key. The provider is inferred from whichever is present:
 | Google | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | ~10,000/month per SKU | yes |
 | Photon | *(none needed)* | free, fair use | no |
 
-With no key at all it falls back to Photon (OpenStreetMap), which needs no
-account but has patchier US house-number coverage.
+With no key at all there are no suggestions: the form shows plain Street /
+City / State / ZIP boxes, which the browser can still autofill. Photon
+(OpenStreetMap) is used only if `NEXT_PUBLIC_ADDRESS_PROVIDER=photon` is set on
+purpose; its US house-number coverage proved too patchy to be the default.
 
 To force one explicitly, set `NEXT_PUBLIC_ADDRESS_PROVIDER` to `radar`,
 `mapbox`, `google` or `photon`.

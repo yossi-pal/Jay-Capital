@@ -561,3 +561,61 @@ textarea.field { font-family: inherit; line-height: 1.5; }
   .wrap { padding: 0; }
   .card { box-shadow: none; border: none; }
 }
+
+/* ============================================================
+   HELOC application form: modern, clean look (Inter). Scoped to the
+   form card alone -- the rest of the HELOC page, the home page and the
+   portal keep the brand fonts and layout.
+   ============================================================ */
+.hx-form, .heloc-page .lp-form-done {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the form card */
+.hx-form {
+  padding: 28px; border-radius: 16px;
+  border: 1px solid #E1E8F1; box-shadow: 0 1px 2px rgba(4,22,42,.04), 0 12px 32px rgba(4,22,42,.07);
+}
+
+.hx-form .lp-field > span, .hx-form .lp-legend {
+  font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #2A3A4F;
+}
+.hx-form .lp-legend { font-weight: 600; color: var(--navy); margin-bottom: 12px; }
+.hx-form .lp-field > span em { font-weight: 400; letter-spacing: 0; margin-left: 4px; }
+.hx-form .lp-field input, .hx-form .lp-field select, .hx-form .lp-field textarea {
+  min-height: 46px; padding: 11px 14px; border-radius: 10px;
+  border: 1px solid #D5DEE9; background: #FBFCFE;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.hx-form .lp-field input:hover, .hx-form .lp-field select:hover, .hx-form .lp-field textarea:hover {
+  border-color: #B9C7D8;
+}
+.hx-form .lp-field input:focus, .hx-form .lp-field select:focus, .hx-form .lp-field textarea:focus {
+  background: #fff; border-color: var(--navy-med); box-shadow: 0 0 0 4px rgba(14,42,71,.1);
+}
+.hx-form .lp-field input::placeholder, .hx-form .lp-field textarea::placeholder { color: #9AA8BA; }
+.hx-form .lp-form-grid { gap: 0 16px; margin-bottom: 0; align-items: end; }
+.hx-form .lp-fieldset { margin-bottom: 4px; }
+.hx-form .lp-addr-grid { gap: 0 16px; }
+
+
+.hx-btn {
+  width: 100%; min-height: 52px; border: none; border-radius: 12px; cursor: pointer;
+  background: var(--navy); color: #fff; font: inherit; font-size: 16px; font-weight: 600;
+  transition: background .15s ease, transform .15s ease;
+}
+.hx-btn:hover { background: var(--navy-med); }
+.hx-btn:active { transform: translateY(1px); }
+.hx-btn:disabled { opacity: .65; cursor: default; }
+.hx-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+.hx-form .lp-form-note { text-align: center; margin-top: 12px; }
+
+
+@media (max-width: 760px) {
+  .hx-form { padding: 20px 18px; }
+}
+@media (max-width: 620px) {
+  .hx-form .lp-addr-grid { grid-template-columns: 1fr 1fr; }
+  .hx-form .lp-addr-grid > :first-child { grid-column: 1 / -1; }
+}
