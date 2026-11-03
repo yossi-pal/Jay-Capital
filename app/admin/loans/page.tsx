@@ -1,6 +1,6 @@
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import PortfolioTable from '@/components/PortfolioTable';
-import { pastDueByLoan } from '@/lib/portfolio-health';
+import { pastDueByLoan, dueNowByLoan } from '@/lib/portfolio-health';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +30,7 @@ export default async function LoansPage() {
   // signed-in user is staff, exactly as the Insights page does.
   const list = loans ?? [];
   let pastDue: Record<string, number> = {};
+  let due: Record<string, { amount: number; date: string; deferred: boolean }> = {};
   if (profile?.role === 'admin' || profile?.role === 'staff') {
     const svc = serviceClient();
     const [{ data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
@@ -39,6 +40,7 @@ export default async function LoansPage() {
     ]);
     const map = pastDueByLoan(list, draws ?? [], payments ?? [], allocations ?? []);
     pastDue = Object.fromEntries(Array.from(map.entries()).map(([k, v]) => [k, v.amount]));
+    due = Object.fromEntries(dueNowByLoan(list, draws ?? [], payments ?? [], allocations ?? []).entries());
   }
 
   return (
@@ -46,7 +48,7 @@ export default async function LoansPage() {
       <div className="page-head">
         <div className="grow">
           <h1>Loans</h1>
-          <div className="sub">Your whole portfolio. Click any row to open the loan.</div>
+          <div className="sub">Your whole portfolio. Click any loan to open it.</div>
         </div>
         {profile?.role === 'admin' && (
           <Link className="btn" href="/admin/loans/new">
@@ -55,7 +57,7 @@ export default async function LoansPage() {
           </Link>
         )}
       </div>
-      <PortfolioTable loans={list} canEdit={profile?.role === 'admin'} pastDue={pastDue} />
+      <PortfolioTable loans={list} canEdit={profile?.role === 'admin'} pastDue={pastDue} due={due} />
     </div>
   );
 }

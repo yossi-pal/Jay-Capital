@@ -76,7 +76,7 @@ h1.title {
    Staff app shell: navy side menu + content. On narrow screens the
    menu becomes a slide-in drawer behind a top bar.
    ============================================================ */
-.shell { display: flex; min-height: 100vh; }
+.shell { display: flex; min-height: 100vh; background: linear-gradient(to right, var(--navy) 252px, var(--bg) 252px); }
 .side {
   flex: 0 0 252px; width: 252px; background: var(--navy); color: #B7C3D3;
   display: flex; flex-direction: column; gap: 26px; padding: 22px 14px 16px;
@@ -118,7 +118,7 @@ h1.title {
 .scrim { display: none; }
 
 @media (max-width: 960px) {
-  .shell { display: block; }
+  .shell { display: block; background: var(--bg); }
   .topbar {
     display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 40;
     background: var(--navy); padding: 10px 14px; color: #fff;
@@ -804,3 +804,82 @@ textarea.field { font-family: inherit; line-height: 1.5; }
   .wrap { padding: 0; }
   .card { box-shadow: none; border: none; }
 }
+
+/* ============================================================
+   Loan list
+   ============================================================ */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px;
+  border-radius: 999px; border: 1px solid var(--border); background: #fff; color: #33445A;
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.fchip .n { font-weight: 500; opacity: .65; font-variant-numeric: tabular-nums; }
+.fchip:hover { border-color: #B9C5D4; }
+.fchip.alarm:not(.on) { border-color: #F1C9C5; color: #A12A22; }
+.fchip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.list-sum {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 0 18px 14px; font-size: 13px; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.list-sum b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.loanlist table { min-width: 980px; }
+@media (min-width: 1250px) { .loanlist table { min-width: 0; } }
+.loanlist thead th { background: #FAFBFC; }
+.loanlist tbody td { padding: 14px; vertical-align: middle; }
+.loanlist td.ln { font-weight: 600; color: var(--navy-med); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.loanlist .who { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--ink); }
+.loanlist .who b { font-weight: 600; }
+.loanlist .who span { font-size: 13px; color: var(--muted); }
+.loanlist tr:hover .who b { text-decoration: underline; }
+.sub-late { display: block; font-size: 12px; font-weight: 600; color: #A12A22; }
+
+/* ============================================================
+   Loan page
+   ============================================================ */
+.loan-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+.loan-head .grow { flex: 1 1 360px; min-width: 0; }
+.loan-head h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.015em; color: var(--navy); }
+.loan-head .sub { margin-top: 6px; color: var(--muted); font-size: 14px; }
+.loan-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.tabs { display: flex; overflow-x: auto; padding: 0 22px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: none; background: none; border: none; border-bottom: 2px solid transparent; margin-right: 26px;
+  padding: 16px 2px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.tab:hover { color: var(--navy); }
+.tab.on { color: var(--navy); border-bottom-color: var(--brass); }
+.tab-body { padding: 22px 24px 26px; }
+.tab-h { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--navy); }
+.danger-zone {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+  margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--hair); font-size: 13.5px;
+}
+@media (max-width: 760px) {
+  .loan-head h1 { font-size: 22px; }
+  .loan-actions { justify-content: flex-start; }
+  .tabs { padding: 0 14px; }
+  .tab { margin-right: 20px; }
+  .tab-body { padding: 18px 14px 20px; }
+}
+
+/* Borrower home: the three-up grid */
+.bgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; }
+.bgrid .help-card { align-self: stretch; }
+.bcard { padding: 20px 22px; }
+.bcard-h { margin: 0 0 10px; font-size: 17px; font-weight: 700; color: var(--navy); }
+.kv { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--hair); font-size: 14px; }
+.kv span:first-child { color: var(--muted); }
+.kv span:last-child { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.srow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--hair); }
+.sicon { width: 36px; height: 36px; flex: none; border-radius: 10px; background: var(--brass-bg); color: #7A5A20; display: flex; align-items: center; justify-content: center; }
+.stxt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.stxt b { font-size: 14px; font-weight: 600; }
+.stxt span { font-size: 12.5px; color: var(--muted); }
+.stxt .tlate { color: #A12A22; font-weight: 600; }
+.stxt .tok { color: #17643F; }
+.btn.sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.prow { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--hair); font-size: 14px; }
+.prow .pd { flex: 1; min-width: 0; }
+.prow .pa { font-weight: 600; font-variant-numeric: tabular-nums; }
