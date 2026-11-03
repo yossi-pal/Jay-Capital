@@ -38,7 +38,7 @@ type Row = LoanRow & {
   lender: string;
 };
 type SortKey = 'loan_number' | 'borrower_name' | 'state' | 'loan_amount' | 'total_disbursed'
-  | 'annual_rate' | 'due_amount' | 'due_date' | 'lender';
+  | 'annual_rate' | 'due_amount' | 'lender';
 
 const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: 'loan_number',     label: 'Loan' },
@@ -48,7 +48,6 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: 'total_disbursed', label: 'Principal',   num: true },
   { key: 'annual_rate',     label: 'Rate',        num: true },
   { key: 'due_amount',      label: 'Amount due',  num: true },
-  { key: 'due_date',        label: 'Due date' },
   { key: 'lender',          label: 'Lender' },
 ];
 
@@ -71,7 +70,6 @@ export default function PortfolioTable({
   const router = useRouter();
   const [q, setQ] = useState('');
   const [lender, setLender] = useState('');
-  const [rateBand, setRateBand] = useState('');
   const [status, setStatus] = useState('active');
   const [sortKey, setSortKey] = useState<SortKey | null>('loan_number');
   const [sortDir, setSortDir] = useState<1 | -1>(1);
@@ -88,21 +86,30 @@ export default function PortfolioTable({
         const v = JSON.parse(raw);
         if (typeof v.q === 'string') setQ(v.q);
         if (typeof v.lender === 'string') setLender(v.lender);
-        if (typeof v.rateBand === 'string') setRateBand(v.rateBand);
         if (typeof v.status === 'string') setStatus(v.status);
         if (v.sortKey === null || COLUMNS.some(c => c.key === v.sortKey)) setSortKey(v.sortKey);
         if (v.sortDir === 1 || v.sortDir === -1) setSortDir(v.sortDir);
       }
     } catch { /* corrupt or unavailable: defaults are fine */ }
+    // A link such as the Today page's "Past due" box asks for one view
+    // (?status=late). Honour it with a clean slate so nothing hides those
+    // loans, then tidy the address bar.
+    try {
+      const want = new URLSearchParams(window.location.search).get('status');
+      if (want !== null && FILTERS.some(f => f.value === want)) {
+        setStatus(want); setQ(''); setLender('');
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch { /* ignore */ }
     setRestored(true);
   }, []);
 
   useEffect(() => {
     if (!restored) return;   // don't overwrite saved state with the defaults
     try {
-      window.localStorage.setItem(VIEW_KEY, JSON.stringify({ q, lender, rateBand, status, sortKey, sortDir }));
+      window.localStorage.setItem(VIEW_KEY, JSON.stringify({ q, lender, status, sortKey, sortDir }));
     } catch { /* ignore */ }
-  }, [restored, q, lender, rateBand, status, sortKey, sortDir]);
+  }, [restored, q, lender, status, sortKey, sortDir]);
 
   const rows: Row[] = useMemo(() => loans.map(l => {
     const late = pastDue[l.loan_id] ?? 0;
@@ -142,11 +149,6 @@ export default function PortfolioTable({
       if (status === 'late') { if (l.state !== 'late') return false; }
       else if (status && l.status !== status) return false;
       if (lender && l.lender_name !== lender) return false;
-      if (rateBand) {
-        const [lo, hi] = rateBand.split('-').map(Number);
-        const r = rateFraction(l.annual_rate) * 100;
-        if (!(r >= lo && r < hi)) return false;
-      }
       if (q) {
         const hay = [
           l.loan_number, l.borrower_name, l.entity_name, l.property, l.lender_name, l.lender_short_name,
@@ -169,14 +171,13 @@ export default function PortfolioTable({
       });
     }
     return out;
-  }, [rows, q, lender, rateBand, status, sortKey, sortDir]);
+  }, [rows, q, lender, status, sortKey, sortDir]);
 
   const totals = useMemo(() => {
     const capital = view.reduce((s, l) => s + Number(l.loan_amount || 0), 0);
-    const weighted = view.reduce((s, l) => s + rateFraction(l.annual_rate) * Number(l.loan_amount || 0), 0);
     const principal = view.reduce((s, l) => s + Number(l.total_disbursed || 0), 0);
     const dueSum = view.reduce((s, l) => s + Number(l.due_amount || 0), 0);
-    return { capital, principal, dueSum, rate: capital > 0 ? weighted / capital : 0 };
+    return { capital, principal, dueSum };
   }, [view]);
 
   // Publish the order actually on screen, so Prev/Next on a loan follows the
@@ -228,7 +229,7 @@ export default function PortfolioTable({
     URL.revokeObjectURL(a.href);
   }
 
-  const filtered = q || lender || rateBand || status !== 'active';
+  const filtered = q || lender || status !== 'active';
 
   return (
     <>
@@ -256,15 +257,9 @@ export default function PortfolioTable({
             <option value="">All lenders</option>
             {lenders.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
-          <select className="filter" aria-label="Interest rate" value={rateBand} onChange={e => setRateBand(e.target.value)}>
-            <option value="">All rates</option>
-            <option value="0-8">Under 8%</option>
-            <option value="8-10">8% &ndash; 10%</option>
-            <option value="10-100">Over 10%</option>
-          </select>
           {filtered && (
             <button className="btn secondary"
-              onClick={() => { setQ(''); setLender(''); setRateBand(''); setStatus('active'); }}>
+              onClick={() => { setQ(''); setLender(''); setStatus('active'); }}>
               Reset
             </button>
           )}
@@ -278,7 +273,6 @@ export default function PortfolioTable({
           <span><b>{view.length}</b> {view.length === 1 ? 'loan' : 'loans'}</span>
           <span><b>{money(totals.capital)}</b> committed</span>
           <span><b>{money(totals.principal)}</b> principal out</span>
-          <span><b>{pct(totals.rate)}</b> weighted rate</span>
           <span><b>{money(totals.dueSum)}</b> due on current statements</span>
         </div>
 
@@ -317,9 +311,6 @@ export default function PortfolioTable({
                   <td className="num">
                     {l.due_date ? money(l.due_amount) : <span className="muted">—</span>}
                     {l.late > 0.005 && <span className="sub-late">{money(l.late)} past due</span>}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {l.due_date ? fmtDate(l.due_date) : <span className="muted">—</span>}
                   </td>
                   <td className="muted" style={{ whiteSpace: 'nowrap' }}>{l.lender}</td>
                 </tr>

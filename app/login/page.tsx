@@ -6,6 +6,7 @@ import Link from 'next/link';
 import PasswordField from '@/components/PasswordField';
 import { browserClient } from '@/lib/supabase-browser';
 import { requestPasswordReset } from '@/lib/signup';
+import Monogram from '@/components/Monogram';
 
 /**
  * Password sign-in only.
@@ -56,11 +57,9 @@ function LoginForm() {
   return (
     <div className="auth-split">
       <section className="auth-brand">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
+        <Monogram className="watermark" height={620} />
         <Link href="/" className="side-brand" style={{ position: 'relative', padding: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.svg" alt="" width={34} height={50} />
+          <Monogram height={50} />
           <span className="wm"><b style={{ fontSize: 20 }}>JAY CAPITAL</b><span style={{ fontSize: 11 }}>FUNDING</span></span>
         </Link>
         <div style={{ position: 'relative' }}>

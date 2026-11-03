@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
-import { money, fmtDate, pct, fmtDateTime, todayInAppTz } from '@/lib/format';
-import { buildLedger, chargeForPeriod, periodsThrough, pastDueAsOf } from '@/lib/ledger';
+import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
+import { buildLedger, chargeForPeriod, periodsThrough } from '@/lib/ledger';
 import { firstOfMonth } from '@/lib/format';
 import InsightsCharts from '@/components/InsightsCharts';
 import ActivityFeed from '@/components/ActivityFeed';
@@ -52,15 +52,11 @@ export default async function InsightsPage() {
   const capital = active.reduce((s: number, l: any) => s + Number(l.loan_amount || 0), 0);
   const disbursed = active.reduce((s: number, l: any) => s + Number(l.total_disbursed || 0), 0);
   const undrawn = active.reduce((s: number, l: any) => s + Number(l.remaining_draw || 0), 0);
-  const wRate = capital > 0
-    ? active.reduce((s: number, l: any) => s + Number(l.annual_rate || 0) * Number(l.loan_amount || 0), 0) / capital
-    : 0;
 
   // Billed vs collected across every loan, using the same ledger the
   // statements use, so these numbers agree with what borrowers were sent.
   const thisPeriod = firstOfMonth(todayInAppTz(), -1);
   let billed = 0, collected = 0, outstanding = 0;
-  const overdue: { loan: any; amount: number; months: number; oldest: string }[] = [];
 
   for (const l of loanList) {
     const engineLoan = {
@@ -85,20 +81,7 @@ export default async function InsightsPage() {
 
     const led = buildLedger(engineLoan, d, p, a, firstOfMonth(todayInAppTz()));
     outstanding += Math.max(0, led.amountDue);
-
-    // As of TODAY, not relative to a statement: a charge is late the moment
-    // its due date passes, so the month just billed counts from the 1st.
-    const late = pastDueAsOf(engineLoan, d, p, a, todayInAppTz());
-    if (late.length) {
-      overdue.push({
-        loan: l,
-        amount: late.reduce((s, r) => s + r.balance, 0),
-        months: late.length,
-        oldest: late[0].statementDate,
-      });
-    }
   }
-  overdue.sort((a, b) => b.amount - a.amount);
 
   // ---- engagement
   const byId = new Map(loanList.map((l: any) => [l.loan_id, l]));
@@ -170,7 +153,6 @@ export default async function InsightsPage() {
         <div className="kpi"><div className="label">Capital Committed</div><div className="value">{money(capital)}</div></div>
         <div className="kpi"><div className="label">Disbursed</div><div className="value">{money(disbursed)}</div></div>
         <div className="kpi"><div className="label">Undrawn</div><div className="value">{money(undrawn)}</div></div>
-        <div className="kpi"><div className="label">Weighted Rate</div><div className="value">{pct(wRate)}</div></div>
       </div>
 
       <div className="kpis">
@@ -181,28 +163,6 @@ export default async function InsightsPage() {
       </div>
 
       <InsightsCharts series={series} />
-
-      <div className="card" style={{ marginTop: 20 }}>
-        <h2 style={{ color: 'var(--navy)', marginTop: 0 }}>Past Due</h2>
-        {overdue.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>Nothing is past due. Every charge that has come due has been settled.</p>
-        ) : (
-          <table className="bordered">
-            <thead><tr><th>Borrower</th><th>Property</th><th>Due Since</th><th className="num">Months Open</th><th className="num">Amount</th></tr></thead>
-            <tbody>
-              {overdue.map(o => (
-                <tr key={o.loan.loan_id}>
-                  <td><Link href={`/admin/loans/${o.loan.loan_id}`}>{o.loan.borrower_name}</Link></td>
-                  <td>{o.loan.property}</td>
-                  <td>{fmtDate(o.oldest)}</td>
-                  <td className="num">{o.months}</td>
-                  <td className="num">{money(o.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
 
       <div className="kpis" style={{ marginTop: 20 }}>
         <div className="kpi"><div className="label">Borrowers With A Login</div><div className="value">{withLogin}</div></div>

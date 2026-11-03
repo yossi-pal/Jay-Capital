@@ -5,6 +5,7 @@ import StatementView, { type StatementData, type StatementDraw, type PayInfo } f
 import { money, pct, fmtDate, shortAddress, clampMonth, defaultStatementMonth, firstOfMonth, todayInAppTz, monthName, statementMonths } from '@/lib/format';
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import EmailUs from '@/components/EmailUs';
+import Monogram from '@/components/Monogram';
 
 export interface PortalLoan {
   loan: StatementData;
@@ -156,8 +157,7 @@ export default function PortalLoans({
     <>
       <div className="bwrap">
         <section className="hero" aria-label="Payment summary">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="watermark" src="/logo-mark.svg" alt="" aria-hidden="true" />
+          <Monogram className="watermark" height={340} />
           <div className="hero-row">
             <div className="hero-main">
               <span className="hi">Hi{first ? ` ${first}` : ''},</span>
@@ -230,7 +230,7 @@ export default function PortalLoans({
                           ? <span className="chip late">Past due</span>
                           : <span className="chip ok">Current</span>}
                     </span>
-                    <span className="meta">{l.loan.loan_number}</span>
+                    <span className="meta">{money(l.loan.loan_amount)} loan</span>
                     <span className="bal">{money(l.loan.paid_off_date ? 0 : l.loan.total_disbursed)}</span>
                     <span className="meta">Principal balance</span>
                   </button>
@@ -247,7 +247,6 @@ export default function PortalLoans({
             <div className="muted" style={{ fontSize: 13, margin: '8px 0 6px' }}>
               {money(L.total_disbursed)} of {money(L.loan_amount)} drawn
             </div>
-            <div className="kv"><span>Loan number</span><span>{L.loan_number}</span></div>
             <div className="kv"><span>Principal balance</span><span>{money(paidOff ? 0 : L.total_disbursed)}</span></div>
             {Number(L.remaining_draw) > 0.005 && !paidOff && (
               <div className="kv"><span>Still available to draw</span><span>{money(L.remaining_draw)}</span></div>
@@ -256,6 +255,7 @@ export default function PortalLoans({
             <div className="kv"><span>Payments</span><span>Monthly interest</span></div>
             <div className="kv"><span>Closing date</span><span>{fmtDate(L.closing_date)}</span></div>
             <div className="kv"><span>Property</span><span style={{ maxWidth: '60%' }}>{L.property}</span></div>
+            <div className="loanref">Loan reference {L.loan_number}</div>
           </section>
 
           <section className="card bcard">

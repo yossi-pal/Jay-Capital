@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Monogram from '@/components/Monogram';
 
 /**
- * The staff app frame: a navy side menu beside the page. On phones and small
- * tablets the menu tucks away behind a top bar and slides in from the left.
+ * The staff app frame: a navy side menu beside the page. On any phone or
+ * tablet (either way up) and on narrow windows, the menu tucks away behind a
+ * top bar, slides in when the three-line button is tapped, and closes with
+ * the « button, a tap outside it, or Escape.
  */
 
 type IconName = 'home' | 'loans' | 'chart' | 'plus' | 'upload' | 'bank' | 'users';
@@ -46,8 +49,7 @@ const MANAGE: Item[] = [
 function Brand() {
   return (
     <Link href="/admin" className="side-brand">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo-mark.svg" alt="" width={27} height={40} />
+      <Monogram height={40} />
       <span className="wm"><b>JAY CAPITAL</b><span>FUNDING</span></span>
     </Link>
   );
@@ -61,6 +63,22 @@ export default function AdminShell({
 
   // Close the drawer whenever a link takes you somewhere.
   useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Turning a phone or tablet sideways (or resizing the window) never leaves
+  // the menu standing open on its own.
+  useEffect(() => {
+    // Width only: phone browsers also fire "resize" when the address bar
+    // slides away, which must not close the menu mid-tap.
+    let lastW = window.innerWidth;
+    const shut = () => setOpen(false);
+    const onResize = () => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; setOpen(false); } };
+    window.addEventListener('orientationchange', shut);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('orientationchange', shut);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // Escape closes the drawer on a phone or tablet with a keyboard.
   useEffect(() => {
@@ -91,7 +109,13 @@ export default function AdminShell({
       <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />
 
       <aside className="side" aria-label="Main menu">
-        <Brand />
+        <div className="side-top">
+          <Brand />
+          <button type="button" className="side-close" aria-label="Close menu" title="Close menu"
+            onClick={() => setOpen(false)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
+          </button>
+        </div>
         <nav style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="side-group">
             <span className="side-label">Workspace</span>

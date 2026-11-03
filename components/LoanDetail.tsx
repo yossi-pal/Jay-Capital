@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, defaultStatementMonth, lienPositionLabel, shortAddress } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
-import { deleteDraw, setLoanStatus, deleteLoan, deletePayment } from '@/lib/actions';
+import { deleteDraw, setLoanStatus, deletePayment } from '@/lib/actions';
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
@@ -39,7 +39,6 @@ export default function LoanDetail({
   const [stmtDate, setStmtDate] = useState(() => clampMonth(defaultStatementMonth(), summary.closing_date));
   const months = statementMonths(summary.closing_date, summary.paid_off_date);
 
-  const [confirmDeleteLoan, setConfirmDeleteLoan] = useState(false);
   const [confirmDeleteDraw, setConfirmDeleteDraw] = useState<string | null>(null);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
   const [payoffOpen, setPayoffOpen] = useState(false);
@@ -73,14 +72,6 @@ export default function LoanDetail({
   const atNewest = stmtDate >= months[0];
   const atOldest = stmtDate <= months[months.length - 1];
 
-  async function doDeleteLoan() {
-    setConfirmDeleteLoan(false);
-    setBusy(true);
-    const res = await deleteLoan(summary.loan_id);
-    if (!res.ok) { setActionError(res.error || 'Could not delete the loan.'); setBusy(false); return; }
-    router.push('/admin/loans');
-    router.refresh();
-  }
   async function doDeleteDraw(id: string) {
     setConfirmDeleteDraw(null);
     setBusy(true);
@@ -281,12 +272,6 @@ export default function LoanDetail({
                   {money(ledger.unapplied)} in payments has not been applied to a specific month yet.
                 </p>
               )}
-              {canEdit && (
-                <div className="danger-zone">
-                  <span className="muted">Remove this loan and all of its draws and payments.</span>
-                  <button className="btn danger" disabled={busy} onClick={() => setConfirmDeleteLoan(true)}>Delete loan</button>
-                </div>
-              )}
             </>
           )}
 
@@ -417,13 +402,6 @@ export default function LoanDetail({
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmDeleteLoan}
-        title="Delete loan"
-        message={`Delete loan ${summary.loan_number} for ${summary.borrower_name}? This permanently removes the loan and all of its draws.`}
-        confirmLabel="Delete loan" danger
-        onConfirm={doDeleteLoan} onCancel={() => setConfirmDeleteLoan(false)}
-      />
       <ConfirmDialog
         open={!!confirmDeleteDraw}
         title="Delete draw"

@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
-import { money, pct, fmtDate, firstOfMonth, todayInAppTz, shortAddress, APP_TZ } from '@/lib/format';
+import { money, fmtDate, firstOfMonth, todayInAppTz, shortAddress, APP_TZ } from '@/lib/format';
 import { pastDueByLoan } from '@/lib/portfolio-health';
-import ActivityFeed from '@/components/ActivityFeed';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -31,15 +30,12 @@ export default async function TodayPage() {
 
   const svc = serviceClient();
   const [{ data: loans }, { data: draws }, { data: payments }, { data: allocations },
-         { data: borrowers }, { data: profiles }, { data: activity }] = await Promise.all([
+         { data: borrowers }] = await Promise.all([
     supabase.from('loan_summary').select('*'),
     svc.from('draws').select('loan_id, draw_date, amount, description'),
     svc.from('payments').select('id, loan_id, payment_date, amount, method, note'),
     svc.from('payment_allocations').select('payment_id, loan_id, period_month, amount'),
     svc.from('borrowers').select('id, name, email, user_id'),
-    svc.from('profiles').select('id, email, full_name, role'),
-    svc.from('portal_activity').select('id, kind, loan_id, user_id, occurred_at, detail')
-       .order('occurred_at', { ascending: false }).limit(51),
   ]);
 
   const loanList = loans ?? [];
@@ -49,9 +45,6 @@ export default async function TodayPage() {
   const committed = active.reduce((s: number, l: any) => s + Number(l.loan_amount || 0), 0);
   const disbursed = active.reduce((s: number, l: any) => s + Number(l.total_disbursed || 0), 0);
   const undrawn = active.reduce((s: number, l: any) => s + Number(l.remaining_draw || 0), 0);
-  const wRate = committed > 0
-    ? active.reduce((s: number, l: any) => s + Number(l.annual_rate || 0) * Number(l.loan_amount || 0), 0) / committed
-    : 0;
 
   const lateMap = pastDueByLoan(loanList, draws ?? [], payList, allocations ?? []);
   const late = Array.from(lateMap.entries())
@@ -110,12 +103,12 @@ export default async function TodayPage() {
           <div className="meter" aria-hidden="true"><i style={{ width: `${committed > 0 ? Math.min(100, (disbursed / committed) * 100) : 0}%` }} /></div>
           <span className="foot">of {money(committed)} committed · {money(undrawn)} left to draw</span>
         </div>
-        <Link className="kpi" href="/admin/loans">
+        <Link className="kpi" href="/admin/loans?status=active">
           <span className="label">Active loans</span>
           <span className="value">{active.length}</span>
-          <span className="foot">Weighted rate {pct(wRate)}</span>
+          <span className="foot">{active.length - late.length} current · {late.length} past due</span>
         </Link>
-        <Link className={`kpi${late.length ? ' alert-red' : ''}`} href="/admin/loans">
+        <Link className={`kpi${late.length ? ' alert-red' : ''}`} href="/admin/loans?status=late">
           <span className="label">
             <span className="dot" style={{ background: late.length ? '#C8372D' : '#1B7F4F' }} />
             Past due
@@ -154,9 +147,9 @@ export default async function TodayPage() {
                 </Link>
               ))}
               {late.length > attention.length && (
-                <Link className="att" href="/admin/insights">
+                <Link className="att" href="/admin/loans?status=late">
                   <span className="ic red">+{late.length - attention.length}</span>
-                  <span className="txt"><b>More past-due loans</b><span>See the full list on Insights</span></span>
+                  <span className="txt"><b>More past-due loans</b><span>See every past-due loan</span></span>
                   <span className="go">View →</span>
                 </Link>
               )}
@@ -192,15 +185,6 @@ export default async function TodayPage() {
             </div>
           </section>
 
-          <section className="card">
-            <div className="panel-head"><h2>Recent activity</h2></div>
-            <ActivityFeed
-              initialRows={(activity ?? []).slice(0, 50) as any}
-              initialHasMore={(activity ?? []).length > 50}
-              loans={loanList.map((l: any) => ({ loan_id: l.loan_id, loan_number: l.loan_number, borrower_name: l.borrower_name }))}
-              accounts={(profiles ?? []).map((p: any) => ({ id: p.id, email: p.email, name: p.full_name, role: p.role }))}
-            />
-          </section>
         </div>
       </div>
     </div>
