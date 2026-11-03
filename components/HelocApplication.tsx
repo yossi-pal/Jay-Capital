@@ -179,14 +179,13 @@ export default function HelocApplication() {
   );
 }
 
-/** One numbered section of the application. */
+/** One titled section of the application. */
 function Step({ n, title, sub, children }: {
   n: number; title: string; sub: string; children: React.ReactNode;
 }) {
   return (
     <section className="hx-step" aria-labelledby={`hx-step-${n}`}>
       <header className="hx-step-head">
-        <span className="hx-step-n" aria-hidden="true">{n}</span>
         <div>
           <h3 id={`hx-step-${n}`}>{title}</h3>
           <p>{sub}</p>

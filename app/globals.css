@@ -580,11 +580,6 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 }
 .hx-step { padding: 26px 28px 12px; border-bottom: 1px solid #EDF1F6; }
 .hx-step-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
-.hx-step-n {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--navy); color: #fff; font-size: 14px; font-weight: 600;
-}
 .hx-step-head h3 { font-size: 17px; margin: 3px 0 2px; color: var(--navy); }
 .hx-step-head p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 
