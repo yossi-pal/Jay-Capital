@@ -314,14 +314,17 @@ export default function PortfolioTable({
                   <td className="num">{pct(l.annual_rate)}</td>
                   <td className="num">
                     {l.due_date
-                      ? <span className={l.late > 0.005 ? 'amt-late' : undefined}>{money(l.due_amount)}</span>
+                      // Red only when the whole amount is late. When just part
+                      // of it is, the total stays black and the red line below
+                      // says how much of it is past due.
+                      ? <span className={l.late > 0.005 && Math.abs(l.late - l.due_amount) < 0.01 ? 'amt-late' : undefined}>{money(l.due_amount)}</span>
                       : <span className="muted">—</span>}
                     {/* A late amount is shown in red; the Status column already
                         says "Past due". A second line appears only when just part
                         of what's due is late. */}
                     {l.late > 0.005 && l.due_date && Math.abs(l.late - l.due_amount) >= 0.01 && (
                       <span className="sub-late">
-                        {l.late < l.due_amount ? `${money(l.late)} of it past due` : `${money(l.late)} past due`}
+                        {l.late < l.due_amount ? `${money(l.late)} of it is past due` : `${money(l.late)} past due`}
                       </span>
                     )}
                   </td>
