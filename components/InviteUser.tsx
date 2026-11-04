@@ -49,8 +49,11 @@ export default function InviteUser() {
   }
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      <button className="btn" onClick={() => { setErr(''); setOpen(true); }}>Add admin / staff user</button>
+    <div>
+      <button className="btn" onClick={() => { setErr(''); setOpen(true); }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D9B676" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        Add staff user
+      </button>
 
       <Modal open={open} onClose={() => !busy && setOpen(false)} title="Add Admin / Staff User" maxWidth={500}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

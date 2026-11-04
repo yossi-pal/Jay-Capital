@@ -957,3 +957,52 @@ textarea.field { font-family: inherit; line-height: 1.5; }
   .hx-form .lp-addr-grid { grid-template-columns: 1fr 1fr; }
   .hx-form .lp-addr-grid > :first-child { grid-column: 1 / -1; }
 }
+
+/* ============================================================
+   Lenders
+   ============================================================ */
+.lender-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+.lender-card { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; }
+.lender-card.off { opacity: .75; }
+.lc-top { display: flex; align-items: flex-start; gap: 12px; }
+.lc-ic { width: 42px; height: 42px; flex: none; border-radius: 12px; background: #EAF0F7; color: var(--navy-med); display: flex; align-items: center; justify-content: center; }
+.lc-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lc-name b { font-size: 16px; font-weight: 700; color: var(--navy); }
+.lc-name span { font-size: 13px; color: var(--muted); }
+.lc-stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); gap: 10px; padding: 14px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.lc-stats div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lc-stats span { font-size: 12px; color: var(--muted); }
+.lc-stats b { font-size: 16px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-pay { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.lc-pay span { color: var(--muted); }
+.lc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+@media (max-width: 420px) { .lender-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Users
+   ============================================================ */
+.chip.gold { background: var(--brass-bg); color: #7A5A20; }
+.userlist table { min-width: 860px; }
+.userlist tbody td { padding: 14px; vertical-align: middle; }
+.u-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.u-av { width: 38px; height: 38px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: #E7F4EC; color: #17643F; }
+.u-av.admin { background: var(--navy); color: #D9B676; }
+.u-av.staff { background: var(--brass-bg); color: #7A5A20; }
+.u-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.u-txt b { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.u-txt > span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.u-you { font-size: 11px; font-weight: 600; background: var(--pale); color: var(--navy-med); padding: 2px 8px; border-radius: 999px; }
+.row-actions { display: inline-flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.menu-wrap { position: relative; }
+.menu-scrim { position: fixed; inset: 0; z-index: 60; }
+.menu {
+  position: fixed; z-index: 61; min-width: 210px; padding: 6px;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(4,22,42,.14);
+  display: flex; flex-direction: column; text-align: left;
+}
+.menu button {
+  background: none; border: none; text-align: left; padding: 11px 12px; border-radius: 8px; font: inherit;
+  font-size: 14px; color: var(--ink); cursor: pointer; min-height: 44px;
+}
+.menu button:hover, .menu button:focus-visible { background: var(--bg); }
+.menu button.danger { color: var(--danger); }
