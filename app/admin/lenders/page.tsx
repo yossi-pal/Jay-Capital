@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { serverClient } from '@/lib/supabase-server';
 import LenderManager from '@/components/LenderManager';
 
@@ -14,26 +13,26 @@ export default async function LendersPage() {
 
   const { data: lenders } = await supabase
     .from('lenders').select('id, name, short_name, active, payment_method, payment_instructions').order('name');
-  const { data: loans } = await supabase.from('loans').select('lender_id');
+  const { data: loans } = await supabase.from('loans').select('lender_id, status, loan_amount');
 
-  const counts = new Map<string, number>();
+  const stats = new Map<string, { all: number; active: number; committed: number }>();
   for (const l of loans ?? []) {
-    if (l.lender_id) counts.set(l.lender_id, (counts.get(l.lender_id) ?? 0) + 1);
+    if (!l.lender_id) continue;
+    const s = stats.get(l.lender_id) ?? { all: 0, active: 0, committed: 0 };
+    s.all++;
+    if (l.status === 'active') { s.active++; s.committed += Number(l.loan_amount || 0); }
+    stats.set(l.lender_id, s);
   }
-  const rows = (lenders ?? []).map((l: any) => ({ ...l, loan_count: counts.get(l.id) ?? 0 }));
+  const rows = (lenders ?? []).map((l: any) => ({
+    ...l,
+    loan_count: stats.get(l.id)?.all ?? 0,
+    active_loans: stats.get(l.id)?.active ?? 0,
+    committed: stats.get(l.id)?.committed ?? 0,
+  }));
 
   return (
-    <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
-      <div className="card">
-        <h1 className="title">Lenders</h1>
-        <div className="rule" />
-        <p className="muted">
-          Lenders here populate the dropdown on new and edited loans. Inactivating one
-          keeps it on existing loans but removes it from the list of choices.
-        </p>
-        <LenderManager lenders={rows} />
-      </div>
+    <div className="wrap" style={{ maxWidth: 1400 }}>
+      <LenderManager lenders={rows} />
     </div>
   );
 }

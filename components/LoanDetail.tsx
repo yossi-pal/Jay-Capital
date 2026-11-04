@@ -3,15 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, defaultStatementMonth, lienPositionLabel } from '@/lib/format';
+import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, defaultStatementMonth, lienPositionLabel, shortAddress } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
-import { deleteDraw, setLoanStatus, deleteLoan, deletePayment } from '@/lib/actions';
+import { deleteDraw, setLoanStatus, deletePayment } from '@/lib/actions';
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
 import AddDrawModal from '@/components/AddDrawModal';
 import AddBorrowerModal from '@/components/AddBorrowerModal';
-import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
+import { ConfirmDialog, AlertDialog } from '@/components/Modal';
 import LoanPager from '@/components/LoanPager';
 import MarkPaidOffModal, { signedMoney } from '@/components/MarkPaidOffModal';
 import type { PayoffQuote } from '@/lib/payoff';
@@ -46,7 +46,6 @@ export default function LoanDetail({
   const [stmtDate, setStmtDate] = useState(() => clampMonth(defaultStatementMonth(), summary.closing_date));
   const months = statementMonths(summary.closing_date, summary.paid_off_date);
 
-  const [confirmDeleteLoan, setConfirmDeleteLoan] = useState(false);
   const [confirmDeleteDraw, setConfirmDeleteDraw] = useState<string | null>(null);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
   const [payoffOpen, setPayoffOpen] = useState(false);
@@ -58,6 +57,7 @@ export default function LoanDetail({
   const [statusValue, setStatusValue] = useState(summary.status);
   useEffect(() => { setStatusValue(summary.status); }, [summary.status]);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'overview' | 'statement' | 'payments' | 'draws'>('overview');
 
   const engineLoan = {
     loan_amount: Number(summary.loan_amount), acquisition: Number(summary.acquisition),
@@ -77,14 +77,6 @@ export default function LoanDetail({
   const atNewest = stmtDate >= months[0];
   const atOldest = stmtDate <= months[months.length - 1];
 
-  async function doDeleteLoan() {
-    setConfirmDeleteLoan(false);
-    setBusy(true);
-    const res = await deleteLoan(summary.loan_id);
-    if (!res.ok) { setActionError(res.error || 'Could not delete the loan.'); setBusy(false); return; }
-    router.push('/admin');
-    router.refresh();
-  }
   async function doDeleteDraw(id: string) {
     setConfirmDeleteDraw(null);
     setBusy(true);
@@ -96,189 +88,91 @@ export default function LoanDetail({
 
   const construction = draws.filter(d => d.description === 'Construction Draw');
 
+  // What the current statement asks for (the month the borrower's portal opens
+  // on), independent of which month the Statement tab is showing.
+  const dueMonth = clampMonth(defaultStatementMonth(), summary.closing_date);
+  const dueLedger = buildLedger(engineLoan, engineDraws, payments, allocations, dueMonth);
+  const lateTotal = overdueNow.reduce((s, r) => s + r.balance, 0);
+  const paidOff = summary.status === 'paid_off';
+  const isLate = !paidOff && lateTotal > 0.005;
+  const drawnPct = Number(summary.loan_amount) > 0
+    ? Math.min(100, (Number(summary.total_disbursed) / Number(summary.loan_amount)) * 100) : 0;
+  const statusChip = paidOff ? <span className="chip">Paid off</span>
+    : summary.status === 'defaulted' ? <span className="chip late">Defaulted</span>
+    : isLate ? <span className="chip late">Past due</span>
+    : <span className="chip ok">Current</span>;
+
+  const tabs: { key: typeof tab; label: string }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'statement', label: 'Statement' },
+    { key: 'payments', label: `Payments · ${payments.length}` },
+    { key: 'draws', label: `Draws · ${construction.length}` },
+  ];
+
   return (
-    <div className="wrap">
+    <div className="wrap" style={{ maxWidth: 1400 }}>
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        gap: 12, flexWrap: 'wrap', marginBottom: 12,
+        gap: 12, flexWrap: 'wrap', marginBottom: 16,
       }}>
-        <Link href="/admin">&larr; Back to Dashboard</Link>
+        <Link href="/admin/loans" style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
         <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} />
       </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ color: 'var(--navy)', margin: '0 0 4px' }}>
-              {summary.borrower_name}
-            </h1>
-            {summary.is_entity && summary.entity_name && (
-              <div className="muted" style={{ marginBottom: 2 }}>
-                Entity: <b>{summary.entity_name}</b>
-                <span style={{ marginLeft: 8 }} className="badge staff">entity</span>
-              </div>
-            )}
-            <div className="muted">{summary.loan_number} &middot; {summary.property}</div>
-            {summary.borrower_email && <div className="muted">{summary.borrower_email}</div>}
-            {summary.borrower_phone && <div className="muted">{summary.borrower_phone}</div>}
+      {/* Header: the property, who it belongs to, and what you can do */}
+      <div className="loan-head">
+        <div className="grow">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <h1>{shortAddress(summary.property)}</h1>
+            {statusChip}
           </div>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-            <span className={`badge ${summary.status === 'active' ? 'staff' : 'borrower'}`}>{summary.status.replace('_', ' ')}</span>
-            {canEdit && (
-              <>
-                <select className="filter" value={statusValue} disabled={busy}
-                  onChange={async e => {
-                    const next = e.target.value;
-                    // Paid off needs a date before anything is written.
-                    if (next === 'paid_off') {
-                      setPayoffOpen(true);
-                      return;   // the select stays put until the date is confirmed
-                    }
-                    const previous = statusValue;
-                    setStatusValue(next);
-                    setBusy(true);
-                    const res = await setLoanStatus(summary.loan_id, next);
-                    setBusy(false);
-                    if (!res.ok) {
-                      setStatusValue(previous);   // put it back if the write failed
-                      setActionError(res.error || 'Could not change the status.');
-                      return;
-                    }
-                    router.refresh();
-                  }}>
-                  <option value="active">Active</option>
-                  <option value="paid_off">Paid off</option>
-                  <option value="defaulted">Defaulted</option>
-                </select>
-              </>
-            )}
-            {(canEdit || canSend) && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {(hasClosingStatement || canEdit) && (
-                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/closing-statement`}>
-                    {hasClosingStatement ? 'Closing Statement' : 'Create Closing Statement'}
-                  </Link>
-                )}
-                {(hasPayoffLetter || canEdit) && (
-                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/payoff`}>
-                    {hasPayoffLetter ? 'Payoff Letter' : 'Request Payoff'}
-                  </Link>
-                )}
-                {loanPayoff && (
-                  <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/lender-payoff`}>Lender Payoff Statement</Link>
-                )}
-                {canEdit && <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>}
-                {canEdit && <button className="btn danger" disabled={busy} onClick={() => setConfirmDeleteLoan(true)}>Delete loan</button>}
-              </div>
-            )}
+          <div className="sub">
+            {summary.loan_number} · {summary.is_entity && summary.entity_name ? `${summary.entity_name} · ` : ''}
+            {summary.borrower_name}{summary.lender_name ? ` · Lender: ${summary.lender_name}` : ''}
           </div>
         </div>
-
-        <div className="summary" style={{ marginTop: 20 }}>
-          <div className="col">
-            <div className="row"><span className="k">Loan Amount</span><span className="v">{money(summary.loan_amount)}</span></div>
-            <div className="row"><span className="k">Acquisition</span><span className="v">{money(summary.acquisition)}</span></div>
-            <div className="row"><span className="k">Construction Budget</span><span className="v">{money(summary.construction)}</span></div>
-            <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
-            <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
-          </div>
-          <div className="col">
-            <div className="row"><span className="k">Total Disbursed</span><span className="v">{money(summary.total_disbursed)}</span></div>
-            <div className="row"><span className="k">Remaining Draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
-            <div className="row"><span className="k">Total Draw</span><span className="v">{money(Number(summary.total_disbursed) - Number(summary.acquisition))}</span></div>
-            <div className="row"><span className="k">Closing Date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
-            <div className="row"><span className="k">Position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
-          </div>
-        </div>
-
-        {canEdit && (
-          <div className="alert info" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span>
-              Borrowers reach their statements by signing in, so every view is recorded
-              against their account.
-            </span>
-            <AddBorrowerModal
-              loanId={summary.loan_id} borrowerId={summary.borrower_id}
-              borrowerName={summary.borrower_name} borrowerEmail={summary.borrower_email}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Statement preview with clamped month navigation */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ color: 'var(--navy)', margin: 0 }}>Statement Preview</h2>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn secondary" onClick={() => go(-1)} disabled={atOldest}
-              title={atOldest ? 'This is the first statement for this loan' : undefined}>
-              &larr; Prev
-            </button>
-            <select className="filter" value={stmtDate} onChange={e => setStmtDate(e.target.value)}>
-              {months.map(m => <option key={m} value={m}>{monthName(m)}</option>)}
+        <div className="loan-actions">
+          {canEdit && (
+            <select className="filter" aria-label="Loan status" value={statusValue} disabled={busy}
+              onChange={async e => {
+                const next = e.target.value;
+                // Paid off needs a date before anything is written.
+                if (next === 'paid_off') {
+                  setPayoffOpen(true);
+                  return;   // the select stays put until the date is confirmed
+                }
+                const previous = statusValue;
+                setStatusValue(next);
+                setBusy(true);
+                const res = await setLoanStatus(summary.loan_id, next);
+                setBusy(false);
+                if (!res.ok) {
+                  setStatusValue(previous);   // put it back if the write failed
+                  setActionError(res.error || 'Could not change the status.');
+                  return;
+                }
+                router.refresh();
+              }}>
+              <option value="active">Active</option>
+              <option value="paid_off">Paid off</option>
+              <option value="defaulted">Defaulted</option>
             </select>
-            <button className="btn secondary" onClick={() => go(1)} disabled={atNewest}
-              title={atNewest ? 'This is the most recent statement' : undefined}>
-              Next &rarr;
-            </button>
-            <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
-          </div>
-        </div>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Statement date {fmtDate(stmtDate)}
-          {ledger.deferredToNext && ' · nothing billed yet — closing-month interest defers to the next statement'}
-          {ledger.currentPeriods.length > 1 &&
-            ` · bills ${ledger.currentPeriods.map(c => c.label).join(' + ')}`}
-        </p>
-        <div className="summary">
-          <div className="col">
-            <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
-            <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
-            <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
-            <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
-          </div>
-          <div className="col">
-            <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
-            <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
-            <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
-            <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
-          </div>
-          {/* Its own grid cell: under the left column on a computer, last on a phone. */}
-          <div className="col">
-            <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
-          </div>
-        </div>
-        {summary.status === 'paid_off' && summary.paid_off_date && (
-          <p style={{ marginBottom: 0, color: 'var(--ok)', fontWeight: 600 }}>
-            Paid off {fmtDate(summary.paid_off_date)} · no further interest or statements.
-            {loanPayoff && (canEdit || canSend) && (
-              <span style={{ color: 'var(--ink)', fontWeight: 400 }}>
-                {' '}· Received {money(loanPayoff.amount_received)}
-                {loanPayoff.difference !== null && (
-                  <> · difference <b style={{ color: loanPayoff.difference < -0.005 ? 'var(--danger)' : 'var(--ok)' }}>{signedMoney(loanPayoff.difference)}</b> vs. the payoff letter</>
-                )}
-              </span>
-            )}
-          </p>
-        )}
-        {summary.status !== 'paid_off' && overdueNow.length > 0 && (
-          <p style={{ marginBottom: 0, color: 'var(--danger)', fontWeight: 600 }}>
-            Past due {money(overdueNow.reduce((s, r) => s + r.balance, 0))} across{' '}
-            {overdueNow.length} statement{overdueNow.length === 1 ? '' : 's'}, oldest{' '}
-            {fmtDate(overdueNow[0].statementDate)}.
-          </p>
-        )}
-        {ledger.unapplied > 0.005 && (
-          <p className="muted" style={{ marginBottom: 0 }}>
-            {money(ledger.unapplied)} in payments has not been applied to a specific month yet.
-          </p>
-        )}
-      </div>
-
-      {/* Payments */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ color: 'var(--navy)', marginTop: 0, marginBottom: 0 }}>Payments</h2>
+          )}
+          {(hasClosingStatement || canEdit) && (canEdit || canSend) && (
+            <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/closing-statement`}>
+              {hasClosingStatement ? 'Closing statement' : 'Create closing statement'}
+            </Link>
+          )}
+          {(hasPayoffLetter || canEdit) && (canEdit || canSend) && (
+            <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/payoff`}>
+              {hasPayoffLetter ? 'Payoff letter' : 'Request payoff'}
+            </Link>
+          )}
+          {loanPayoff && (canEdit || canSend) && (
+            <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/lender-payoff`}>Lender payoff statement</Link>
+          )}
+          {canEdit && <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>}
+          {canEdit && <AddDrawModal loanId={summary.loan_id} />}
           {canEdit && (
             <AddPaymentModal
               loanId={summary.loan_id} loan={engineLoan} draws={engineDraws}
@@ -286,90 +180,242 @@ export default function LoanDetail({
             />
           )}
         </div>
-        <div className="tablescroll" style={{ marginTop: 12 }}>
-          <table className="bordered">
-            <thead><tr><th>Date</th><th>Method</th><th>Note</th><th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
-            <tbody>
-              {payments.map(p => {
-                const mine = allocations.filter(a => a.payment_id === p.id);
-                return (
-                  <tr key={p.id}>
-                    <td>{fmtDate(p.payment_date)}</td>
-                    <td>{p.method || ''}</td>
-                    <td>{p.note || ''}</td>
-                    <td>{mine.length ? mine.map(a => `${monthName(a.period_month)} ${money(a.amount)}`).join(', ') : <span className="muted">unapplied</span>}</td>
-                    <td className="num">{money(p.amount)}</td>
-                    {canEdit && (
-                      <td className="num">
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                          <AddPaymentModal
-                            key={`edit-${p.id}`}
-                            loanId={summary.loan_id} loan={engineLoan} draws={engineDraws}
-                            payments={payments} allocations={allocations} editing={p}
-                          />
-                          <button className="btn danger" disabled={busy}
-                            onClick={() => setConfirmDeletePayment(p.id)}>Delete</button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {payments.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center' }}>No payments recorded.</td></tr>}
-            </tbody>
-          </table>
-        </div>
       </div>
 
-      {/* Email statement to borrower (admin + staff) */}
-      {canSend && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <h2 style={{ color: 'var(--navy)', marginTop: 0 }}>Email Statement to Borrower</h2>
-          <EmailStatementControls loanId={summary.loan_id} closingDate={summary.closing_date} borrowerEmail={summary.borrower_email} />
+      {/* The four numbers that matter */}
+      <section className="kpis" aria-label="Loan summary">
+        <div className="kpi dark">
+          <span className="label">Principal outstanding</span>
+          <span className="value">{money(paidOff ? 0 : summary.total_disbursed)}</span>
+          <div className="meter" aria-hidden="true"><i style={{ width: `${drawnPct}%` }} /></div>
+          <span className="foot">{money(summary.total_disbursed)} of {money(summary.loan_amount)} drawn</span>
         </div>
-      )}
+        <div className="kpi">
+          <span className="label">{paidOff ? 'Paid off' : 'Current statement'}</span>
+          <span className="value">{paidOff ? fmtDate(summary.paid_off_date) : money(dueLedger.amountDue)}</span>
+          <span className="foot">
+            {paidOff ? (loanPayoff ? `Received ${money(loanPayoff.amount_received)}` : 'No further interest or statements')
+              : dueLedger.deferredToNext ? 'Nothing billed yet — first bill next statement'
+              : `Due ${fmtDate(dueMonth)}`}
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="label">Interest rate</span>
+          <span className="value">{pct(summary.annual_rate)}</span>
+          <span className="foot">Closed {fmtDate(summary.closing_date)}</span>
+        </div>
+        <div className={`kpi${isLate ? ' alert-red' : ''}`}>
+          <span className="label">
+            <span className="dot" style={{ background: isLate ? '#C8372D' : '#1B7F4F' }} />Past due
+          </span>
+          <span className="value">{isLate ? money(lateTotal) : '$0.00'}</span>
+          <span className="foot">
+            {isLate
+              ? `${overdueNow.length} statement${overdueNow.length === 1 ? '' : 's'}, oldest ${fmtDate(overdueNow[0].statementDate)}`
+              : 'Up to date'}
+          </span>
+        </div>
+      </section>
 
-      {/* Draws */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ color: 'var(--navy)', marginTop: 0, marginBottom: 0 }}>Construction Draws</h2>
-          {canEdit && <AddDrawModal loanId={summary.loan_id} />}
+      <div className="card" style={{ padding: 0 }}>
+        <div className="tabs" role="tablist" aria-label="Loan sections">
+          {tabs.map(t => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
+              className={`tab${tab === t.key ? ' on' : ''}`} onClick={() => setTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
         </div>
-        <div className="tablescroll" style={{ marginTop: 12 }}>
-          <table className="bordered">
-            <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
-            <tbody>
-              {construction.map(d => (
-                <tr key={d.id}>
-                  <td>{fmtDate(d.draw_date)}</td>
-                  <td>{d.method || ''}</td>
-                  <td>{d.note || ''}</td>
-                  <td className="num">{money(d.amount)}</td>
-                  <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
+
+        <div className="tab-body">
+          {tab === 'overview' && (
+            <>
+              <div className="grid-2" style={{ gap: 32 }}>
+                <div>
+                  <h2 className="tab-h">Loan terms</h2>
+                  <div className="summary" style={{ gridTemplateColumns: '1fr', margin: 0 }}>
+                    <div className="col">
+                      <div className="row"><span className="k">Loan amount</span><span className="v">{money(summary.loan_amount)}</span></div>
+                      <div className="row"><span className="k">Acquisition</span><span className="v">{money(summary.acquisition)}</span></div>
+                      <div className="row"><span className="k">Construction budget</span><span className="v">{money(summary.construction)}</span></div>
+                      <div className="row"><span className="k">Total draw</span><span className="v">{money(Number(summary.total_disbursed) - Number(summary.acquisition))}</span></div>
+                      <div className="row"><span className="k">Remaining draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
+                      <div className="row"><span className="k">Interest rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
+                      <div className="row"><span className="k">Closing date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
+                      <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="tab-h">Borrower</h2>
+                  <div className="summary" style={{ gridTemplateColumns: '1fr', margin: 0 }}>
+                    <div className="col">
+                      <div className="row"><span className="k">Name</span><span className="v">{summary.borrower_name}</span></div>
+                      {summary.is_entity && summary.entity_name && (
+                        <div className="row"><span className="k">Entity</span><span className="v">{summary.entity_name}</span></div>
+                      )}
+                      <div className="row"><span className="k">Email</span><span className="v">{summary.borrower_email || <span className="muted">none on file</span>}</span></div>
+                      <div className="row"><span className="k">Phone</span><span className="v">{summary.borrower_phone || <span className="muted">none on file</span>}</span></div>
+                    </div>
+                  </div>
                   {canEdit && (
-                    <td className="num">
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <AddDrawModal loanId={summary.loan_id} editing={d} />
-                        <button className="btn danger" disabled={busy}
-                          onClick={() => setConfirmDeleteDraw(d.id)}>Delete</button>
-                      </div>
-                    </td>
+                    <div className="alert info" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 16 }}>
+                      <span>
+                        Borrowers reach their statements by signing in, so every view is recorded
+                        against their account.
+                      </span>
+                      <AddBorrowerModal
+                        loanId={summary.loan_id} borrowerId={summary.borrower_id}
+                        borrowerName={summary.borrower_name} borrowerEmail={summary.borrower_email}
+                      />
+                    </div>
                   )}
-                </tr>
-              ))}
-              {construction.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center' }}>No draws yet.</td></tr>}
-            </tbody>
-          </table>
+                </div>
+              </div>
+              {ledger.unapplied > 0.005 && (
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  {money(ledger.unapplied)} in payments has not been applied to a specific month yet.
+                </p>
+              )}
+            </>
+          )}
+
+          {tab === 'statement' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <h2 className="tab-h" style={{ margin: 0 }}>Statement preview</h2>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn secondary" onClick={() => go(-1)} disabled={atOldest}
+                    title={atOldest ? 'This is the first statement for this loan' : undefined}>
+                    &larr; Prev
+                  </button>
+                  <select className="filter" aria-label="Statement month" value={stmtDate} onChange={e => setStmtDate(e.target.value)}>
+                    {months.map(m => <option key={m} value={m}>{monthName(m)}</option>)}
+                  </select>
+                  <button className="btn secondary" onClick={() => go(1)} disabled={atNewest}
+                    title={atNewest ? 'This is the most recent statement' : undefined}>
+                    Next &rarr;
+                  </button>
+                  <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
+                </div>
+              </div>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Statement date {fmtDate(stmtDate)}
+                {ledger.deferredToNext && ' · nothing billed yet — closing-month interest defers to the next statement'}
+                {ledger.currentPeriods.length > 1 &&
+                  ` · bills ${ledger.currentPeriods.map(c => c.label).join(' + ')}`}
+              </p>
+              <div className="summary">
+                <div className="col">
+                  <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
+                  <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
+                  <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
+                  <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
+                </div>
+                <div className="col">
+                  <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
+                  <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
+                  <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
+                  <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
+                </div>
+                {/* Its own grid cell: under the left column on a computer, last on a phone. */}
+                <div className="col">
+                  <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
+                </div>
+              </div>
+              {paidOff && summary.paid_off_date && (
+                <p style={{ marginBottom: 0, color: 'var(--ok)', fontWeight: 600 }}>
+                  Paid off {fmtDate(summary.paid_off_date)} · no further interest or statements.
+                  {loanPayoff && (canEdit || canSend) && (
+                    <span style={{ color: 'var(--ink)', fontWeight: 400 }}>
+                      {' '}· Received {money(loanPayoff.amount_received)}
+                      {loanPayoff.difference !== null && (
+                        <> · difference <b style={{ color: loanPayoff.difference < -0.005 ? 'var(--danger)' : 'var(--ok)' }}>{signedMoney(loanPayoff.difference)}</b> vs. the payoff letter</>
+                      )}
+                    </span>
+                  )}
+                </p>
+              )}
+              {canSend && (
+                <div style={{ marginTop: 28, paddingTop: 22, borderTop: '1px solid var(--hair)' }}>
+                  <h2 className="tab-h">Email statement to borrower</h2>
+                  <EmailStatementControls loanId={summary.loan_id} closingDate={summary.closing_date} borrowerEmail={summary.borrower_email} />
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === 'payments' && (
+            <>
+              <div className="tablescroll">
+                <table className="bordered">
+                  <thead><tr><th>Date</th><th>Method</th><th>Note</th><th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
+                  <tbody>
+                    {[...payments].reverse().map(p => {
+                      const mine = allocations.filter(a => a.payment_id === p.id);
+                      return (
+                        <tr key={p.id}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(p.payment_date)}</td>
+                          <td>{p.method || ''}</td>
+                          <td>{p.note || ''}</td>
+                          <td>{mine.length ? mine.map(a => `${monthName(a.period_month)} ${money(a.amount)}`).join(', ') : <span className="muted">unapplied</span>}</td>
+                          <td className="num" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
+                          {canEdit && (
+                            <td className="num">
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <AddPaymentModal
+                                  key={`edit-${p.id}`}
+                                  loanId={summary.loan_id} loan={engineLoan} draws={engineDraws}
+                                  payments={payments} allocations={allocations} editing={p}
+                                />
+                                <button className="btn danger" disabled={busy}
+                                  onClick={() => setConfirmDeletePayment(p.id)}>Delete</button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {payments.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No payments recorded yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Newest first.</p>
+            </>
+          )}
+
+          {tab === 'draws' && (
+            <div className="tablescroll">
+              <table className="bordered">
+                <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
+                <tbody>
+                  {construction.map(d => (
+                    <tr key={d.id}>
+                      <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.draw_date)}</td>
+                      <td>{d.method || ''}</td>
+                      <td>{d.note || ''}</td>
+                      <td className="num" style={{ fontWeight: 600 }}>{money(d.amount)}</td>
+                      <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
+                      {canEdit && (
+                        <td className="num">
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <AddDrawModal loanId={summary.loan_id} editing={d} />
+                            <button className="btn danger" disabled={busy}
+                              onClick={() => setConfirmDeleteDraw(d.id)}>Delete</button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {construction.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No draws yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmDeleteLoan}
-        title="Delete loan"
-        message={`Delete loan ${summary.loan_number} for ${summary.borrower_name}? This permanently removes the loan and all of its draws.`}
-        confirmLabel="Delete loan" danger
-        onConfirm={doDeleteLoan} onCancel={() => setConfirmDeleteLoan(false)}
-      />
       <ConfirmDialog
         open={!!confirmDeleteDraw}
         title="Delete draw"

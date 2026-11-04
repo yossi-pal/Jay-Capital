@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { serverClient } from '@/lib/supabase-server';
 import LiveRefresh from '@/components/LiveRefresh';
 import IdleTimeout from '@/components/IdleTimeout';
-import Logo from '@/components/Logo';
+import AdminShell from '@/components/AdminShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,24 +28,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <LiveRefresh />
       <IdleTimeout />
-      <nav className="nav">
-        <Link href="/admin" style={{ textDecoration: 'none', padding: 0 }}><Logo size={26} /></Link>
-        <Link href="/admin">Portfolio</Link>
-        {isAdmin && <Link href="/admin/loans/new">New Loan</Link>}
-        {isAdmin && <Link href="/admin/import">Import</Link>}
-        <Link href="/admin/insights">Insights</Link>
-        {isAdmin && <Link href="/admin/lenders">Lenders</Link>}
-        {isAdmin && <Link href="/admin/users">Users</Link>}
-        <span className="spacer" />
-        <span className={`badge ${role}`}>{role}</span>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {profile?.full_name || profile?.email}
-        </span>
-        <form action="/auth/signout" method="post" style={{ margin: 0 }}>
-          <button className="btn secondary" type="submit">Sign out</button>
-        </form>
-      </nav>
-      {children}
+      <AdminShell isAdmin={isAdmin} role={role} name={profile?.full_name || profile?.email || ''}>
+        {children}
+      </AdminShell>
     </>
   );
 }

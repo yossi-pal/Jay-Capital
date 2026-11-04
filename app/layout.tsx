@@ -17,12 +17,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         {/* Loaded by link rather than next/font so the build never depends on
-            reaching Google at compile time. Lato was referenced in the CSS all
-            along but never actually loaded. */}
+            reaching Google at compile time. Inter is the portal's working
+            font; Lato stays for the public marketing pages. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Lato:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Lato:wght@400;700;900&family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
       </head>

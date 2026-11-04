@@ -21,18 +21,20 @@ export interface StatementDraw { draw_date: string; description: string; amount:
 export interface PayInfo { method: string | null; instructions: string | null }
 
 export default function StatementView({
-  loan, draws, payments = [], allocations = [], payInfo, allowNavigate = true, flushTop = false,
+  loan, draws, payments = [], allocations = [], payInfo, allowNavigate = true, flushTop = false, initialMonth,
 }: {
   loan: StatementData; draws: StatementDraw[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
   payInfo?: PayInfo | null; allowNavigate?: boolean;
   /** Sit flush under the loan tab strip, as the open pocket of a folder. */
   flushTop?: boolean;
+  /** Open on this statement month instead of the default one. */
+  initialMonth?: string;
 }) {
   const months = statementMonths(loan.closing_date, loan.paid_off_date);
   // Open on this month's statement through the 15th, then next month's
   // (see defaultStatementMonth).
-  const [asOf, setAsOf] = useState(() => clampMonth(defaultStatementMonth(), loan.closing_date));
+  const [asOf, setAsOf] = useState(() => clampMonth(initialMonth || defaultStatementMonth(), loan.closing_date));
 
   const rate = Number(loan.annual_rate);
   const engineLoan = {

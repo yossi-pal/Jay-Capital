@@ -3,10 +3,10 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '@/components/Logo';
 import PasswordField from '@/components/PasswordField';
 import { browserClient } from '@/lib/supabase-browser';
 import { requestPasswordReset } from '@/lib/signup';
+import Monogram from '@/components/Monogram';
 
 /**
  * Password sign-in only.
@@ -50,65 +50,99 @@ function LoginForm() {
     setInfo(res.message || '');
   }
 
+  const check = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D9B676" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+  );
+
   return (
-    <div className="auth-shell">
-      <div className="auth-card card">
-        <div style={{ display: 'flex', justifyContent: 'center' }}><Logo size={30} variant="stacked" /></div>
-        <h1 className="title" style={{ fontSize: 18, marginTop: 16 }}>
-          {mode === 'signin' ? 'Sign In' : 'Reset Password'}
-        </h1>
-        <div className="rule" />
+    <div className="auth-split">
+      <section className="auth-brand">
+        <Monogram className="watermark" height={620} />
+        <Link href="/" className="side-brand" style={{ position: 'relative', padding: 0 }}>
+          <Monogram height={50} />
+          <span className="wm"><b style={{ fontSize: 20 }}>JAY CAPITAL</b><span style={{ fontSize: 11 }}>FUNDING</span></span>
+        </Link>
+        <div style={{ position: 'relative' }}>
+          <h1>Your loan, always within reach.</h1>
+          <p className="hide-sm">See your balance, what&apos;s due and every monthly statement, any time, from any device.</p>
+          <ul className="auth-points hide-sm">
+            <li>{check}Statements ready each month</li>
+            <li>{check}Payment instructions in one tap</li>
+            <li>{check}Private and secure, just for you</li>
+          </ul>
+        </div>
+        <span className="hide-sm" style={{ position: 'relative', fontSize: 13, color: '#8597AD' }}>
+          Questions? Call <a href="tel:+18458280731" style={{ color: '#DCE3EC' }}>(845) 828-0731</a>
+        </span>
+      </section>
 
-        {timedOut && (
-          <div className="alert info" style={{ marginTop: 0 }}>
-            You were signed out after a period of inactivity. Please sign in again.
-          </div>
-        )}
+      <section className="auth-form-side">
+        <div className="auth-form">
+          <h2>{mode === 'signin' ? 'Welcome back' : 'Reset your password'}</h2>
+          <p className="lead">
+            {mode === 'signin'
+              ? 'Sign in to your Jay Capital account.'
+              : 'Enter your email and we\u2019ll send you a link to choose a new password.'}
+          </p>
 
-        <form onSubmit={mode === 'signin' ? signIn : forgot}>
-          <div className="field-wrap" style={{ marginBottom: 14 }}>
-            <label htmlFor="email">Email</label>
-            <input id="email" className="field" type="email" required autoComplete="email"
-              value={email} onChange={e => setEmail(e.target.value)} />
-          </div>
-
-          {mode === 'signin' && (
-            <div className="field-wrap" style={{ marginBottom: 14 }}>
-              <label htmlFor="password">Password</label>
-              <PasswordField id="password" required autoComplete="current-password"
-                value={password} onChange={setPassword} />
+          {timedOut && (
+            <div className="alert info" style={{ marginTop: 0 }}>
+              You were signed out after a period of inactivity. Please sign in again.
             </div>
           )}
 
-          {error && <div className="alert error">{error}</div>}
-          {info && <div className="alert info">{info}</div>}
+          <form onSubmit={mode === 'signin' ? signIn : forgot}>
+            <div className="field-wrap" style={{ marginBottom: 16 }}>
+              <label htmlFor="email">Email</label>
+              <input id="email" className="field" type="email" required autoComplete="email"
+                placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
 
-          <button className="btn" style={{ width: '100%' }} disabled={busy} type="submit">
-            {busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Email me a reset link'}
-          </button>
-        </form>
+            {mode === 'signin' && (
+              <div className="field-wrap" style={{ marginBottom: 16 }}>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <label htmlFor="password">Password</label>
+                  <button type="button" className="linkish" style={{ fontSize: 13 }}
+                    onClick={() => { setMode('forgot'); setError(''); setInfo(''); }}>
+                    Forgot password?
+                  </button>
+                </span>
+                <PasswordField id="password" required autoComplete="current-password"
+                  value={password} onChange={setPassword} />
+              </div>
+            )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16, fontSize: 13 }}>
-          <button className="btn secondary" style={{ padding: '6px 10px', fontSize: 13 }}
-            onClick={() => { setMode(m => (m === 'signin' ? 'forgot' : 'signin')); setError(''); setInfo(''); }}>
-            {mode === 'signin' ? 'Forgot password?' : 'Back to sign in'}
-          </button>
-          <Link className="btn secondary" style={{ padding: '6px 10px', fontSize: 13, textDecoration: 'none' }} href="/signup">
-            Create an account
-          </Link>
+            {error && <div className="alert error">{error}</div>}
+            {info && <div className="alert info">{info}</div>}
+
+            <button className="btn" style={{ width: '100%', minHeight: 50, fontSize: 15 }} disabled={busy} type="submit">
+              {busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Email me a reset link'}
+            </button>
+          </form>
+
+          {mode === 'forgot' && (
+            <button type="button" className="btn secondary" style={{ width: '100%', marginTop: 12 }}
+              onClick={() => { setMode('signin'); setError(''); setInfo(''); }}>
+              Back to sign in
+            </button>
+          )}
+
+          <p className="muted" style={{ fontSize: 14, marginTop: 24, textAlign: 'center' }}>
+            New here? <Link href="/signup" style={{ fontWeight: 600 }}>Create an account</Link>
+          </p>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>
+            Borrowers: use the email address registered on your loan.
+          </p>
         </div>
-
-        <p className="muted" style={{ fontSize: 12, marginTop: 18, textAlign: 'center' }}>
-          Borrowers: use the email address registered on your loan.
-        </p>
-      </div>
+      </section>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="auth-shell"><div className="auth-card card" /></div>}>
+    <Suspense fallback={<div className="auth-split" />}>
       <LoginForm />
     </Suspense>
   );

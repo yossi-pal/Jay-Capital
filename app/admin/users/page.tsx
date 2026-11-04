@@ -1,8 +1,6 @@
 import { serverClient } from '@/lib/supabase-server';
-import Link from 'next/link';
-import UserRowControls from '@/components/UserRowControls';
 import InviteUser from '@/components/InviteUser';
-import InviteStatus from '@/components/InviteStatus';
+import UsersList from '@/components/UsersList';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,45 +17,19 @@ export default async function UsersPage() {
     .order('email');
 
   return (
-    <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
-      <div className="card">
-        <h1 className="title">Users &amp; Roles</h1>
-        <div className="rule" />
-        <InviteUser />
-        <p className="muted">
-          Admins manage everything. Staff have read-only access and can send statements.
-          Borrowers see only their own loans. To add a borrower login, open that
-          borrower&apos;s loan and use &ldquo;Add borrower login.&rdquo; Inactivating a user blocks
-          sign-in without deleting anything.
-        </p>
-        <div className="tablescroll">
-          <table className="bordered">
-            <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Access</th><th>Invitation</th><th>Actions</th></tr></thead>
-            <tbody>
-              {(profiles ?? []).map((p: any) => (
-                <tr key={p.id}>
-                  <td>{p.email}</td>
-                  <td>{p.full_name ?? ''}</td>
-                  <td><span className={`badge ${p.role}`}>{p.role}</span></td>
-                  <td><span className={`badge ${p.active === false ? 'borrower' : 'staff'}`}>{p.active === false ? 'inactive' : 'active'}</span></td>
-                  <td style={{ minWidth: 190 }}><InviteStatus
-                    invitedAt={p.invited_at} activatedAt={p.activated_at} lastSeenAt={p.last_seen_at} /></td>
-                  <td>
-                    <UserRowControls
-                      user={{
-                        id: p.id, email: p.email, full_name: p.full_name, role: p.role,
-                        active: p.active !== false, activatedAt: p.activated_at,
-                      }}
-                      isSelf={p.id === user?.id}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="wrap" style={{ maxWidth: 1400 }}>
+      <div className="page-head">
+        <div className="grow">
+          <h1>Users</h1>
+          <div className="sub">
+            Admins manage everything. Staff can view and send statements. Borrowers see only
+            their own loans &mdash; add a borrower login from their loan page. Blocking someone
+            stops their sign-in without deleting anything.
+          </div>
         </div>
+        <InviteUser />
       </div>
+      <UsersList users={(profiles ?? []) as any} selfId={user?.id ?? ''} />
     </div>
   );
 }

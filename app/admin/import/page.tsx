@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
 import { importLoansCSV } from '@/lib/actions';
 
 function parseCSV(text: string): Record<string, string>[] {
@@ -39,7 +38,6 @@ export default function ImportPage() {
 
   return (
     <div className="wrap">
-      <p style={{ marginBottom: 12 }}><Link href="/admin">&larr; Back to Dashboard</Link></p>
       <div className="card">
         <h1 className="title">Import Loans from CSV</h1>
         <div className="rule" />

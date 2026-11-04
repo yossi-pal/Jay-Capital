@@ -201,5 +201,5 @@ export function borrowerDisplayName(loan: {
  * Internal only: shown to staff and admins, never on borrower screens.
  */
 export function lienPositionLabel(position: number | null | undefined): string {
-  return position === 1 ? 'First Position' : position === 2 ? 'Second Position' : '';
+  return position === 1 ? '1st' : position === 2 ? '2nd' : '';
 }

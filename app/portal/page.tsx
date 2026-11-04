@@ -24,16 +24,24 @@ export default async function PortalPage() {
   // The person, not the entity: statements are the only place the entity leads.
   const borrowerName = list.length ? list[0].borrower_name : '';
 
+  const who: string = borrowerName || user?.email || '';
+  const initials = who.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]!.toUpperCase()).join('');
+
   const Nav = (
-    <nav className="nav nav-borrower">
-      <Logo size={40} />
-      <span className="spacer" />
-      <span className="muted" style={{ fontSize: 13 }}>{user?.email}</span>
-      <ChangeEmailButton userEmail={user?.email ?? ''} />
-      <form action="/auth/signout" method="post" style={{ margin: 0 }}>
-        <button className="btn secondary">Sign out</button>
-      </form>
-    </nav>
+    <header className="bhead">
+      <div className="bhead-in">
+        <Logo size={32} />
+        <span className="spacer" />
+        <span className="me" title={user?.email ?? ''}>
+          <span className="av" aria-hidden="true">{initials}</span>
+          <span className="nm">{borrowerName || user?.email}</span>
+        </span>
+        <ChangeEmailButton userEmail={user?.email ?? ''} />
+        <form action="/auth/signout" method="post" style={{ margin: 0 }}>
+          <button className="btn secondary">Sign out</button>
+        </form>
+      </div>
+    </header>
   );
 
   if (list.length) {
@@ -58,7 +66,7 @@ export default async function PortalPage() {
       <LiveRefresh />
       <IdleTimeout />
       {Nav}
-      <PortalLoans loans={items} userId={user?.id ?? ''} userEmail={user?.email ?? ''} />
+      <PortalLoans loans={items} userId={user?.id ?? ''} userEmail={user?.email ?? ''} borrowerName={borrowerName} />
     </>
   );
 }

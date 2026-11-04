@@ -7,6 +7,7 @@ import { updateLoan } from '@/lib/actions';
 import { rateFraction } from '@/lib/format';
 import LenderSelect, { type LenderOption } from '@/components/LenderSelect';
 import EntityFields from '@/components/EntityFields';
+import DeleteLoanButton from '@/components/DeleteLoanButton';
 import LienPositionField from '@/components/LienPositionField';
 import { formatPhone, formatAddress } from '@/lib/formatting';
 
@@ -69,6 +70,14 @@ export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: L
             <button className="btn" disabled={busy} type="submit">{busy ? 'Saving…' : 'Save Changes'}</button>
           </div>
         </form>
+
+        <div className="danger-zone">
+          <span>
+            <b style={{ color: 'var(--danger)', display: 'block' }}>Delete this loan</b>
+            <span className="muted">Permanently removes the loan and all of its draws and payments. This cannot be undone.</span>
+          </span>
+          <DeleteLoanButton loanId={loan.loan_id} loanNumber={loan.loan_number} borrowerName={loan.borrower_name} />
+        </div>
       </div>
     </div>
   );

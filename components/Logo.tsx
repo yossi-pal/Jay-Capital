@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Monogram from '@/components/Monogram';
 
 /**
  * Jay Capital Funding identity, taken from the supplied branding package.
@@ -13,16 +14,7 @@ const GOLD = '#C0954A';    // FUNDING gold from the branding sheet
 export function LogoMark({ size = 40, tone = 'navy' }: { size?: number; tone?: 'navy' | 'light' }) {
   // artwork is taller than it is wide (1168 x 1728). On dark grounds the
   // white cut from the brand kit reads better than the gold gradient.
-  return (
-    <img
-      src={tone === 'light' ? '/logo-mark-white.svg' : '/logo-mark.svg'}
-      alt=""
-      aria-hidden="true"
-      width={Math.round(size * (1168 / 1728))}
-      height={size}
-      style={{ display: 'block' }}
-    />
-  );
+  return <Monogram height={size} tone={tone === 'light' ? 'white' : 'gold'} />;
 }
 
 function Wordmark({ size, tone }: { size: number; tone: 'navy' | 'light' }) {

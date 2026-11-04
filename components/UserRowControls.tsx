@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateUserProfile, setUserActive, sendUserPasswordReset, deleteUser, resendInvitation } from '@/lib/actions';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
@@ -23,6 +23,27 @@ export default function UserRowControls({ user, isSelf }: { user: UserRow; isSel
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Pinned to the screen (not the table), so a row near the bottom of a
+  // scrolling table never cuts the menu off. Opens upward when there is no
+  // room below.
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  // Scrolling would leave a pinned menu floating away from its row: close it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+  }, [menuOpen]);
+  function openMenu(btn: HTMLElement) {
+    const r = btn.getBoundingClientRect();
+    const right = Math.max(8, window.innerWidth - r.right);
+    setMenuPos(window.innerHeight - r.bottom < 240
+      ? { bottom: window.innerHeight - r.top + 6, right }
+      : { top: r.bottom + 6, right });
+    setMenuOpen(true);
+  }
 
   const done = (res: any, fallback: string) => {
     setBusy(false);
@@ -43,20 +64,35 @@ export default function UserRowControls({ user, isSelf }: { user: UserRow; isSel
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn secondary" disabled={busy} onClick={() => { setErr(''); setEditOpen(true); }}>Edit</button>
-        <button className="btn secondary" disabled={busy} onClick={() => setConfirmReset(true)}>Reset password</button>
-        {!user.activatedAt && (
-          <button className="btn secondary" disabled={busy}
-            onClick={async () => { setBusy(true); done(await resendInvitation(user.id), 'Could not resend the invitation.'); }}>
-            Resend invite
+      <div className="row-actions">
+        <button className="btn secondary sm" disabled={busy} onClick={() => { setErr(''); setEditOpen(true); }}>Edit</button>
+        <div className="menu-wrap">
+          <button className="btn secondary sm" disabled={busy} aria-haspopup="menu" aria-expanded={menuOpen}
+            onClick={e => (menuOpen ? setMenuOpen(false) : openMenu(e.currentTarget))}>
+            More
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
           </button>
-        )}
-        {!isSelf && (user.active
-          ? <button className="btn secondary" disabled={busy} onClick={() => setConfirmOff(true)}>Inactivate</button>
-          : <button className="btn" disabled={busy} onClick={async () => { setBusy(true); done(await setUserActive(user.id, true), 'Could not reactivate.'); }}>Reactivate</button>
-        )}
-        {!isSelf && <button className="btn danger" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete</button>}
+          {menuOpen && (
+            <>
+              <div className="menu-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+              <div className="menu" role="menu" style={menuPos ?? undefined}
+                onKeyDown={e => { if (e.key === 'Escape') setMenuOpen(false); }}>
+                <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setConfirmReset(true); }}>Send password reset</button>
+                {!user.activatedAt && (
+                  <button role="menuitem" type="button"
+                    onClick={async () => { setMenuOpen(false); setBusy(true); done(await resendInvitation(user.id), 'Could not resend the invitation.'); }}>
+                    Resend invitation
+                  </button>
+                )}
+                {!isSelf && (user.active
+                  ? <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setConfirmOff(true); }}>Block sign-in</button>
+                  : <button role="menuitem" type="button" onClick={async () => { setMenuOpen(false); setBusy(true); done(await setUserActive(user.id, true), 'Could not reactivate.'); }}>Allow sign-in again</button>
+                )}
+                {!isSelf && <button role="menuitem" type="button" className="danger" onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}>Delete user</button>}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <Modal open={editOpen} onClose={() => !busy && setEditOpen(false)} title="Edit User" maxWidth={480}>

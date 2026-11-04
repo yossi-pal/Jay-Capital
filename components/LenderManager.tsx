@@ -4,9 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createLender, updateLender, setLenderActive } from '@/lib/actions';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
+import { money } from '@/lib/format';
+import Link from 'next/link';
 
 export interface LenderRow {
   id: string; name: string; short_name: string | null; active: boolean; loan_count: number;
+  active_loans: number; committed: number;
   payment_method: string | null; payment_instructions: string | null;
 }
 
@@ -21,9 +24,7 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
   const [confirmOff, setConfirmOff] = useState<LenderRow | null>(null);
   const [err, setErr] = useState('');
   const [note, setNote] = useState<string | null>(null);
-  const [showInactive, setShowInactive] = useState(false);
-
-  const visible = lenders.filter(l => showInactive || l.active);
+  const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('active');
 
   async function add() {
     if (!form.name.trim()) { setErr('Lender name is required.'); return; }
@@ -88,55 +89,81 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
     router.refresh();
   }
 
+  const activeCount = lenders.filter(l => l.active).length;
+  const inactiveCount = lenders.length - activeCount;
+  const view = lenders.filter(l => filter === 'all' || (filter === 'active' ? l.active : !l.active));
+
   return (
     <>
-      <div className="toolbar">
-        <button className="btn" onClick={() => { setErr(''); setForm({ ...BLANK }); setAddOpen(true); }}>Add lender</button>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
-          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
-          Show inactive
-        </label>
+      <div className="page-head">
+        <div className="grow">
+          <h1>Lenders</h1>
+          <div className="sub">
+            These fill the lender list on new and edited loans. Inactivating one keeps it on
+            existing loans but stops it being offered for new ones.
+          </div>
+        </div>
+        <button className="btn" onClick={() => { setErr(''); setForm({ ...BLANK }); setAddOpen(true); }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D9B676" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Add lender
+        </button>
       </div>
 
-      <table className="bordered">
-        <thead>
-          <tr><th>Lender</th><th>Short name</th><th>Payment method</th><th className="num">Loans</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {visible.map(l => (
-            <tr key={l.id}>
-              <td>{l.name}</td>
-              <td>{l.short_name || <span className="muted">&mdash;</span>}</td>
-              <td>{l.payment_method || <span className="muted">not set</span>}</td>
-              <td className="num">{l.loan_count}</td>
-              <td><span className={`badge ${l.active ? 'staff' : 'borrower'}`}>{l.active ? 'active' : 'inactive'}</span></td>
-              <td>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn secondary" disabled={busy}
-                    onClick={() => {
-                      setEditing(l);
-                      setForm({
-                        name: l.name,
-                        shortName: l.short_name || '',
-                        paymentMethod: l.payment_method || '',
-                        paymentInstructions: l.payment_instructions || '',
-                      });
-                      setErr('');
-                    }}>Edit</button>
-                  {l.active ? (
-                    <button className="btn danger" disabled={busy} onClick={() => setConfirmOff(l)}>Inactivate</button>
-                  ) : (
-                    <button className="btn" disabled={busy} onClick={() => toggle(l, true)}>Reactivate</button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-          {visible.length === 0 && (
-            <tr><td colSpan={6} className="muted" style={{ textAlign: 'center' }}>No lenders yet.</td></tr>
-          )}
-        </tbody>
-      </table>
+      <div className="chips" role="group" aria-label="Show lenders">
+        {([['active', 'Active', activeCount], ['inactive', 'Inactive', inactiveCount], ['all', 'All', lenders.length]] as const).map(([v, label, n]) => (
+          <button key={v} type="button" className={`fchip${filter === v ? ' on' : ''}`} aria-pressed={filter === v} onClick={() => setFilter(v)}>
+            {label} <span className="n">{n}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="lender-grid">
+        {view.map(l => (
+          <section key={l.id} className={`card lender-card${l.active ? '' : ' off'}`}>
+            <div className="lc-top">
+              <span className="lc-ic" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" /></svg>
+              </span>
+              <span className="lc-name">
+                <b>{l.name}</b>
+                <span>{l.short_name ? `Shows as \u201c${l.short_name}\u201d on the loan list` : 'No short name'}</span>
+              </span>
+              {l.active ? <span className="chip ok">Active</span> : <span className="chip">Inactive</span>}
+            </div>
+            <div className="lc-stats">
+              <Link className="lc-link" href={`/admin/loans?status=active&lender=${encodeURIComponent(l.name)}`}
+                title={`See ${l.name}'s active loans`}>
+                <span>Active loans</span><b>{l.active_loans} <span aria-hidden="true">→</span></b>
+              </Link>
+              <div><span>Committed</span><b title={money(l.committed)}>${Math.round(l.committed).toLocaleString('en-US')}</b></div>
+              <div><span>All-time loans</span><b>{l.loan_count}</b></div>
+            </div>
+            <div className="lc-pay">
+              <span>Borrowers pay by</span>
+              <b>{l.payment_method || <span className="muted" style={{ fontWeight: 400 }}>Not set yet</span>}</b>
+            </div>
+            <div className="lc-actions">
+              <button className="btn secondary sm" disabled={busy}
+                onClick={() => {
+                  setEditing(l);
+                  setForm({
+                    name: l.name,
+                    shortName: l.short_name || '',
+                    paymentMethod: l.payment_method || '',
+                    paymentInstructions: l.payment_instructions || '',
+                  });
+                  setErr('');
+                }}>Edit</button>
+            </div>
+          </section>
+        ))}
+      </div>
+      {view.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ fontWeight: 600, color: 'var(--navy)' }}>{lenders.length ? 'No lenders here' : 'No lenders yet'}</div>
+          <div className="muted" style={{ marginTop: 4 }}>{lenders.length ? 'Try another filter.' : 'Add your first lender to get started.'}</div>
+        </div>
+      )}
 
       <Modal open={addOpen} onClose={() => !busy && setAddOpen(false)} title="Add Lender" maxWidth={560}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -157,6 +184,29 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
             <button className="btn secondary" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
             <button className="btn" disabled={busy} onClick={saveEdit}>{busy ? 'Saving…' : 'Save'}</button>
           </div>
+          {editing && (
+            <div className="danger-zone" style={{ marginTop: 6 }}>
+              {editing.active ? (
+                <>
+                  <span>
+                    <b style={{ color: 'var(--danger)', display: 'block' }}>Inactivate this lender</b>
+                    <span className="muted">It stays on the loans already using it, but won&rsquo;t be offered for new loans.</span>
+                  </span>
+                  <button className="btn danger" disabled={busy}
+                    onClick={() => { const l = editing; setEditing(null); setConfirmOff(l); }}>Inactivate</button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    <b style={{ display: 'block', color: 'var(--navy)' }}>This lender is inactive</b>
+                    <span className="muted">Reactivate it to offer it again on new loans.</span>
+                  </span>
+                  <button className="btn" disabled={busy}
+                    onClick={() => { const l = editing; setEditing(null); toggle(l, true); }}>Reactivate</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 
