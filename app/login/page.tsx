@@ -35,8 +35,10 @@ function LoginForm() {
     setBusy(true); setError(''); setInfo('');
     const supabase = browserClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setBusy(false); setError(error.message); return; }
+    // Stay busy on success: the button would otherwise flash back to "Sign in"
+    // while the dashboard or portal is still loading. This page unmounts when
+    // the navigation lands.
     router.push(next);
     router.refresh();
   }
@@ -117,7 +119,7 @@ function LoginForm() {
             {info && <div className="alert info">{info}</div>}
 
             <button className="btn" style={{ width: '100%', minHeight: 50, fontSize: 15 }} disabled={busy} type="submit">
-              {busy ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Email me a reset link'}
+              {busy ? (mode === 'signin' ? 'Signing in…' : 'Working…') : mode === 'signin' ? 'Sign in' : 'Email me a reset link'}
             </button>
           </form>
 
