@@ -1,19 +1,20 @@
 import { serverClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import LenderManager from '@/components/LenderManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LendersPage() {
   const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
+  const { profile: me } = await getMe();
   if (me?.role !== 'admin') {
     return <div className="wrap"><div className="card"><div className="alert error">Admin only.</div></div></div>;
   }
 
-  const { data: lenders } = await supabase
-    .from('lenders').select('id, name, short_name, active, payment_method, payment_instructions').order('name');
-  const { data: loans } = await supabase.from('loans').select('lender_id, status, loan_amount');
+  const [{ data: lenders }, { data: loans }] = await Promise.all([
+    supabase.from('lenders').select('id, name, short_name, active, payment_method, payment_instructions').order('name'),
+    supabase.from('loans').select('lender_id, status, loan_amount'),
+  ]);
 
   const stats = new Map<string, { all: number; active: number; committed: number }>();
   for (const l of loans ?? []) {

@@ -1,4 +1,5 @@
 import { serverClient, serviceClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import PortfolioTable from '@/components/PortfolioTable';
 import { pastDueByLoan, dueNowByLoan } from '@/lib/portfolio-health';
 import Link from 'next/link';
@@ -9,11 +10,9 @@ export const revalidate = 0;
 
 export default async function LoansPage() {
   const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const [{ data: loans, error }, { data: profile }] = await Promise.all([
+  const [{ data: loans, error }, { profile }] = await Promise.all([
     supabase.from('loan_summary').select('*').order('loan_number', { ascending: true }),
-    supabase.from('profiles').select('role').eq('id', user?.id ?? '').single(),
+    getMe(),
   ]);
 
   if (error) {
