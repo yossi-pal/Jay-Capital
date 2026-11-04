@@ -316,13 +316,12 @@ export default function PortfolioTable({
                     {l.due_date
                       ? <span className={l.late > 0.005 ? 'amt-late' : undefined}>{money(l.due_amount)}</span>
                       : <span className="muted">—</span>}
-                    {/* Say "Past due" once. A separate figure only when just part
-                        of what's due is late -- otherwise it repeats the amount. */}
-                    {l.late > 0.005 && (
+                    {/* A late amount is shown in red; the Status column already
+                        says "Past due". A second line appears only when just part
+                        of what's due is late. */}
+                    {l.late > 0.005 && l.due_date && Math.abs(l.late - l.due_amount) >= 0.01 && (
                       <span className="sub-late">
-                        {!l.due_date || Math.abs(l.late - l.due_amount) < 0.01
-                          ? 'Past due'
-                          : l.late < l.due_amount ? `${money(l.late)} of it past due` : `${money(l.late)} past due`}
+                        {l.late < l.due_amount ? `${money(l.late)} of it past due` : `${money(l.late)} past due`}
                       </span>
                     )}
                   </td>
