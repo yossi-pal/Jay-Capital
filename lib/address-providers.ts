@@ -13,7 +13,7 @@
 export interface AddressValue { street: string; city: string; state: string; zip: string }
 export interface Suggestion { label: string; value: AddressValue }
 
-export type ProviderName = 'radar' | 'mapbox' | 'google' | 'photon';
+export type ProviderName = 'radar' | 'mapbox' | 'google' | 'photon' | 'none';
 
 export function formatAddress(a: AddressValue): string {
   const tail = [a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -24,7 +24,14 @@ const RADAR_KEY = process.env.NEXT_PUBLIC_RADAR_KEY;
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-/** Which provider is in play. Explicit setting wins, else first key found. */
+/**
+ * Which provider is in play. Explicit setting wins, else first key found.
+ *
+ * With no key at all the answer is 'none': the form shows plain boxes. The
+ * free Photon service is used only if NEXT_PUBLIC_ADDRESS_PROVIDER=photon is
+ * set on purpose -- its US house-number coverage was poor enough that bad
+ * suggestions were worse than none.
+ */
 export function activeProvider(): ProviderName {
   const forced = (process.env.NEXT_PUBLIC_ADDRESS_PROVIDER || '').toLowerCase();
   if (forced === 'radar' || forced === 'mapbox' || forced === 'google' || forced === 'photon') {
@@ -33,7 +40,7 @@ export function activeProvider(): ProviderName {
   if (RADAR_KEY) return 'radar';
   if (MAPBOX_TOKEN) return 'mapbox';
   if (GOOGLE_KEY) return 'google';
-  return 'photon';
+  return 'none';
 }
 
 export function providerCredit(p: ProviderName): string {
@@ -150,6 +157,6 @@ export async function fetchSuggestions(
   if (provider === 'radar' && RADAR_KEY) return radar(query, signal);
   if (provider === 'mapbox' && MAPBOX_TOKEN) return mapbox(query, signal);
   if (provider === 'photon') return photon(query, signal);
-  // 'google' is handled by its own widget; anything unconfigured falls back.
-  return photon(query, signal);
+  // 'google' is handled by its own widget; anything unconfigured suggests nothing.
+  return [];
 }

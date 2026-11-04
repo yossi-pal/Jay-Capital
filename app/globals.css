@@ -799,6 +799,12 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .panel-bar { background: var(--navy-med); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 10px 14px; }
 .wire-body { padding: 12px 14px; white-space: pre-line; line-height: 1.55; background: var(--pale); height: 100%; }
 .wire-ref { margin-top: 10px; font-weight: 700; color: var(--navy); white-space: normal; }
+.payoff-check { background: var(--pale); border-radius: 8px; padding: 6px 14px; }
+.payoff-check .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--navy-soft); color: var(--navy); }
+.payoff-check .row:last-child { border-bottom: none; }
+.payoff-check .row.diff b { font-size: 16px; }
+.payoff-check .row.diff.ok b { color: var(--ok); }
+.payoff-check .row.diff.short b { color: var(--danger); }
 .pay-terms { margin: 26px 0 18px; padding-top: 14px; border-top: 1px solid var(--navy-soft); font-size: 13px; line-height: 1.55; }
 .pay-sign { line-height: 1.6; }
 .pay-sign .who { font-weight: 800; color: var(--navy); margin-top: 6px; }
@@ -895,3 +901,59 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .prow .pa { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .loanref { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
+   HELOC application form: modern, clean look (Inter). Scoped to the
+   form card alone -- the rest of the HELOC page, the home page and the
+   portal keep the brand fonts and layout.
+   ============================================================ */
+.hx-form, .heloc-page .lp-form-done {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the form card */
+.hx-form {
+  padding: 28px; border-radius: 16px;
+  border: 1px solid #E1E8F1; box-shadow: 0 1px 2px rgba(4,22,42,.04), 0 12px 32px rgba(4,22,42,.07);
+}
+
+.hx-form .lp-field > span, .hx-form .lp-legend {
+  font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #2A3A4F;
+}
+.hx-form .lp-legend { font-weight: 600; color: var(--navy); margin-bottom: 12px; }
+.hx-form .lp-field > span em { font-weight: 400; letter-spacing: 0; margin-left: 4px; }
+.hx-form .lp-field input, .hx-form .lp-field select, .hx-form .lp-field textarea {
+  min-height: 46px; padding: 11px 14px; border-radius: 10px;
+  border: 1px solid #D5DEE9; background: #FBFCFE;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.hx-form .lp-field input:hover, .hx-form .lp-field select:hover, .hx-form .lp-field textarea:hover {
+  border-color: #B9C7D8;
+}
+.hx-form .lp-field input:focus, .hx-form .lp-field select:focus, .hx-form .lp-field textarea:focus {
+  background: #fff; border-color: var(--navy-med); box-shadow: 0 0 0 4px rgba(14,42,71,.1);
+}
+.hx-form .lp-field input::placeholder, .hx-form .lp-field textarea::placeholder { color: #9AA8BA; }
+.hx-form .lp-form-grid { gap: 0 16px; margin-bottom: 0; align-items: end; }
+.hx-form .lp-fieldset { margin-bottom: 4px; }
+.hx-form .lp-addr-grid { gap: 0 16px; }
+
+
+.hx-btn {
+  width: 100%; min-height: 52px; border: none; border-radius: 12px; cursor: pointer;
+  background: var(--navy); color: #fff; font: inherit; font-size: 16px; font-weight: 600;
+  transition: background .15s ease, transform .15s ease;
+}
+.hx-btn:hover { background: var(--navy-med); }
+.hx-btn:active { transform: translateY(1px); }
+.hx-btn:disabled { opacity: .65; cursor: default; }
+.hx-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+.hx-form .lp-form-note { text-align: center; margin-top: 12px; }
+
+
+@media (max-width: 760px) {
+  .hx-form { padding: 20px 18px; }
+}
+@media (max-width: 620px) {
+  .hx-form .lp-addr-grid { grid-template-columns: 1fr 1fr; }
+  .hx-form .lp-addr-grid > :first-child { grid-column: 1 / -1; }
+}

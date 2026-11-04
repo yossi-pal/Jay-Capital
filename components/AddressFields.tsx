@@ -18,16 +18,13 @@ export const STATES = [
 
 /**
  * Street / City / State / ZIP, with suggestions on the street line that fill
- * the other three.
+ * the other three -- but only when a proper address service is configured
+ * (Google, Radar or Mapbox key in Vercel; see ADDRESS-AUTOCOMPLETE.md).
  *
- * Split rather than one free-text line so the parts arrive clean and can be
- * checked. Picking a suggestion populates all four; typing works throughout,
- * so a property the geocoder has never heard of is still enterable.
- *
- * Providers, chosen automatically:
- *   1. GOOGLE PLACES if NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is set. Best US
- *      house-number coverage, needs a billing account.
- *   2. PHOTON otherwise -- free, keyless, OpenStreetMap. No account at all.
+ * With no key the fields are plain boxes carrying standard autocomplete
+ * hints, so the browser's own saved addresses still fill them. `section`
+ * keeps two address blocks on one form from receiving the same saved address.
+ * Typing always works, so a property no service knows is still enterable.
  */
 
 let googleScript: Promise<void> | null = null;
@@ -46,39 +43,14 @@ function loadGoogle(key: string): Promise<void> {
   return googleScript;
 }
 
-function fromPhoton(p: Record<string, any>): Suggestion | null {
-  const street = [p.housenumber, p.street || p.name].filter(Boolean).join(' ').trim();
-  if (!street) return null;
-  const value: AddressValue = {
-    street,
-    city: p.city || p.town || p.village || p.county || '',
-    state: p.state ? stateCode(p.state) : '',
-    zip: p.postcode || '',
-  };
-  return { label: formatAddress(value), value };
-}
-
-/** Photon returns full state names; the form wants the two-letter code. */
-function stateCode(name: string): string {
-  const n = name.trim();
-  if (/^[A-Z]{2}$/.test(n)) return n;
-  const map: Record<string, string> = {
-    'new york': 'NY', 'new jersey': 'NJ', 'connecticut': 'CT', 'pennsylvania': 'PA',
-    'florida': 'FL', 'california': 'CA', 'texas': 'TX', 'massachusetts': 'MA',
-    'maryland': 'MD', 'virginia': 'VA', 'ohio': 'OH', 'illinois': 'IL',
-    'north carolina': 'NC', 'south carolina': 'SC', 'georgia': 'GA', 'michigan': 'MI',
-    'arizona': 'AZ', 'nevada': 'NV', 'colorado': 'CO', 'washington': 'WA',
-  };
-  return map[n.toLowerCase()] ?? '';
-}
-
 export default function AddressFields({
-  legend, value, onChange, required,
+  legend, value, onChange, required, section,
 }: {
   legend: string;
   value: AddressValue;
   onChange: (v: AddressValue) => void;
   required?: boolean;
+  section?: string;
 }) {
   const streetRef = useRef<HTMLInputElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -93,8 +65,10 @@ export default function AddressFields({
   const provider = activeProvider();
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const usingGoogle = provider === 'google' && !!key;
+  const suggesting = provider !== 'none';
 
   const set = (patch: Partial<AddressValue>) => onChange({ ...value, ...patch });
+  const ac = (token: string) => (section ? `section-${section} ${token}` : token);
 
   // ---- Google
   useEffect(() => {
@@ -140,9 +114,9 @@ export default function AddressFields({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usingGoogle]);
 
-  // ---- keyless / token providers (Radar, Mapbox, Photon)
+  // ---- Radar / Mapbox (and Photon only if forced on purpose)
   useEffect(() => {
-    if (usingGoogle) return;
+    if (usingGoogle || !suggesting) return;
     // Picking a suggestion sets the value; that must not start a new search.
     if (justChose.current) { justChose.current = false; return; }
 
@@ -150,8 +124,6 @@ export default function AddressFields({
     if (street.length < 3) { setItems([]); setOpen(false); setSearched(false); return; }
 
     const controller = new AbortController();
-    // 160ms: long enough to skip a keystroke, short enough that the list is
-    // arriving while you are still typing.
     const t = window.setTimeout(async () => {
       setLoading(true);
       try {
@@ -172,7 +144,7 @@ export default function AddressFields({
     }, 160);
 
     return () => { window.clearTimeout(t); controller.abort(); setLoading(false); };
-  }, [value.street, value.city, value.state, usingGoogle, provider]);
+  }, [value.street, value.city, value.state, usingGoogle, suggesting, provider]);
 
   useEffect(() => {
     if (!open) return;
@@ -205,28 +177,32 @@ export default function AddressFields({
       <div ref={boxRef} className="lp-field" style={{ position: 'relative' }}>
         <span>Street</span>
         <input
+          aria-label="Street"
           ref={streetRef}
           value={value.street}
           onChange={e => set({ street: e.target.value })}
           onKeyDown={onKeyDown}
-          placeholder="Start typing…"
+          placeholder={suggesting ? 'Start typing…' : '123 Main Street'}
           required={required}
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          onFocus={e => e.currentTarget.setAttribute('autocomplete', 'new-password')}
+          // With suggestions on, the browser's own autofill box would sit on
+          // top of ours, so it is switched off for this one line.
+          autoComplete={suggesting ? 'off' : ac('address-line1')}
+          {...(suggesting && !usingGoogle ? {
+            role: 'combobox',
+            'aria-expanded': open,
+            'aria-controls': listId,
+            'aria-autocomplete': 'list' as const,
+          } : {})}
         />
 
-        {!usingGoogle && open && (
+        {suggesting && !usingGoogle && open && (
           <ul
             id={listId}
             role="listbox"
             style={{
               position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 60,
               margin: 0, padding: 4, listStyle: 'none', background: '#fff',
-              border: '1px solid var(--border)', borderRadius: 8,
+              border: '1px solid var(--border)', borderRadius: 10,
               boxShadow: '0 10px 28px rgba(4,22,42,.16)', maxHeight: 260, overflowY: 'auto',
             }}
           >
@@ -240,7 +216,7 @@ export default function AddressFields({
                   style={{
                     display: 'block', width: '100%', textAlign: 'left', border: 'none',
                     background: i === active ? 'var(--pale)' : 'transparent',
-                    padding: '9px 11px', borderRadius: 6, cursor: 'pointer',
+                    padding: '10px 11px', borderRadius: 6, cursor: 'pointer',
                     font: 'inherit', fontSize: 14, color: 'var(--ink)',
                   }}
                 >
@@ -266,11 +242,12 @@ export default function AddressFields({
         <label className="lp-field">
           <span>City</span>
           <input value={value.city} onChange={e => set({ city: e.target.value })}
-            required={required} autoComplete="off" />
+            required={required} autoComplete={ac('address-level2')} />
         </label>
         <label className="lp-field">
           <span>State</span>
-          <select value={value.state} onChange={e => set({ state: e.target.value })} required={required}>
+          <select value={value.state} onChange={e => set({ state: e.target.value })}
+            required={required} autoComplete={ac('address-level1')}>
             <option value="">—</option>
             {STATES.map(st => <option key={st} value={st}>{st}</option>)}
           </select>
@@ -279,7 +256,7 @@ export default function AddressFields({
           <span>ZIP</span>
           <input value={value.zip} inputMode="numeric" maxLength={10}
             onChange={e => set({ zip: e.target.value.replace(/[^\d-]/g, '').slice(0, 10) })}
-            required={required} autoComplete="off" />
+            required={required} autoComplete={ac('postal-code')} />
         </label>
       </div>
     </fieldset>

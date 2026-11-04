@@ -11,8 +11,10 @@ import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
 import AddDrawModal from '@/components/AddDrawModal';
 import AddBorrowerModal from '@/components/AddBorrowerModal';
-import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
+import { ConfirmDialog, AlertDialog } from '@/components/Modal';
 import LoanPager from '@/components/LoanPager';
+import MarkPaidOffModal, { signedMoney } from '@/components/MarkPaidOffModal';
+import type { PayoffQuote } from '@/lib/payoff';
 
 interface Summary {
   loan_id: string; loan_number: string; property: string; loan_amount: number;
@@ -26,11 +28,16 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, lienPosition = null, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
   canEdit: boolean; canSend: boolean; hasClosingStatement?: boolean; hasPayoffLetter?: boolean; lienPosition?: number | null;
+  /** The saved payoff letter's quote, and its late and discharge fees to start the paid-off form from. */
+  payoffQuote?: PayoffQuote | null;
+  payoffDefaults?: { lateFee: number; dischargeFee: number } | null;
+  /** The recorded payoff once the loan is paid off (staff and admin only). */
+  loanPayoff?: { amount_received: number; late_fee: number; discharge_fee: number; difference: number | null } | null;
   fallbackOrder?: { id: string; label: string }[];
 }) {
   const router = useRouter();
@@ -42,8 +49,6 @@ export default function LoanDetail({
   const [confirmDeleteDraw, setConfirmDeleteDraw] = useState<string | null>(null);
   const [confirmDeletePayment, setConfirmDeletePayment] = useState<string | null>(null);
   const [payoffOpen, setPayoffOpen] = useState(false);
-  const [payoffDate, setPayoffDate] = useState(summary.paid_off_date ?? '');
-  const [payoffErr, setPayoffErr] = useState('');
 
   // Controlled, not defaultValue: defaultValue only applies on mount, so after
   // the payoff modal reverted the select and refreshed, it kept showing the old
@@ -133,8 +138,6 @@ export default function LoanDetail({
                 const next = e.target.value;
                 // Paid off needs a date before anything is written.
                 if (next === 'paid_off') {
-                  setPayoffErr('');
-                  setPayoffDate(summary.paid_off_date ?? '');
                   setPayoffOpen(true);
                   return;   // the select stays put until the date is confirmed
                 }
@@ -165,6 +168,9 @@ export default function LoanDetail({
               {hasPayoffLetter ? 'Payoff letter' : 'Request payoff'}
             </Link>
           )}
+          {loanPayoff && (canEdit || canSend) && (
+            <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/lender-payoff`}>Lender payoff statement</Link>
+          )}
           {canEdit && <Link className="btn secondary" href={`/admin/loans/${summary.loan_id}/edit`}>Edit</Link>}
           {canEdit && <AddDrawModal loanId={summary.loan_id} />}
           {canEdit && (
@@ -188,7 +194,7 @@ export default function LoanDetail({
           <span className="label">{paidOff ? 'Paid off' : 'Current statement'}</span>
           <span className="value">{paidOff ? fmtDate(summary.paid_off_date) : money(dueLedger.amountDue)}</span>
           <span className="foot">
-            {paidOff ? 'No further interest or statements'
+            {paidOff ? (loanPayoff ? `Received ${money(loanPayoff.amount_received)}` : 'No further interest or statements')
               : dueLedger.deferredToNext ? 'Nothing billed yet — first bill next statement'
               : `Due ${fmtDate(dueMonth)}`}
           </span>
@@ -321,6 +327,14 @@ export default function LoanDetail({
               {paidOff && summary.paid_off_date && (
                 <p style={{ marginBottom: 0, color: 'var(--ok)', fontWeight: 600 }}>
                   Paid off {fmtDate(summary.paid_off_date)} · no further interest or statements.
+                  {loanPayoff && (canEdit || canSend) && (
+                    <span style={{ color: 'var(--ink)', fontWeight: 400 }}>
+                      {' '}· Received {money(loanPayoff.amount_received)}
+                      {loanPayoff.difference !== null && (
+                        <> · difference <b style={{ color: loanPayoff.difference < -0.005 ? 'var(--danger)' : 'var(--ok)' }}>{signedMoney(loanPayoff.difference)}</b> vs. the payoff letter</>
+                      )}
+                    </span>
+                  )}
                 </p>
               )}
               {canSend && (
@@ -426,38 +440,19 @@ export default function LoanDetail({
         }}
         onCancel={() => setConfirmDeletePayment(null)}
       />
-      <Modal open={payoffOpen} onClose={() => !busy && setPayoffOpen(false)} title="Mark Loan Paid Off" maxWidth={460}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <p className="muted" style={{ margin: 0 }}>
-            Interest stops at the payoff date and no further statements are issued.
-            Interest from the 1st of the payoff month up to this date will come from the
-            payoff statement.
-          </p>
-          <div className="field-wrap">
-            <label>Payoff date</label>
-            <input className="field" type="date" value={payoffDate}
-              min={summary.closing_date}
-              onChange={e => setPayoffDate(e.target.value)} />
-          </div>
-          {payoffErr && <div className="alert error" style={{ margin: 0 }}>{payoffErr}</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button className="btn secondary" disabled={busy}
-              onClick={() => { setPayoffOpen(false); setStatusValue(summary.status); }}>Cancel</button>
-            <button className="btn" disabled={busy} onClick={async () => {
-              if (!payoffDate) { setPayoffErr('Please enter the payoff date.'); return; }
-              setBusy(true);
-              const res = await setLoanStatus(summary.loan_id, 'paid_off', payoffDate);
-              setBusy(false);
-              if (!res.ok) { setPayoffErr(res.error || 'Could not mark the loan paid off.'); return; }
-              setStatusValue('paid_off');   // reflect it immediately
-              setPayoffOpen(false);
-              router.refresh();
-            }}>
-              {busy ? 'Saving…' : 'Mark paid off'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <MarkPaidOffModal
+        open={payoffOpen}
+        onClose={() => { setPayoffOpen(false); setStatusValue(summary.status); }}
+        onSaved={() => { setStatusValue('paid_off'); setPayoffOpen(false); router.refresh(); }}
+        loan={summary} draws={engineDraws} payments={payments} allocations={allocations}
+        quote={payoffQuote}
+        defaults={{
+          payoffDate: summary.paid_off_date,
+          amountReceived: loanPayoff?.amount_received,
+          lateFee: loanPayoff?.late_fee ?? payoffDefaults?.lateFee,
+          dischargeFee: loanPayoff?.discharge_fee ?? (payoffDefaults?.dischargeFee || undefined),
+        }}
+      />
 
       <AlertDialog
         open={!!actionError}
