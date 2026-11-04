@@ -313,8 +313,18 @@ export default function PortfolioTable({
                   <td className="num" style={{ fontWeight: 600 }}>{money(l.total_disbursed)}</td>
                   <td className="num">{pct(l.annual_rate)}</td>
                   <td className="num">
-                    {l.due_date ? money(l.due_amount) : <span className="muted">—</span>}
-                    {l.late > 0.005 && <span className="sub-late">{money(l.late)} past due</span>}
+                    {l.due_date
+                      ? <span className={l.late > 0.005 ? 'amt-late' : undefined}>{money(l.due_amount)}</span>
+                      : <span className="muted">—</span>}
+                    {/* Say "Past due" once. A separate figure only when just part
+                        of what's due is late -- otherwise it repeats the amount. */}
+                    {l.late > 0.005 && (
+                      <span className="sub-late">
+                        {!l.due_date || Math.abs(l.late - l.due_amount) < 0.01
+                          ? 'Past due'
+                          : l.late < l.due_amount ? `${money(l.late)} of it past due` : `${money(l.late)} past due`}
+                      </span>
+                    )}
                   </td>
                   <td className="muted" style={{ whiteSpace: 'nowrap' }}>{l.lender}</td>
                 </tr>
