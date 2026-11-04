@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { serverClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import LiveRefresh from '@/components/LiveRefresh';
 import IdleTimeout from '@/components/IdleTimeout';
 import AdminShell from '@/components/AdminShell';
@@ -7,15 +7,9 @@ import AdminShell from '@/components/AdminShell';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Shared with the page below through getMe's per-request cache.
+  const { user, profile } = await getMe();
   if (!user) redirect('/login?next=/admin');
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name, email')
-    .eq('id', user.id)
-    .single();
 
   const role = profile?.role ?? 'borrower';
 

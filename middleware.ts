@@ -24,17 +24,26 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
   const path = req.nextUrl.pathname;
+  // On /admin and /portal, getSession reads the sign-in cookie (refreshing it
+  // when it has expired) without a round trip to Supabase on every click. That
+  // is enough for this redirect, which is a convenience: the real checks are
+  // getUser in the admin layout and the portal page, and row level security on
+  // every read. /login and /signup still ask Supabase, so a cookie for a
+  // removed account cannot bounce between /login and /go.
+  const onAuthPage = path === '/login' || path === '/signup';
+  const signedIn = onAuthPage
+    ? !!(await supabase.auth.getUser()).data.user
+    : !!(await supabase.auth.getSession()).data.session;
 
-  if ((path.startsWith('/admin') || path.startsWith('/portal')) && !user) {
+  if ((path.startsWith('/admin') || path.startsWith('/portal')) && !signedIn) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', path);
     return NextResponse.redirect(url);
   }
 
-  if ((path === '/login' || path === '/signup') && user) {
+  if (onAuthPage && signedIn) {
     const url = req.nextUrl.clone();
     url.pathname = '/go';
     url.searchParams.delete('next');

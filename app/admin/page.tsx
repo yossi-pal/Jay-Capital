@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import { money, fmtDate, firstOfMonth, todayInAppTz, shortAddress, APP_TZ } from '@/lib/format';
 import { pastDueByLoan } from '@/lib/portfolio-health';
 
@@ -20,9 +21,7 @@ function compact(n: number): string {
  */
 export default async function TodayPage() {
   const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from('profiles')
-    .select('role, full_name, email').eq('id', user?.id ?? '').single();
+  const { profile: me } = await getMe();
   if (me?.role !== 'admin' && me?.role !== 'staff') {
     return <div className="wrap"><div className="card"><div className="alert error">Admin or staff only.</div></div></div>;
   }

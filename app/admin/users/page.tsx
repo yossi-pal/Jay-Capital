@@ -1,4 +1,5 @@
 import { serverClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import InviteUser from '@/components/InviteUser';
 import UsersList from '@/components/UsersList';
 
@@ -6,8 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function UsersPage() {
   const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
+  const { user, profile: me } = await getMe();
   if (me?.role !== 'admin') {
     return <div className="wrap"><div className="card"><div className="alert error">Admin only.</div></div></div>;
   }

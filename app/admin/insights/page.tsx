@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
 import { buildLedger, chargeForPeriod, periodsThrough } from '@/lib/ledger';
 import { firstOfMonth } from '@/lib/format';
@@ -20,8 +21,7 @@ export const revalidate = 0;
  */
 export default async function InsightsPage() {
   const supabase = serverClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').single();
+  const { profile: me } = await getMe();
   if (me?.role !== 'admin' && me?.role !== 'staff') {
     return <div className="wrap"><div className="card"><div className="alert error">Admin or staff only.</div></div></div>;
   }
