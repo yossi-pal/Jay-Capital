@@ -261,7 +261,7 @@ function StatementDocument({ kind, loan, fig, notes, updatedAt }: {
         </div>
         <div className="col">
           <div className="row"><span className="k">Interest Rate</span><span className="v">{pct(loan.annual_rate)}</span></div>
-          {position && <div className="row"><span className="k">Position</span><span className="v">{position}</span></div>}
+          {position && <div className="row"><span className="k">Lien Position</span><span className="v">{position}</span></div>}
           <div className="row"><span className="k">Lender</span><span className="v">{loan.lender_name ?? ''}</span></div>
           <div className="row"><span className="k">Servicer</span><span className="v">{BRAND.legal}</span></div>
         </div>

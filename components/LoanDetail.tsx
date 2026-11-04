@@ -242,7 +242,7 @@ export default function LoanDetail({
                       <div className="row"><span className="k">Remaining draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
                       <div className="row"><span className="k">Interest rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
                       <div className="row"><span className="k">Closing date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
-                      <div className="row"><span className="k">Position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
                       <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
                     </div>
                   </div>

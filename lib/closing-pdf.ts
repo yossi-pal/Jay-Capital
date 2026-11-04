@@ -114,7 +114,7 @@ export async function closingPDF(
     ['Interest Rate', pct(loan.annual_rate)],
     // Lien position is for the lender only; never on the Closing Statement.
     ...(lender && lienPositionLabel(loan.lien_position)
-      ? [['Position', lienPositionLabel(loan.lien_position)] as [string, string]] : []),
+      ? [['Lien Position', lienPositionLabel(loan.lien_position)] as [string, string]] : []),
     ['Lender', loan.lender_name ?? ''],
     ['Servicer', BRAND.legal],
   ];
