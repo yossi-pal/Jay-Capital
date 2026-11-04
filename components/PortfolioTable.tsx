@@ -95,9 +95,13 @@ export default function PortfolioTable({
     // (?status=late). Honour it with a clean slate so nothing hides those
     // loans, then tidy the address bar.
     try {
-      const want = new URLSearchParams(window.location.search).get('status');
-      if (want !== null && FILTERS.some(f => f.value === want)) {
-        setStatus(want); setQ(''); setLender('');
+      const params = new URLSearchParams(window.location.search);
+      const want = params.get('status');
+      const wantLender = params.get('lender');
+      if ((want !== null && FILTERS.some(f => f.value === want)) || wantLender) {
+        setStatus(want !== null && FILTERS.some(f => f.value === want) ? want : 'active');
+        setQ('');
+        setLender(wantLender && loans.some(l => l.lender_name === wantLender) ? wantLender : '');
         window.history.replaceState(null, '', window.location.pathname);
       }
     } catch { /* ignore */ }

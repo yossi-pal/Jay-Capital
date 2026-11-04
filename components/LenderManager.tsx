@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createLender, updateLender, setLenderActive } from '@/lib/actions';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 import { money } from '@/lib/format';
+import Link from 'next/link';
 
 export interface LenderRow {
   id: string; name: string; short_name: string | null; active: boolean; loan_count: number;
@@ -130,7 +131,10 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
               {l.active ? <span className="chip ok">Active</span> : <span className="chip">Inactive</span>}
             </div>
             <div className="lc-stats">
-              <div><span>Active loans</span><b>{l.active_loans}</b></div>
+              <Link className="lc-link" href={`/admin/loans?status=active&lender=${encodeURIComponent(l.name)}`}
+                title={`See ${l.name}'s active loans`}>
+                <span>Active loans</span><b>{l.active_loans} <span aria-hidden="true">→</span></b>
+              </Link>
               <div><span>Committed</span><b title={money(l.committed)}>${Math.round(l.committed).toLocaleString('en-US')}</b></div>
               <div><span>All-time loans</span><b>{l.loan_count}</b></div>
             </div>
@@ -150,11 +154,6 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
                   });
                   setErr('');
                 }}>Edit</button>
-              {l.active ? (
-                <button className="btn secondary sm" disabled={busy} onClick={() => setConfirmOff(l)}>Inactivate</button>
-              ) : (
-                <button className="btn sm" disabled={busy} onClick={() => toggle(l, true)}>Reactivate</button>
-              )}
             </div>
           </section>
         ))}
@@ -185,6 +184,29 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
             <button className="btn secondary" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
             <button className="btn" disabled={busy} onClick={saveEdit}>{busy ? 'Saving…' : 'Save'}</button>
           </div>
+          {editing && (
+            <div className="danger-zone" style={{ marginTop: 6 }}>
+              {editing.active ? (
+                <>
+                  <span>
+                    <b style={{ color: 'var(--danger)', display: 'block' }}>Inactivate this lender</b>
+                    <span className="muted">It stays on the loans already using it, but won&rsquo;t be offered for new loans.</span>
+                  </span>
+                  <button className="btn danger" disabled={busy}
+                    onClick={() => { const l = editing; setEditing(null); setConfirmOff(l); }}>Inactivate</button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    <b style={{ display: 'block', color: 'var(--navy)' }}>This lender is inactive</b>
+                    <span className="muted">Reactivate it to offer it again on new loans.</span>
+                  </span>
+                  <button className="btn" disabled={busy}
+                    onClick={() => { const l = editing; setEditing(null); toggle(l, true); }}>Reactivate</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 
