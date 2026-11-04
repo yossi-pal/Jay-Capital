@@ -1,6 +1,6 @@
 -- ============================================================
 -- 017  Loan payoffs (what was received, and the lender's payoff statement)
--- NOT applied yet: needs approval before it is run.
+-- Already applied to production on 2026-11-04.
 --
 -- Marking a loan paid off now records the amount actually received, the late
 -- fee and the discharge fee, and produces a Lender Payoff Statement. The
