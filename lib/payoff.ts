@@ -16,7 +16,7 @@
  */
 
 import { chargeForPeriod, periodEndOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
-import { DRAW_DESCRIPTION, type Draw } from '@/lib/interest';
+import { DRAW_DESCRIPTION, cents, type Draw } from '@/lib/interest';
 import { firstOfMonth, fmtDate, money, monthName } from '@/lib/format';
 
 /** Where payoff funds go unless a letter says otherwise. */
@@ -48,7 +48,6 @@ export interface PayoffInput {
 
 export interface PayoffLine { label: string; amount: number }
 
-const cents = (n: number) => Math.round(n * 100) / 100;
 const parse = (s: string) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -98,19 +97,25 @@ export function interestBetween(loan: PayoffLoan, draws: Draw[], from: string, t
     ...draws.filter(d => d.description === DRAW_DESCRIPTION)
       .map(d => ({ date: d.draw_date.slice(0, 10), amount: Number(d.amount) || 0, acquisition: false })),
   ];
+  // Rounded to the cent the same way the statements are: money outstanding
+  // for the whole month is one base-balance line, and each part-month amount
+  // is its own line. A full month therefore matches its statement exactly.
   let total = 0;
   for (let m = firstOfMonth(from), i = 0; m <= firstOfMonth(through) && i < 600; m = firstOfMonth(m, 1), i++) {
     const winStart = from > m ? from : m;
     const end = periodEndOf(m);
     const winEnd = through < end ? through : end;
     const days = dim(m);
+    let fullMonthBase = 0;
     for (const x of money) {
       if (x.date > winEnd) continue;
       if (x.acquisition && m === closingMonth) continue;   // prepaid at closing
       const start = x.date > winStart ? x.date : winStart;
+      if (x.date < m && winStart === m && winEnd === end) { fullMonthBase += x.amount; continue; }
       const n = (parse(winEnd).getTime() - parse(start).getTime()) / 86_400_000 + 1;
-      total += x.amount * (rate / 12) / days * Math.round(n);
+      total = cents(total + cents(x.amount * (rate / 12) / days * Math.round(n)));
     }
+    if (fullMonthBase) total = cents(total + cents(fullMonthBase * (rate / 12)));
   }
   return total;
 }
