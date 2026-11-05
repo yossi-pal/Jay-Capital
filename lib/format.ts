@@ -11,6 +11,8 @@
  * Anchoring to New York fixes both, and keeps the server and the browser
  * agreeing regardless of where either one is.
  */
+import { cents } from '@/lib/interest';
+
 export const APP_TZ = 'America/New_York';
 
 /** Today's calendar date in New York, as a local Date at midnight. */
@@ -34,7 +36,9 @@ export function fmtDateTime(value: string | Date): string {
 
 export function money(v: number | string | null | undefined): string {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
-  const safe = isNaN(n) ? 0 : n;
+  // Round to whole cents first, the same way the interest engine does, so a
+  // leftover fraction of a cent can never print as "$-0.00".
+  const safe = isNaN(n) ? 0 : cents(n);
   return '$' + safe.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 

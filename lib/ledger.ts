@@ -1,4 +1,4 @@
-import { buildStatement, type Loan, type Draw } from '@/lib/interest';
+import { buildStatement, cents, type Loan, type Draw } from '@/lib/interest';
 import { firstOfMonth, monthName, todayInAppTz } from '@/lib/format';
 
 /**
@@ -24,6 +24,10 @@ import { firstOfMonth, monthName, todayInAppTz } from '@/lib/format';
  *   which specific months are still open, using what the admin applied each
  *   payment to. If payments have been recorded but not applied to a month,
  *   that shows up as `unapplied` rather than silently skewing the aging.
+ *
+ *   Every figure here is whole cents: charges come from lib/interest.ts
+ *   already rounded, and each total below is rounded again so adding many
+ *   amounts can never leave a fraction of a cent behind.
  *
  *   Unpaid balances do NOT themselves accrue interest -- they carry forward
  *   at face value. This matches interest-only hard-money servicing.
@@ -125,7 +129,7 @@ export function lastStatementDate(paidOffDate?: string | null): string | null {
 
 /** Interest charged for one period. */
 export function chargeForPeriod(loan: Loan, draws: Draw[], periodMonth: string): number {
-  return buildStatement(loan, draws, firstOfMonth(periodMonth, 1)).amountDue;
+  return cents(buildStatement(loan, draws, firstOfMonth(periodMonth, 1)).amountDue);
 }
 
 /**
@@ -153,23 +157,23 @@ export function buildLedger(
   const priorPeriods = allPeriods.filter(p => dueDateFor(p, loan.closing_date) < statementMonth);
 
   const currentCharge = currentPeriodMonths
-    .reduce((sum, p) => sum + chargeForPeriod(loan, draws, p), 0);
+    .reduce((sum, p) => cents(sum + chargeForPeriod(loan, draws, p)), 0);
 
   // ---- date-based running balance
   const paidBefore = payments
     .filter(p => p.payment_date < periodStart)
-    .reduce((s, p) => s + Number(p.amount), 0);
+    .reduce((s, p) => cents(s + Number(p.amount)), 0);
 
-  const priorCharges = priorPeriods.reduce((s, p) => s + chargeForPeriod(loan, draws, p), 0);
-  const previousBalance = priorCharges - paidBefore;
+  const priorCharges = priorPeriods.reduce((s, p) => cents(s + chargeForPeriod(loan, draws, p)), 0);
+  const previousBalance = cents(priorCharges - paidBefore);
 
   const paymentsInPeriod = payments
     .filter(p => p.payment_date >= periodStart && p.payment_date <= periodEnd)
     .sort((a, b) => a.payment_date.localeCompare(b.payment_date));
-  const paymentsThisPeriod = paymentsInPeriod.reduce((s, p) => s + Number(p.amount), 0);
+  const paymentsThisPeriod = paymentsInPeriod.reduce((s, p) => cents(s + Number(p.amount)), 0);
 
-  const previousOpenBalance = previousBalance - paymentsThisPeriod;
-  const amountDue = previousOpenBalance + currentCharge;
+  const previousOpenBalance = cents(previousBalance - paymentsThisPeriod);
+  const amountDue = cents(previousOpenBalance + currentCharge);
 
   // ---- allocation-based aging of earlier months
   const payById = new Map(payments.map(p => [p.id, p]));
@@ -181,7 +185,7 @@ export function buildLedger(
   const paidByPeriod = new Map<string, number>();
   for (const a of asOfAllocations) {
     const key = firstOfMonth(a.period_month);
-    paidByPeriod.set(key, (paidByPeriod.get(key) ?? 0) + Number(a.amount));
+    paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
 
   const currentPeriods: PeriodCharge[] = currentPeriodMonths.map(p => {
@@ -191,7 +195,7 @@ export function buildLedger(
       periodMonth: p, label: monthName(p),
       statementDate: dueDateFor(p, loan.closing_date),
       statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-      charge, paid, balance: charge - paid, inProgress: false,
+      charge, paid, balance: cents(charge - paid), inProgress: false,
     };
   });
 
@@ -203,7 +207,7 @@ export function buildLedger(
         periodMonth: p, label: monthName(p),
         statementDate: dueDateFor(p, loan.closing_date),
         statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: charge - paid, inProgress: false,
+        charge, paid, balance: cents(charge - paid), inProgress: false,
       };
     })
     .filter(r => r.balance > 0.005);
@@ -211,9 +215,9 @@ export function buildLedger(
   // Payments received but not applied to any month yet.
   const paidToDate = payments
     .filter(p => p.payment_date <= periodEnd)
-    .reduce((s, p) => s + Number(p.amount), 0);
-  const allocatedToDate = asOfAllocations.reduce((s, a) => s + Number(a.amount), 0);
-  const unapplied = Math.max(0, paidToDate - allocatedToDate);
+    .reduce((s, p) => cents(s + Number(p.amount)), 0);
+  const allocatedToDate = asOfAllocations.reduce((s, a) => cents(s + Number(a.amount)), 0);
+  const unapplied = Math.max(0, cents(paidToDate - allocatedToDate));
 
   return {
     periodMonth,
@@ -267,7 +271,7 @@ export function pastDueAsOf(
   const paidByPeriod = new Map<string, number>();
   for (const a of allocations) {
     const key = firstOfMonth(a.period_month);
-    paidByPeriod.set(key, (paidByPeriod.get(key) ?? 0) + Number(a.amount));
+    paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
 
   // Periods whose due date is on or before today.
@@ -281,7 +285,7 @@ export function pastDueAsOf(
         periodMonth: p, label: monthName(p),
         statementDate: dueDateFor(p, loan.closing_date),
         statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: charge - paid, inProgress: false,
+        charge, paid, balance: cents(charge - paid), inProgress: false,
       };
     })
     .filter(r => r.charge > 0.005 && r.balance > 0.005);
@@ -307,7 +311,7 @@ export function openCharges(
   const paidByPeriod = new Map<string, number>();
   for (const a of allocations) {
     const key = firstOfMonth(a.period_month);
-    paidByPeriod.set(key, (paidByPeriod.get(key) ?? 0) + Number(a.amount));
+    paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
   return periodsThrough(loan.closing_date, throughPeriodMonth, (loan as LedgerLoan).paid_off_date)
     .map(p => {
@@ -317,7 +321,7 @@ export function openCharges(
         periodMonth: p, label: monthName(p),
         statementDate: dueDateFor(p, loan.closing_date),
         statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: charge - paid, inProgress: p >= currentPeriod,
+        charge, paid, balance: cents(charge - paid), inProgress: p >= currentPeriod,
       };
     })
     .filter(r => r.charge > 0.005 && r.balance > 0.005);

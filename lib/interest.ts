@@ -25,7 +25,26 @@
  *   Rate is monthly (annual/12), prorated by days in that specific month.
  *   NOT a 365-day daily rate: a June draw and a February draw with the same
  *   day count accrue differently. This is intentional.
+ *
+ *   EVERY interest figure is whole cents. Each draw's interest and the base
+ *   balance interest are rounded to the cent when calculated, and a month's
+ *   charge is the sum of those rounded lines -- so the lines on a statement
+ *   always add up to its total, and a statement billing several months
+ *   always equals the months it lists. Payments are entered in cents, so
+ *   paying exactly what was billed always leaves exactly zero.
  */
+
+/**
+ * Round to whole cents; half a cent rounds away from zero, as on paper.
+ * The amount is first tidied to 6 decimal places so a figure the computer
+ * stores as 1.00499999... (really 1.005) still rounds to 1.01. Also turns
+ * -0 into 0.
+ */
+export function cents(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const hundredths = Number((Math.abs(n) * 100).toFixed(6));
+  return (Math.sign(n) * Math.round(hundredths)) / 100 + 0;
+}
 
 export const DRAW_DESCRIPTION = 'Construction Draw';
 
@@ -85,14 +104,14 @@ export function drawInterest(amount: number, annualRate: number, drawDate: strin
   const d = parseDate(drawDate);
   const dim = daysInMonth(d.getFullYear(), d.getMonth());
   const days = dim - d.getDate() + 1;
-  return amount * (annualRate / 12) / dim * days;
+  return cents(amount * (annualRate / 12) / dim * days);
 }
 
 /** All-time accrued interest: sum of each draw's first-month proration. */
 export function totalAccruedInterest(draws: Draw[], annualRate: number): number {
   return draws
     .filter(d => d.description === DRAW_DESCRIPTION)
-    .reduce((s, d) => s + drawInterest(d.amount, annualRate, d.draw_date), 0);
+    .reduce((s, d) => cents(s + drawInterest(d.amount, annualRate, d.draw_date)), 0);
 }
 
 export function totalDisbursed(loan: Loan, draws: Draw[]): number {
@@ -122,7 +141,7 @@ export function buildStatement(loan: Loan, draws: Draw[], statementDate: string 
   const periodDraws = construction.filter(d => ym(parseDate(d.draw_date)) === periodYM);
   const periodDrawTotal = periodDraws.reduce((s, d) => s + d.amount, 0);
   const periodDrawInterest = periodDraws
-    .reduce((s, d) => s + drawInterest(d.amount, loan.annual_rate, d.draw_date), 0);
+    .reduce((s, d) => cents(s + drawInterest(d.amount, loan.annual_rate, d.draw_date)), 0);
 
   // Exclude this period's draws: they're already charged prorated interest.
   const baseBalance = disbursed - periodDrawTotal;
@@ -131,8 +150,8 @@ export function buildStatement(loan: Loan, draws: Draw[], statementDate: string 
   const closingYM = ym(parseDate(loan.closing_date));
   const prepaidAtClosing = closingYM >= periodYM;
 
-  const baseInterest = prepaidAtClosing ? 0 : baseBalance * (loan.annual_rate / 12);
-  const amountDue = baseInterest + periodDrawInterest;
+  const baseInterest = prepaidAtClosing ? 0 : cents(baseBalance * (loan.annual_rate / 12));
+  const amountDue = cents(baseInterest + periodDrawInterest);
 
   return {
     periodStart, periodEnd,
