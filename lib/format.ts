@@ -34,7 +34,10 @@ export function fmtDateTime(value: string | Date): string {
 
 export function money(v: number | string | null | undefined): string {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
-  const safe = isNaN(n) ? 0 : n;
+  // Round to whole cents first. Subtracting two equal amounts can leave a
+  // floating-point crumb like -0.0000000001, which would otherwise print as
+  // "$-0.00". Adding 0 also turns a negative zero into a plain zero.
+  const safe = isNaN(n) ? 0 : Math.round(n * 100) / 100 + 0;
   return '$' + safe.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
