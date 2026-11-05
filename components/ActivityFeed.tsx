@@ -37,6 +37,10 @@ const KIND_LABEL: Record<string, string> = {
   draw_added: 'Added draw',
   draw_updated: 'Edited draw',
   draw_deleted: 'Deleted draw',
+  draw_requested: 'Requested a draw',
+  draw_request_cancelled: 'Cancelled draw request',
+  draw_request_approved: 'Approved draw request',
+  draw_request_declined: 'Declined draw request',
   payment_added: 'Recorded payment',
   payment_updated: 'Edited payment',
   payment_deleted: 'Deleted payment',
@@ -56,7 +60,7 @@ const KIND_LABEL: Record<string, string> = {
 /** Money and record changes are worth spotting at a glance. */
 const WRITE_KINDS = new Set([
   'loan_created', 'loan_updated', 'loan_deleted', 'loan_status_changed', 'closing_statement_saved', 'lender_statement_saved', 'payoff_letter_saved',
-  'draw_added', 'draw_updated', 'draw_deleted',
+  'draw_added', 'draw_updated', 'draw_deleted', 'draw_request_approved', 'draw_request_declined',
   'payment_added', 'payment_updated', 'payment_deleted',
   'user_deleted', 'user_active_changed', 'borrower_login_created',
   'lender_added', 'lender_updated', 'loans_imported',

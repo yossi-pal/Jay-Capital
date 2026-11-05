@@ -6,6 +6,8 @@ import { money, pct, fmtDate, shortAddress, clampMonth, defaultStatementMonth, f
 import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import EmailUs from '@/components/EmailUs';
 import Monogram from '@/components/Monogram';
+import DrawRequestCard from '@/components/DrawRequestCard';
+import type { DrawRequestRow } from '@/lib/draw-requests';
 
 export interface PortalLoan {
   loan: StatementData;
@@ -13,6 +15,7 @@ export interface PortalLoan {
   payments: PaymentRow[];
   allocations: AllocationRow[];
   payInfo: PayInfo | null;
+  drawRequests?: DrawRequestRow[];
 }
 
 /** The loan as the interest engine wants it -- the same shape StatementView builds. */
@@ -279,6 +282,14 @@ export default function PortalLoans({
               </button>
             )}
           </section>
+
+          <DrawRequestCard
+            key={L.loan_id}
+            loanId={L.loan_id!}
+            available={Number(L.remaining_draw || 0)}
+            canRequest={!paidOff && (L as any).status === 'active' && Number(L.remaining_draw || 0) > 0.005}
+            requests={current.drawRequests ?? []}
+          />
 
           <section className="card bcard">
               <h2 className="bcard-h">Payment history</h2>

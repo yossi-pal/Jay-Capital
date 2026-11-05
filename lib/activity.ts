@@ -10,6 +10,8 @@ export type ActivityKind =
   | 'closing_statement_saved' | 'payoff_letter_saved'
   // admin: draws and payments
   | 'draw_added' | 'draw_updated' | 'draw_deleted'
+  // draw requests (borrower asks, admin decides)
+  | 'draw_requested' | 'draw_request_cancelled' | 'draw_request_approved' | 'draw_request_declined'
   | 'payment_added' | 'payment_updated' | 'payment_deleted'
   // admin: people and lenders
   | 'statement_emailed' | 'user_invited' | 'user_updated' | 'user_active_changed'

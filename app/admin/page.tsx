@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { getMe } from '@/lib/session';
-import { money, fmtDate, firstOfMonth, todayInAppTz, shortAddress, APP_TZ } from '@/lib/format';
+import { money, fmtDate, fmtDateTime, firstOfMonth, todayInAppTz, shortAddress, APP_TZ } from '@/lib/format';
 import { pastDueByLoan } from '@/lib/portfolio-health';
 
 export const dynamic = 'force-dynamic';
@@ -29,12 +29,14 @@ export default async function TodayPage() {
 
   const svc = serviceClient();
   const [{ data: loans }, { data: draws }, { data: payments }, { data: allocations },
-         { data: borrowers }] = await Promise.all([
+         { data: borrowers }, { data: drawReqs }] = await Promise.all([
     supabase.from('loan_summary').select('*'),
     svc.from('draws').select('loan_id, draw_date, amount, description'),
     svc.from('payments').select('id, loan_id, payment_date, amount, method, note'),
     svc.from('payment_allocations').select('payment_id, loan_id, period_month, amount'),
     svc.from('borrowers').select('id, name, email, user_id'),
+    svc.from('draw_requests').select('id, loan_id, amount, requested_at').eq('status', 'pending')
+      .order('requested_at', { ascending: true }),
   ]);
 
   const loanList = loans ?? [];
@@ -77,7 +79,11 @@ export default async function TodayPage() {
   const dateLine = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
   const attention = late.slice(0, 6);
-  const attentionCount = late.length + (noLogin.length ? 1 : 0);
+  // Draw requests borrowers sent from the portal, oldest first.
+  const pendingDraws = (drawReqs ?? [])
+    .map((r: any) => ({ ...r, loan: loanList.find((l: any) => l.loan_id === r.loan_id) }))
+    .filter((r: any) => r.loan);
+  const attentionCount = late.length + (noLogin.length ? 1 : 0) + pendingDraws.length;
 
   return (
     <div className="wrap" style={{ maxWidth: 1400 }}>
@@ -131,10 +137,20 @@ export default async function TodayPage() {
           {attentionCount === 0 ? (
             <div className="empty-ok">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></svg>
-              All caught up. Nothing is past due.
+              All caught up. Nothing is past due and no draw requests are waiting.
             </div>
           ) : (
             <div>
+              {pendingDraws.map((r: any) => (
+                <Link key={r.id} className="att" href={`/admin/loans/${r.loan.loan_id}`}>
+                  <span className="ic gold">Draw</span>
+                  <span className="txt">
+                    <b>{money(r.amount)} draw requested · {r.loan.loan_number}</b>
+                    <span>{r.loan.borrower_name} · {shortAddress(r.loan.property)} · asked {fmtDateTime(r.requested_at)}</span>
+                  </span>
+                  <span className="go">{isAdmin ? 'Review →' : 'View →'}</span>
+                </Link>
+              ))}
               {attention.map(x => (
                 <Link key={x.loan.loan_id} className="att" href={`/admin/loans/${x.loan.loan_id}`}>
                   <span className="ic red">{x.months}&nbsp;mo</span>

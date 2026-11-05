@@ -8,6 +8,7 @@ import PortalLoans, { type PortalLoan } from '@/components/PortalLoans';
 import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
 import ChangeEmailButton from '@/components/ChangeEmailButton';
+import { DRAW_REQUEST_COLUMNS, type DrawRequestRow } from '@/lib/draw-requests';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -52,12 +53,15 @@ export default async function PortalPage() {
   // alongside), instead of one loan after another.
   const [items] = await Promise.all([
     Promise.all(list.map(async (loan: any): Promise<PortalLoan> => {
-      const [{ data: draws }, extras] = await Promise.all([
+      const [{ data: draws }, extras, { data: requests }] = await Promise.all([
         supabase.from('draw_details').select('*').eq('loan_id', loan.loan_id).order('draw_date'),
         fetchStatementExtras(loan.loan_id, { requireUserAccess: true }),
+        // Read as the borrower: row level security returns only their own requests.
+        supabase.from('draw_requests').select(DRAW_REQUEST_COLUMNS).eq('loan_id', loan.loan_id)
+          .order('requested_at', { ascending: false }),
       ]);
       return {
-        loan, draws: draws ?? [],
+        loan, draws: draws ?? [], drawRequests: (requests ?? []) as DrawRequestRow[],
         payments: extras.payments, allocations: extras.allocations, payInfo: extras.payInfo,
       };
     })),

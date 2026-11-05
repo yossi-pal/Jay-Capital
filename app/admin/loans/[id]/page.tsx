@@ -2,6 +2,7 @@ import { serverClient } from '@/lib/supabase-server';
 import { notFound } from 'next/navigation';
 import { getMe } from '@/lib/session';
 import LoanDetail from '@/components/LoanDetail';
+import { DRAW_REQUEST_COLUMNS, type DrawRequestRow } from '@/lib/draw-requests';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
   const [
     { data: summary }, { data: draws }, { data: payments }, { data: allocations },
     { data: allLoans }, { data: position }, { data: closingStatement },
-    { data: payoffLetter }, { data: loanPayoff }, { profile },
+    { data: payoffLetter }, { data: loanPayoff }, { profile }, { data: drawRequests },
   ] = await Promise.all([
     supabase.from('loan_summary').select('*').eq('loan_id', params.id).single(),
     supabase.from('draw_details').select('*').eq('loan_id', params.id).order('draw_date', { ascending: true }),
@@ -31,6 +32,8 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
     supabase.from('payoff_letters').select('late_fee, discharge_fee, figures').eq('loan_id', params.id).maybeSingle(),
     supabase.from('loan_payoffs').select('amount_received, late_fee, discharge_fee, figures').eq('loan_id', params.id).maybeSingle(),
     getMe(),
+    supabase.from('draw_requests').select(DRAW_REQUEST_COLUMNS).eq('loan_id', params.id)
+      .order('requested_at', { ascending: false }),
   ]);
   if (!summary) notFound();
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
@@ -56,6 +59,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
         discharge_fee: Number(loanPayoff.discharge_fee), difference: (loanPayoff.figures as any)?.difference ?? null,
       } : null}
       lienPosition={position?.lien_position ?? null}
+      drawRequests={(drawRequests ?? []) as DrawRequestRow[]}
     />
   );
 }
