@@ -1,6 +1,6 @@
 -- ============================================================
 -- 018  Draw requests from the borrower portal
--- NOT YET APPLIED -- waiting for approval.
+-- Already applied to production on 2026-11-05.
 --
 -- A borrower can ask for a construction draw from their portal. The request
 -- sits here as "pending" until an admin approves it (which records an
