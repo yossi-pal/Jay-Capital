@@ -15,6 +15,8 @@ import { ConfirmDialog, AlertDialog } from '@/components/Modal';
 import LoanPager from '@/components/LoanPager';
 import MarkPaidOffModal, { signedMoney } from '@/components/MarkPaidOffModal';
 import type { PayoffQuote } from '@/lib/payoff';
+import { PendingDrawRequests, DrawRequestHistory } from '@/components/DrawRequestsPanel';
+import type { DrawRequestRow } from '@/lib/draw-requests';
 
 interface Summary {
   loan_id: string; loan_number: string; property: string; loan_amount: number;
@@ -28,7 +30,7 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
@@ -39,6 +41,8 @@ export default function LoanDetail({
   /** The recorded payoff once the loan is paid off (staff and admin only). */
   loanPayoff?: { amount_received: number; late_fee: number; discharge_fee: number; difference: number | null } | null;
   fallbackOrder?: { id: string; label: string }[];
+  /** Draw requests the borrower sent from the portal. */
+  drawRequests?: DrawRequestRow[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -181,6 +185,11 @@ export default function LoanDetail({
           )}
         </div>
       </div>
+
+      <PendingDrawRequests
+        requests={drawRequests} canEdit={canEdit}
+        available={Number(summary.remaining_draw || 0)} hasEmail={!!summary.borrower_email}
+      />
 
       {/* The four numbers that matter */}
       <section className="kpis" aria-label="Loan summary">
@@ -386,6 +395,7 @@ export default function LoanDetail({
           )}
 
           {tab === 'draws' && (
+            <>
             <div className="tablescroll">
               <table className="bordered">
                 <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
@@ -412,6 +422,8 @@ export default function LoanDetail({
                 </tbody>
               </table>
             </div>
+            <DrawRequestHistory requests={drawRequests} />
+            </>
           )}
         </div>
       </div>
