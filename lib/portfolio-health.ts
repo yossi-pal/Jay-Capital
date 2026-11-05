@@ -27,9 +27,10 @@ function inputsFor(l: any, draws: any[], payments: any[], allocations: any[]) {
 }
 
 /**
- * What each loan's current statement asks for: the amount due and the
- * statement date it falls due on. Uses the same statement month the borrower's
- * portal opens on, so staff and borrower see the same figure.
+ * What each loan still owes on its current statement (the statement's amount
+ * due less payments received since) and the statement date it falls due on.
+ * Uses the same statement month the borrower's portal opens on: this month's
+ * through the 15th, next month's from the 16th.
  */
 export interface DueNow { amount: number; date: string; deferred: boolean }
 
@@ -42,7 +43,18 @@ export function dueNowByLoan(
     const x = inputsFor(l, draws, payments, allocations);
     const asOf = clampMonth(defaultStatementMonth(), l.closing_date);
     const led = buildLedger(x.loan, x.d, x.p, x.a, asOf);
-    out.set(l.loan_id, { amount: Math.max(0, led.amountDue), date: asOf, deferred: !!led.deferredToNext });
+    // The statement itself is a snapshot as of the 1st, so a payment made
+    // after that never lowers its "Amount due". This list is about today, so
+    // show what is STILL owed on the months that statement bills: each
+    // month's charge less everything applied to it so far, less any payment
+    // received but not yet applied to a month. A paid statement shows $0.00.
+    const open = pastDueAsOf(x.loan, x.d, x.p, x.a, asOf)
+      .reduce((s, r) => s + r.balance, 0);
+    const received = x.p.reduce((s, p) => s + p.amount, 0);
+    const applied = x.a.reduce((s, a) => s + a.amount, 0);
+    const unapplied = Math.max(0, received - applied);
+    const stillOwed = Math.round(Math.max(0, open - unapplied) * 100) / 100;
+    out.set(l.loan_id, { amount: stillOwed, date: asOf, deferred: !!led.deferredToNext });
   }
   return out;
 }
