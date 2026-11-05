@@ -39,7 +39,10 @@ export function money(v: number | string | null | undefined): string {
   // Round to whole cents first, the same way the interest engine does, so a
   // leftover fraction of a cent can never print as "$-0.00".
   const safe = isNaN(n) ? 0 : cents(n);
-  return '$' + safe.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const text = '$' + Math.abs(safe).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // A negative amount (a credit) is shown in brackets, accounting style:
+  // "($0.01)" rather than "$-0.01" -- the same way payments are shown.
+  return safe < 0 ? `(${text})` : text;
 }
 
 /** Accepts 0.12 or 12 and always renders "12.00%". */
