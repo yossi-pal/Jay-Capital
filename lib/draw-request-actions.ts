@@ -5,7 +5,7 @@ import { run } from '@/lib/result';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { sendMail, brandShell, button, BRAND } from '@/lib/mailer';
 import { logActivity } from '@/lib/activity';
-import { money, fmtDate, todayInAppTz, shortAddress } from '@/lib/format';
+import { money, fmtDate, shortAddress } from '@/lib/format';
 
 /**
  * Draw requests: a borrower asks for a construction draw from the portal, an
@@ -19,12 +19,6 @@ import { money, fmtDate, todayInAppTz, shortAddress } from '@/lib/format';
 
 const esc = (v: unknown) =>
   String(v ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] as string));
-
-/** Today in New York as YYYY-MM-DD. */
-function todayIso(): string {
-  const d = todayInAppTz();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function cents(v: unknown): number {
   const n = Number(String(v ?? '').replace(/[$,\s]/g, ''));
@@ -72,7 +66,6 @@ export async function requestDraw(loanId: string, form: FormData) {
 
     const amount = cents(form.get('amount'));
     const note = String(form.get('note') || '').trim();
-    const neededBy = String(form.get('needed_by') || '').trim() || null;
     const available = Number(loan.remaining_draw || 0);
 
     if (!(amount > 0)) throw new Error('Please enter the amount you need.');
@@ -81,8 +74,6 @@ export async function requestDraw(loanId: string, form: FormData) {
     }
     if (!note) throw new Error('Please tell us briefly what the draw is for.');
     if (note.length > 1000) throw new Error('Please keep the description under 1,000 characters.');
-    if (neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(neededBy)) throw new Error('Please pick a valid date.');
-    if (neededBy && neededBy < todayIso()) throw new Error('The "needed by" date cannot be in the past.');
 
     const { data: pending } = await supabase.from('draw_requests')
       .select('amount').eq('loan_id', loanId).eq('status', 'pending').limit(1);
@@ -91,7 +82,7 @@ export async function requestDraw(loanId: string, form: FormData) {
     }
 
     const { error } = await serviceClient().from('draw_requests').insert({
-      loan_id: loanId, amount, note, needed_by: neededBy, status: 'pending', requested_by: user.id,
+      loan_id: loanId, amount, note, status: 'pending', requested_by: user.id,
     });
     if (error) throw new Error(error.message);
 
@@ -109,7 +100,6 @@ export async function requestDraw(loanId: string, form: FormData) {
           on loan ${esc(loan.loan_number)} (${esc(shortAddress(loan.property))}).
         </p>
         <p style="margin:0 0 6px;line-height:1.6"><b>What it is for:</b> ${esc(note)}</p>
-        ${neededBy ? `<p style="margin:0 0 6px;line-height:1.6"><b>Needed by:</b> ${esc(fmtDate(neededBy))}</p>` : ''}
         <p style="margin:0 0 18px;line-height:1.6"><b>Left to draw before this:</b> ${esc(money(available))}</p>
         ${button(link, 'Review the request')}
       `),

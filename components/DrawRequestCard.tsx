@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 import { requestDraw, cancelDrawRequest } from '@/lib/draw-request-actions';
 import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
-import { money, fmtDate, fmtDateTime } from '@/lib/format';
+import { money, fmtDateTime } from '@/lib/format';
 
 /**
  * Borrower portal card: what is left to draw, a "Request a draw" button, and
@@ -24,7 +24,6 @@ export default function DrawRequestCard({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [amount, setAmount] = useState('');
-  const [neededBy, setNeededBy] = useState('');
   const [note, setNote] = useState('');
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
@@ -43,13 +42,12 @@ export default function DrawRequestCard({
     setBusy(true);
     const fd = new FormData();
     fd.set('amount', String(n));
-    fd.set('needed_by', neededBy);
     fd.set('note', note);
     const res = await requestDraw(loanId, fd);
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'Your request could not be sent.'); return; }
     setOpen(false);
-    setAmount(''); setNeededBy(''); setNote('');
+    setAmount(''); setNote('');
     setDone(res.message || 'Your draw request was sent.');
     router.refresh();
   }
@@ -105,7 +103,6 @@ export default function DrawRequestCard({
               </div>
               <div className="muted" style={{ fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>
                 Requested {fmtDateTime(r.requested_at)}
-                {r.needed_by ? ` · needed by ${fmtDate(r.needed_by)}` : ''}
                 {r.status === 'approved' && r.approved_amount != null && Math.abs(Number(r.approved_amount) - Number(r.amount)) > 0.005
                   ? ` · you asked for ${money(r.amount)}` : ''}
               </div>
@@ -139,10 +136,6 @@ export default function DrawRequestCard({
             <label htmlFor="dr-note">What is this draw for?</label>
             <textarea id="dr-note" className="field" rows={3} maxLength={1000} value={note}
               onChange={e => setNote(e.target.value)} placeholder="e.g. Framing complete, roofing materials" />
-          </div>
-          <div className="field-wrap">
-            <label htmlFor="dr-date">Needed by (optional)</label>
-            <input id="dr-date" className="field" type="date" value={neededBy} onChange={e => setNeededBy(e.target.value)} />
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>

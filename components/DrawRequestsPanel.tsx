@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
 import { approveDrawRequest, declineDrawRequest } from '@/lib/draw-request-actions';
 import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
-import { money, fmtDate, fmtDateTime, todayInAppTz } from '@/lib/format';
+import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
 
 function todayIso(): string {
   const d = todayInAppTz();
@@ -76,7 +76,7 @@ export function PendingDrawRequests({
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <b style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{money(r.amount)}</b>
             <span className="muted" style={{ fontSize: 13 }}>
-              {' '}· requested {fmtDateTime(r.requested_at)}{r.needed_by ? ` · needed by ${fmtDate(r.needed_by)}` : ''}
+              {' '}· requested {fmtDateTime(r.requested_at)}
             </span>
             {r.note && <div style={{ fontSize: 14, marginTop: 4, overflowWrap: 'anywhere' }}>{r.note}</div>}
           </div>
