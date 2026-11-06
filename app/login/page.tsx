@@ -53,25 +53,49 @@ function LoginForm() {
   }
 
   const check = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D9B676" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+  );
+
+  const lock = (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
   );
 
   return (
     <div className="auth-split">
       <section className="auth-brand">
+        <span className="auth-glow g1" aria-hidden="true" />
+        <span className="auth-glow g2" aria-hidden="true" />
+        <span className="auth-grid" aria-hidden="true" />
         <Monogram className="watermark" height={620} />
         <Link href="/" className="side-brand" style={{ position: 'relative', padding: 0 }}>
           <Monogram height={50} />
           <span className="wm"><b style={{ fontSize: 20 }}>JAY CAPITAL</b><span style={{ fontSize: 11 }}>FUNDING</span></span>
         </Link>
         <div style={{ position: 'relative' }}>
-          <h1>Your loan, always within reach.</h1>
-          <p className="hide-sm">See your balance, what&apos;s due and every monthly statement, any time, from any device.</p>
+          <span className="auth-eyebrow auth-rise">Borrower portal</span>
+          <h1 className="auth-rise d1">Your loan, <span className="gold">always within reach.</span></h1>
+          <p className="hide-sm auth-rise d2">See your balance, what&apos;s due and every monthly statement, any time, from any device.</p>
           <ul className="auth-points hide-sm">
-            <li>{check}Statements ready each month</li>
-            <li>{check}Payment instructions in one tap</li>
-            <li>{check}Private and secure, just for you</li>
+            <li className="auth-rise d3"><span className="tick">{check}</span>Statements ready each month</li>
+            <li className="auth-rise d4"><span className="tick">{check}</span>Payment instructions in one tap</li>
+            <li className="auth-rise d5"><span className="tick">{check}</span>Private and secure, just for you</li>
           </ul>
+
+          {/* Decorative preview only: no real figures, hidden from screen readers. */}
+          <div className="auth-preview hide-sm" aria-hidden="true">
+            <div className="auth-card-glass">
+              <div className="top"><span>Monthly statement</span><span className="pill">Ready</span></div>
+              <div className="sk" style={{ width: '70%', marginTop: 14 }} />
+              <div className="sk" style={{ width: '45%' }} />
+              <div className="chart">
+                {[38, 52, 46, 64, 58, 74, 90].map((h, i) => <i key={i} style={{ height: `${h}%` }} />)}
+              </div>
+            </div>
+            <div className="auth-toast">
+              <span className="dot">{check}</span>
+              <span>Payment received<small>Thank you!</small></span>
+            </div>
+          </div>
         </div>
         <span className="hide-sm" style={{ position: 'relative', fontSize: 13, color: '#8597AD' }}>
           Questions? Call <a href="tel:+18458280731" style={{ color: '#DCE3EC' }}>(845) 828-0731</a>
@@ -79,7 +103,8 @@ function LoginForm() {
       </section>
 
       <section className="auth-form-side">
-        <div className="auth-form">
+        <div className="auth-form auth-rise d1">
+          <span className="auth-secure">{lock}Secure sign-in</span>
           <h2>{mode === 'signin' ? 'Welcome back' : 'Reset your password'}</h2>
           <p className="lead">
             {mode === 'signin'
@@ -136,6 +161,7 @@ function LoginForm() {
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>
             Borrowers: use the email address registered on your loan.
           </p>
+          <div className="auth-foot">{lock}Your connection is encrypted</div>
         </div>
       </section>
     </div>
