@@ -17,6 +17,9 @@ import Monogram from '@/components/Monogram';
  * Borrowers create an account at /signup and reset via our own SMTP; admin
  * and staff accounts are created by an existing admin.
  */
+// Thin line drawing of homes along the bottom of the login page.
+const SKYLINE = 'M0 219h1200 M40 219V130l70-55 70 55v89 M85 219v-50h30v50 M130 140h28v26h-28z M95 64V40h18v20 M210 219V95h110v124 M228 115h22v22h-22z M280 115h22v22h-22z M228 160h22v22h-22z M280 160h22v22h-22z M350 219V150l55-42 55 42v69 M390 219v-40h30v40 M490 219V60l40-30 40 30v159 M510 85h20v20h-20z M550 85h20v20h-20z M510 130h20v20h-20z M550 130h20v20h-20z M510 175h20v20h-20z M550 175h20v20h-20z M600 219V140l80-62 80 62v79 M650 219v-56h40v56 M705 150h30v28h-30z M660 66V44h18v20 M790 219V110h90v109 M805 130h22v22h-22z M843 130h22v22h-22z M805 172h22v22h-22z M843 172h22v22h-22z M910 219V155l60-46 60 46v64 M950 219v-42h40v42 M1060 219V100l50-38 50 38v119 M1085 125h22v22h-22z M1120 125h22v22h-22z M1085 168h22v22h-22z';
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -52,58 +55,42 @@ function LoginForm() {
     setInfo(res.message || '');
   }
 
-  const icon = (d: React.ReactNode) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
-  );
   const lock = (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
   );
+  const tick = (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+  );
 
   return (
-    <div className="lx">
-      {/* Background art: glows, drawn gold arcs and the monogram. Decorative only. */}
-      <span className="lx-glow g1" aria-hidden="true" />
-      <span className="lx-glow g2" aria-hidden="true" />
-      <svg className="lx-arcs" viewBox="0 0 800 800" aria-hidden="true">
-        {[140, 220, 300, 380, 460, 540].map((r, i) => (
-          <circle key={r} cx="0" cy="800" r={r} style={{ animationDelay: `${i * 0.12}s` }} />
+    <div className="lc">
+      {/* Light background art: drifting glows, dot grid, gold arcs, a skyline of
+          homes drawn in thin gold line and a faint monogram. Decorative only. */}
+      <div className="lc-bg" aria-hidden="true">
+        <span className="lc-glow g1" />
+        <span className="lc-glow g2" />
+        <span className="lc-glow g3" />
+        <span className="lc-dots" />
+        <svg className="lc-arcs" viewBox="0 0 600 600">
+          {[120, 190, 260, 330, 400].map((r, i) => (
+            <circle key={r} cx="600" cy="0" r={r} style={{ animationDelay: `${i * 0.15}s` }} />
+          ))}
+        </svg>
+        <Monogram className="lc-mark" height={560} />
+        {(['left', 'right'] as const).map(side => (
+          <svg key={side} className={`lc-skyline ${side}`} viewBox={side === 'left' ? '0 0 600 220' : '600 0 600 220'}>
+            <path pathLength={1} d={SKYLINE} />
+          </svg>
         ))}
-      </svg>
-      <Monogram className="lx-mark" height={760} />
+      </div>
 
-      <header className="lx-top">
-        <Link href="/" className="side-brand" style={{ padding: 0 }}>
-          <Monogram height={46} />
-          <span className="wm"><b style={{ fontSize: 19 }}>JAY CAPITAL</b><span style={{ fontSize: 10.5 }}>FUNDING</span></span>
+      <main className="lc-main">
+        <Link href="/" className="lc-logo lc-in" aria-label="Jay Capital Funding">
+          <Monogram height={58} />
+          <span><b>JAY CAPITAL</b><small>FUNDING</small></span>
         </Link>
-        <a className="lx-phone" href="tel:+18458280731">
-          {icon(<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />)}
-          <span>(845) 828-0731</span>
-        </a>
-      </header>
 
-      <section className="lx-hero">
-        <span className="lx-eyebrow lx-in">Borrower portal</span>
-        <h1 className="lx-in d1">Your loan,<br /><span className="gold">always within reach.</span></h1>
-        <p className="lx-in d2">See your balance, what&apos;s due and every monthly statement, any time, from any device.</p>
-        <div className="lx-tiles">
-          <div className="lx-tile lx-in d3">
-            <span className="ic">{icon(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></>)}</span>
-            <b>Monthly statements</b><span>Ready on the 1st</span>
-          </div>
-          <div className="lx-tile lx-in d4">
-            <span className="ic">{icon(<><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></>)}</span>
-            <b>Easy payments</b><span>Instructions in one tap</span>
-          </div>
-          <div className="lx-tile lx-in d5">
-            <span className="ic">{icon(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>)}</span>
-            <b>Private &amp; secure</b><span>Only you see your loan</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="lx-card-wrap">
-        <div className="lx-card lx-in d2">
+        <div className="lc-card lc-in d1">
           <span className="auth-secure">{lock}Secure sign-in</span>
           <h2>{mode === 'signin' ? 'Welcome back' : 'Reset your password'}</h2>
           <p className="lead">
@@ -163,14 +150,23 @@ function LoginForm() {
           </p>
           <div className="auth-foot">{lock}Your connection is encrypted</div>
         </div>
-      </section>
+
+        <ul className="lc-chips lc-in d2">
+          <li>{tick}Monthly statements</li>
+          <li>{tick}Payment instructions</li>
+          <li>{tick}Private &amp; secure</li>
+        </ul>
+        <p className="lc-call lc-in d3">
+          Questions? Call <a href="tel:+18458280731">(845) 828-0731</a>
+        </p>
+      </main>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="lx" />}>
+    <Suspense fallback={<div className="lc" />}>
       <LoginForm />
     </Suspense>
   );
