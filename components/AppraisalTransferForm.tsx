@@ -48,18 +48,18 @@ export default function AppraisalTransferForm() {
       <div className="field-wrap">
         <label htmlFor="at-borrower">Borrower name(s) *</label>
         <input id="at-borrower" className="field" value={form.borrowerName} onChange={set('borrowerName')}
-          maxLength={200} placeholder="e.g. David Spitzer" autoComplete="off" />
+          maxLength={200} placeholder="e.g. John Smith" autoComplete="off" />
       </div>
       <div className="field-wrap">
         <label htmlFor="at-property">Subject property address *</label>
         <input id="at-property" className="field" value={form.propertyAddress} onChange={set('propertyAddress')}
-          maxLength={300} placeholder="e.g. 796 Bedford Ave, Brooklyn, NY 11205" autoComplete="off" />
+          maxLength={300} placeholder="e.g. 123 Main Street, Brooklyn, NY 11201" autoComplete="off" />
       </div>
       <div className="field-wrap">
         <label htmlFor="at-clause">New mortgagee clause *</label>
         <textarea id="at-clause" className="field" rows={4} value={form.mortgageeClause} onChange={set('mortgageeClause')}
           maxLength={600}
-          placeholder={'Hometown Equity Mortgage, LLC dba the Lender ISAOA\n25531 Commercentre Dr #250, Lake Forest, CA 92630'} />
+          placeholder={'e.g. ABC Mortgage, LLC ISAOA\n456 Lender Avenue, Suite 100, New York, NY 10001'} />
         <p className="muted hint" style={{ margin: '2px 0 0' }}>
           Exactly as the new lender gave it. Each line here becomes a line on the letter.
         </p>
