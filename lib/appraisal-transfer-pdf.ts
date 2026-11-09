@@ -1,10 +1,13 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
+import { PDFDocument, rgb, type PDFFont } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { LETTERHEAD_PNG_BASE64, WATERMARK_PNG_BASE64, SIGNATURE_PNG_BASE64 } from '@/lib/letter-assets';
+import { LATO_REGULAR_BASE64, LATO_BOLD_BASE64 } from '@/lib/letter-fonts';
 
 const NAVY = rgb(0x04 / 255, 0x16 / 255, 0x2a / 255);
 const GOLD = rgb(0xc0 / 255, 0x95 / 255, 0x4a / 255);
-const INK = rgb(0.13, 0.15, 0.2);
-const MUTED = rgb(0.42, 0.48, 0.56);
+// Colours from the Word template: body text #1F2A37, footer #6B7A90.
+const INK = rgb(0x1f / 255, 0x2a / 255, 0x37 / 255);
+const MUTED = rgb(0x6b / 255, 0x7a / 255, 0x90 / 255);
 
 export interface AppraisalTransferInput {
   borrowerName: string;
@@ -26,8 +29,12 @@ export async function appraisalTransferPDF(input: AppraisalTransferInput): Promi
   const doc = await PDFDocument.create();
   doc.setTitle('Appraisal Transfer Letter');
   doc.setAuthor('Jay Capital Funding INC');
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  // Lato, the Word template's font.
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(Buffer.from(LATO_REGULAR_BASE64, 'base64'), { subset: true });
+  const bold = await doc.embedFont(Buffer.from(LATO_BOLD_BASE64, 'base64'), { subset: true });
+  const known = new Set(font.getCharacterSet());
+  const knownBold = new Set(bold.getCharacterSet());
   const logo = await doc.embedPng(Buffer.from(LETTERHEAD_PNG_BASE64, 'base64'));
   const mark = await doc.embedPng(Buffer.from(WATERMARK_PNG_BASE64, 'base64'));
   const sig = await doc.embedPng(Buffer.from(SIGNATURE_PNG_BASE64, 'base64'));
@@ -35,15 +42,16 @@ export async function appraisalTransferPDF(input: AppraisalTransferInput): Promi
   const PW = 612, PH = 792, M = 72, W = PW - 2 * M;
   const page = doc.addPage([PW, PH]);
 
-  // Helvetica in a PDF only knows the Western European character set. Swap
-  // anything outside it (an emoji, a rare accent) so one odd character can
-  // never stop the letter from being made.
-  const clean = (s: string, f: PDFFont) => [...s.replace(/\t/g, ' ')].map(ch => {
-    if (ch === '\n' || ch === '\r') return ch;
-    try { f.encodeText(ch); return ch; } catch { return '?'; }
-  }).join('');
+  // The embedded Lato carries Western European letters only. Swap anything
+  // outside it (an emoji, a rare accent) for "?" so it never prints as a blank box.
+  const clean = (s: string, f: PDFFont) => {
+    const set = f === bold ? knownBold : known;
+    return [...s.replace(/\t/g, ' ')].map(ch =>
+      ch === '\n' || ch === '\r' || set.has(ch.codePointAt(0)!) ? ch : '?').join('');
+  };
 
-  const SIZE = 10.5, LH = 15;
+  // 11 pt with Word's 1.2 line spacing.
+  const SIZE = 11, LH = 15.8;
   const wrap = (s: string, f: PDFFont, size: number, maxW: number, firstW = maxW) => {
     const out: string[] = [];
     for (const para of s.split(/\r?\n/)) {
@@ -72,7 +80,7 @@ export async function appraisalTransferPDF(input: AppraisalTransferInput): Promi
   // ---- title and date
   y -= 34;
   const title = 'Appraisal Transfer Letter';
-  page.drawText(title, { x: (PW - bold.widthOfTextAtSize(title, 13)) / 2, y, size: 13, font: bold, color: NAVY });
+  page.drawText(title, { x: (PW - bold.widthOfTextAtSize(title, 14)) / 2, y, size: 14, font: bold, color: NAVY });
   y -= 22;
   page.drawText(clean(`Date: ${input.date}`, font), { x: M, y, size: SIZE, font, color: INK });
   y -= LH * 2.4;

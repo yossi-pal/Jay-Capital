@@ -2,13 +2,10 @@
 
 import { useState } from 'react';
 
-interface LoanOption { id: string; number: string; property: string; borrower: string; status: string }
-
 const BLANK = { borrowerName: '', propertyAddress: '', mortgageeClause: '' };
 
-export default function AppraisalTransferForm({ loans }: { loans: LoanOption[] }) {
+export default function AppraisalTransferForm() {
   const [form, setForm] = useState({ ...BLANK });
-  const [loanId, setLoanId] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState('');
@@ -16,12 +13,6 @@ export default function AppraisalTransferForm({ loans }: { loans: LoanOption[] }
   const set = (k: keyof typeof BLANK) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm(f => ({ ...f, [k]: e.target.value })); setDone('');
   };
-
-  function pickLoan(id: string) {
-    setLoanId(id); setDone('');
-    const l = loans.find(x => x.id === id);
-    if (l) setForm(f => ({ ...f, borrowerName: l.borrower, propertyAddress: l.property }));
-  }
 
   async function generate(e: React.FormEvent) {
     e.preventDefault();
@@ -54,17 +45,6 @@ export default function AppraisalTransferForm({ loans }: { loans: LoanOption[] }
 
   return (
     <form className="card" onSubmit={generate} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {loans.length > 0 && (
-        <div className="field-wrap">
-          <label htmlFor="at-loan">Fill from a loan (optional)</label>
-          <select id="at-loan" className="field" value={loanId} onChange={e => pickLoan(e.target.value)}>
-            <option value="">Type the details yourself…</option>
-            {loans.map(l => (
-              <option key={l.id} value={l.id}>{l.number} · {l.borrower} · {l.property}</option>
-            ))}
-          </select>
-        </div>
-      )}
       <div className="field-wrap">
         <label htmlFor="at-borrower">Borrower name(s) *</label>
         <input id="at-borrower" className="field" value={form.borrowerName} onChange={set('borrowerName')}
@@ -89,7 +69,7 @@ export default function AppraisalTransferForm({ loans }: { loans: LoanOption[] }
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button className="btn" type="submit" disabled={busy}>{busy ? 'Creating…' : 'Download letter (PDF)'}</button>
         <button className="btn secondary" type="button" disabled={busy}
-          onClick={() => { setForm({ ...BLANK }); setLoanId(''); setErr(''); setDone(''); }}>Clear</button>
+          onClick={() => { setForm({ ...BLANK }); setErr(''); setDone(''); }}>Clear</button>
       </div>
     </form>
   );
