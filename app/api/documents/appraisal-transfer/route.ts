@@ -1,5 +1,5 @@
 import { serverClient } from '@/lib/supabase-server';
-import { appraisalTransferPDF } from '@/lib/appraisal-transfer-pdf';
+import { appraisalTransferPDF, LetterTooLongError } from '@/lib/appraisal-transfer-pdf';
 import { todayInAppTz, fmtDate } from '@/lib/format';
 import { logActivity } from '@/lib/activity';
 
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
+    if (e instanceof LetterTooLongError) return Response.json({ error: e.message }, { status: 400 });
     return Response.json({ error: `Could not create the letter: ${e?.message || e}` }, { status: 500 });
   }
 }
