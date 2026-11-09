@@ -118,8 +118,10 @@ export async function appraisalTransferPDF(input: AppraisalTransferInput): Promi
   // ---- signature
   y -= LH * 1.6;
   const sh = 34, sw = sh * sig.width / sig.height;
-  page.drawImage(sig, { x: M + 4, y: y - sh + 14, width: sw, height: sh });
+  // The image has ~30% empty space below the ink, so it is drawn a little
+  // below the line to make the handwriting sit on it, as signed by hand.
   y -= sh - 8;
+  page.drawImage(sig, { x: M + 4, y: y - sh * 0.24, width: sw, height: sh });
   page.drawRectangle({ x: M, y, width: 280, height: 0.7, color: INK });
   y -= LH;
   page.drawText(SIGNER.name, { x: M, y, size: SIZE, font, color: INK });
