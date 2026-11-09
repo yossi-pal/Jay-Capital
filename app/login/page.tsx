@@ -17,8 +17,26 @@ import Monogram from '@/components/Monogram';
  * Borrowers create an account at /signup and reset via our own SMTP; admin
  * and staff accounts are created by an existing admin.
  */
-// Thin line drawing of homes along the bottom of the login page.
-const SKYLINE = 'M0 219h1200 M40 219V130l70-55 70 55v89 M85 219v-50h30v50 M130 140h28v26h-28z M95 64V40h18v20 M210 219V95h110v124 M228 115h22v22h-22z M280 115h22v22h-22z M228 160h22v22h-22z M280 160h22v22h-22z M350 219V150l55-42 55 42v69 M390 219v-40h30v40 M490 219V60l40-30 40 30v159 M510 85h20v20h-20z M550 85h20v20h-20z M510 130h20v20h-20z M550 130h20v20h-20z M510 175h20v20h-20z M550 175h20v20h-20z M600 219V140l80-62 80 62v79 M650 219v-56h40v56 M705 150h30v28h-30z M660 66V44h18v20 M790 219V110h90v109 M805 130h22v22h-22z M843 130h22v22h-22z M805 172h22v22h-22z M843 172h22v22h-22z M910 219V155l60-46 60 46v64 M950 219v-42h40v42 M1060 219V100l50-38 50 38v119 M1085 125h22v22h-22z M1120 125h22v22h-22z M1085 168h22v22h-22z';
+/**
+ * Fine engraved-style wave lines, like the pattern on a banknote or bank
+ * check. Computed once here so the page carries no image files.
+ */
+function waveBand(count: number, baseY: number, gap: number, amp: number, phase: number) {
+  const paths: string[] = [];
+  for (let i = 0; i < count; i++) {
+    let d = '';
+    for (let x = 0; x <= 1440; x += 16) {
+      const y = baseY + i * gap
+        + amp * Math.sin(x / 260 + i * 0.07 + phase)
+        + amp * 0.35 * Math.sin(x / 110 - i * 0.05);
+      d += (x === 0 ? 'M' : 'L') + x + ' ' + y.toFixed(1);
+    }
+    paths.push(d);
+  }
+  return paths;
+}
+const WAVES_LOW = waveBand(34, 640, 6, 70, 0);
+const WAVES_HIGH = waveBand(22, 40, 6, 55, 2.2);
 
 function LoginForm() {
   const router = useRouter();
@@ -64,24 +82,15 @@ function LoginForm() {
 
   return (
     <div className="lc">
-      {/* Light background art: drifting glows, dot grid, gold arcs, a skyline of
-          homes drawn in thin gold line and a faint monogram. Decorative only. */}
+      {/* Background: warm light wash and faint gold engraved waves. Decorative only. */}
       <div className="lc-bg" aria-hidden="true">
         <span className="lc-glow g1" />
         <span className="lc-glow g2" />
-        <span className="lc-glow g3" />
-        <span className="lc-dots" />
-        <svg className="lc-arcs" viewBox="0 0 600 600">
-          {[120, 190, 260, 330, 400].map((r, i) => (
-            <circle key={r} cx="600" cy="0" r={r} style={{ animationDelay: `${i * 0.15}s` }} />
-          ))}
+        <svg className="lc-waves" viewBox="0 0 1440 900" preserveAspectRatio="none">
+          <g className="low">{WAVES_LOW.map((d, i) => <path key={i} d={d} />)}</g>
+          <g className="high">{WAVES_HIGH.map((d, i) => <path key={i} d={d} />)}</g>
         </svg>
-        <Monogram className="lc-mark" height={560} />
-        {(['left', 'right'] as const).map(side => (
-          <svg key={side} className={`lc-skyline ${side}`} viewBox={side === 'left' ? '0 0 600 220' : '600 0 600 220'}>
-            <path pathLength={1} d={SKYLINE} />
-          </svg>
-        ))}
+        <span className="lc-frame" />
       </div>
 
       <main className="lc-main">

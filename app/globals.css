@@ -301,27 +301,17 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 /* Login: a centered card on a light, gently animated background. */
 .lc {
   position: relative; overflow: hidden; min-height: 100vh; min-height: 100dvh;
-  background: linear-gradient(180deg, #FBFAF7 0%, #F4F6F9 100%);
+  background: linear-gradient(180deg, #FCFAF6 0%, #F7F3EC 100%);
 }
 .lc-bg { position: absolute; inset: 0; pointer-events: none; }
-.lc-glow { position: absolute; border-radius: 50%; filter: blur(80px); }
-.lc-glow.g1 { width: 560px; height: 560px; left: -160px; top: -180px; background: rgba(150,185,225,.45); }
-.lc-glow.g2 { width: 520px; height: 520px; right: -160px; bottom: -120px; background: rgba(232,197,131,.45); }
-.lc-glow.g3 { width: 380px; height: 380px; right: 18%; top: -160px; background: rgba(232,197,131,.25); }
-.lc-dots {
-  position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(14,42,71,.13) 1px, transparent 1px); background-size: 24px 24px;
-  -webkit-mask-image: radial-gradient(60% 55% at 50% 45%, transparent 30%, #000 100%);
-          mask-image: radial-gradient(60% 55% at 50% 45%, transparent 30%, #000 100%);
-}
-.lc-arcs { position: absolute; right: 0; top: 0; width: min(560px, 60vw); height: auto; overflow: visible; }
-.lc-arcs circle { fill: none; stroke: #C0954A; stroke-width: 1; opacity: .35; }
-.lc-mark { position: absolute; left: 6%; top: 50%; transform: translateY(-50%) rotate(-8deg); opacity: .05; }
-.lc-skyline { position: absolute; bottom: 0; width: min(500px, 32vw); height: auto; overflow: hidden; }
-.lc-skyline.left { left: 0; }
-.lc-skyline.right { right: 0; }
-.lc-skyline path { fill: none; stroke: #C0954A; stroke-width: 1.2; opacity: .4; vector-effect: non-scaling-stroke; }
-
+.lc-glow { position: absolute; border-radius: 50%; filter: blur(90px); }
+.lc-glow.g1 { width: 700px; height: 420px; left: 50%; top: 42%; transform: translate(-50%, -50%); background: rgba(255,255,255,.9); }
+.lc-glow.g2 { width: 900px; height: 360px; left: 50%; bottom: -220px; transform: translateX(-50%); background: rgba(232,206,160,.35); }
+.lc-waves { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lc-waves path { fill: none; stroke: #B88C42; stroke-width: .7; vector-effect: non-scaling-stroke; }
+.lc-waves .low { opacity: .28; }
+.lc-waves .high { opacity: .16; }
+.lc-frame { position: absolute; inset: 14px; border: 1px solid rgba(184,140,66,.22); border-radius: 4px; }
 .lc-main { position: relative; z-index: 1; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
 .lc-logo { display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 26px; text-align: center; }
 .lc-logo b { display: block; font-family: var(--logo); font-weight: 600; font-size: 20px; letter-spacing: .14em; color: var(--navy); }
@@ -346,27 +336,22 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .auth-foot { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
 
 @media (prefers-reduced-motion: no-preference) {
-  .lc-glow.g1 { animation: lc-drift 18s ease-in-out infinite alternate; }
-  .lc-glow.g2 { animation: lc-drift 22s ease-in-out infinite alternate-reverse; }
-  .lc-glow.g3 { animation: lc-drift 26s ease-in-out infinite alternate; }
-  .lc-arcs circle { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: lc-draw 2.6s cubic-bezier(.4,.1,.2,1) forwards; }
-  .lc-skyline path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lc-draw 3.2s cubic-bezier(.4,.1,.2,1) .2s forwards; }
+  .lc-waves { animation: lc-fade 1.6s ease both; }
   .lc-in { animation: lc-in .7s cubic-bezier(.2,.8,.2,1) both; }
   .lc-in.d1 { animation-delay: .1s; } .lc-in.d2 { animation-delay: .25s; } .lc-in.d3 { animation-delay: .35s; }
 }
-@keyframes lc-drift { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.12); } }
-@keyframes lc-draw { to { stroke-dashoffset: 0; } }
+@keyframes lc-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes lc-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 600px) {
-  .lc-main { justify-content: flex-start; padding: 32px 16px 120px; }
+  .lc-main { justify-content: flex-start; padding: 32px 16px 40px; }
   .lc-logo { margin-bottom: 20px; }
   .lc-card { padding: 28px 20px 22px; border-radius: 20px; }
   .lc-card::before { left: 20px; right: 20px; }
-  .lc-mark { display: none; }
-  .lc-skyline { width: 50vw; }
-  .lc-glow.g1 { width: 340px; height: 340px; }
-  .lc-glow.g2 { width: 320px; height: 320px; }
+  .lc-frame { inset: 8px; }
+  .lc-waves { width: 280%; left: -90%; }
+  .lc-waves .low { opacity: .22; }
+  .lc-waves .high { opacity: .1; }
 }
 
 
