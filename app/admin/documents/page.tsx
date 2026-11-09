@@ -10,6 +10,11 @@ const DOCUMENTS = [
     title: 'Appraisal Transfer Letter',
     blurb: 'Release an appraisal to a new lender. Enter the borrower, property and the new mortgagee clause, and download a signed PDF.',
   },
+  {
+    href: '/admin/documents/proof-of-funds',
+    title: 'Proof of Funds',
+    blurb: 'Confirm funds are available for a purchase. Enter the borrower, property and purchase price, and download the letter.',
+  },
 ];
 
 export default async function DocumentsPage() {

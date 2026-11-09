@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { downloadPdf } from '@/lib/download-pdf';
 
 const BLANK = { borrowerName: '', propertyAddress: '', mortgageeClause: '' };
 
@@ -21,20 +22,7 @@ export default function AppraisalTransferForm() {
     }
     setBusy(true); setErr(''); setDone('');
     try {
-      const res = await fetch('/api/documents/appraisal-transfer', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => null);
-        throw new Error(j?.error || `Could not create the letter (error ${res.status}).`);
-      }
-      const blob = await res.blob();
-      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'Appraisal_Transfer_Letter.pdf';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      const name = await downloadPdf('/api/documents/appraisal-transfer', form, 'Appraisal_Transfer_Letter.pdf');
       setDone(`Downloaded ${name}.`);
     } catch (e: any) {
       setErr(e?.message || 'Could not create the letter.');
