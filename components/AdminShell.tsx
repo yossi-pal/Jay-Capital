@@ -12,7 +12,7 @@ import Monogram from '@/components/Monogram';
  * the « button, a tap outside it, or Escape.
  */
 
-type IconName = 'home' | 'loans' | 'chart' | 'plus' | 'upload' | 'bank' | 'users';
+type IconName = 'home' | 'loans' | 'chart' | 'plus' | 'upload' | 'bank' | 'users' | 'doc';
 
 function Icon({ name }: { name: IconName }) {
   const p = {
@@ -27,6 +27,7 @@ function Icon({ name }: { name: IconName }) {
     case 'plus':   return <svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>;
     case 'upload': return <svg {...p}><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>;
     case 'bank':   return <svg {...p}><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" /></svg>;
+    case 'doc':    return <svg {...p}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>;
     case 'users':  return <svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.9.7 3.1 2.6 3.5 5.5" /></svg>;
   }
 }
@@ -38,6 +39,7 @@ const WORKSPACE: Item[] = [
   { href: '/admin/loans', label: 'Loans', icon: 'loans',
     match: p => p.startsWith('/admin/loans') && !p.startsWith('/admin/loans/new') },
   { href: '/admin/insights', label: 'Insights', icon: 'chart', match: p => p.startsWith('/admin/insights') },
+  { href: '/admin/documents', label: 'Documents', icon: 'doc', match: p => p.startsWith('/admin/documents') },
 ];
 const MANAGE: Item[] = [
   { href: '/admin/loans/new', label: 'New loan', icon: 'plus', match: p => p.startsWith('/admin/loans/new') },
