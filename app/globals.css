@@ -298,62 +298,25 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 /* Auth: split screen, brand panel + form */
 .auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); }
 .auth-card { width: 100%; max-width: 420px; }
-/* Login: a centered card on a light, gently animated background. */
-.lc {
-  position: relative; overflow: hidden; min-height: 100vh; min-height: 100dvh;
-  background: linear-gradient(180deg, #FCFAF6 0%, #F7F3EC 100%);
+.auth-split { min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff; }
+.auth-brand {
+  flex: 1 1 420px; background: var(--navy); color: #fff; padding: 48px 56px; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 40px;
 }
-.lc-bg { position: absolute; inset: 0; pointer-events: none; }
-.lc-glow { position: absolute; border-radius: 50%; filter: blur(90px); }
-.lc-glow.g1 { width: 700px; height: 420px; left: 50%; top: 42%; transform: translate(-50%, -50%); background: rgba(255,255,255,.9); }
-.lc-glow.g2 { width: 900px; height: 360px; left: 50%; bottom: -220px; transform: translateX(-50%); background: rgba(232,206,160,.35); }
-.lc-waves { position: absolute; inset: 0; width: 100%; height: 100%; }
-.lc-waves path { fill: none; stroke: #B88C42; stroke-width: .7; vector-effect: non-scaling-stroke; }
-.lc-waves .low { opacity: .28; }
-.lc-waves .high { opacity: .16; }
-.lc-frame { position: absolute; inset: 14px; border: 1px solid rgba(184,140,66,.22); border-radius: 4px; }
-.lc-main { position: relative; z-index: 1; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
-.lc-logo { display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 26px; text-align: center; }
-.lc-logo b { display: block; font-family: var(--logo); font-weight: 600; font-size: 20px; letter-spacing: .14em; color: var(--navy); }
-.lc-logo small { display: block; font-family: var(--logo); font-size: 10.5px; letter-spacing: .45em; color: var(--brass); margin-top: 3px; }
-.lc-card {
-  position: relative; width: 100%; max-width: 430px; background: rgba(255,255,255,.92);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  border: 1px solid rgba(220,227,236,.9); border-radius: 22px; padding: 36px 34px 26px;
-  box-shadow: 0 1px 2px rgba(4,22,42,.04), 0 24px 60px rgba(4,22,42,.12);
+.auth-brand .watermark { position: absolute; right: -80px; bottom: -120px; height: 620px; width: auto; opacity: .07; pointer-events: none; }
+.auth-brand h1 { font-family: var(--display); font-weight: 500; font-size: clamp(28px, 3vw, 38px); line-height: 1.22; letter-spacing: .02em; margin: 0; }
+.auth-brand p { margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #B7C3D3; max-width: 44ch; }
+.auth-points { list-style: none; padding: 0; margin: 26px 0 0; display: flex; flex-direction: column; gap: 12px; }
+.auth-points li { display: flex; gap: 12px; align-items: center; font-size: 14px; color: #DCE3EC; }
+.auth-form-side { flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: 48px 28px; }
+.auth-form { width: 100%; max-width: 400px; }
+.auth-form h2 { margin: 0; font-size: 28px; font-weight: 700; color: var(--navy); letter-spacing: -.01em; }
+.auth-form .lead { margin: 6px 0 24px; color: var(--muted); font-size: 15px; }
+@media (max-width: 860px) {
+  .auth-brand { padding: 28px 24px; gap: 20px; flex-basis: 100%; }
+  .auth-brand .hide-sm, .auth-brand .watermark { display: none; }
+  .auth-form-side { padding: 32px 20px 48px; align-items: flex-start; }
 }
-.lc-card::before { content: ''; position: absolute; left: 34px; right: 34px; top: -1px; height: 3px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, #C0954A, #F3D9A4, #C0954A); }
-.lc-card h2 { margin: 0; font-size: 27px; font-weight: 700; color: var(--navy); letter-spacing: -.01em; }
-.lc-card .lead { margin: 6px 0 24px; color: var(--muted); font-size: 15px; }
-.lc-card .btn[type=submit] { box-shadow: 0 10px 22px rgba(4,22,42,.18); transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
-.lc-card .btn[type=submit]:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(4,22,42,.24); }
-.lc-chips { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.lc-chips li { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--navy-med); background: rgba(255,255,255,.85); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
-.lc-chips li svg { color: var(--brass); }
-.lc-call { margin: 16px 0 0; font-size: 13.5px; color: var(--muted); }
-.lc-call a { color: var(--navy); font-weight: 600; }
-.auth-secure { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brass-ink); background: var(--brass-bg); border: 1px solid #EEDDBE; border-radius: 999px; padding: 5px 12px; margin-bottom: 16px; }
-.auth-foot { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
-
-@media (prefers-reduced-motion: no-preference) {
-  .lc-waves { animation: lc-fade 1.6s ease both; }
-  .lc-in { animation: lc-in .7s cubic-bezier(.2,.8,.2,1) both; }
-  .lc-in.d1 { animation-delay: .1s; } .lc-in.d2 { animation-delay: .25s; } .lc-in.d3 { animation-delay: .35s; }
-}
-@keyframes lc-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes lc-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-
-@media (max-width: 600px) {
-  .lc-main { justify-content: flex-start; padding: 32px 16px 40px; }
-  .lc-logo { margin-bottom: 20px; }
-  .lc-card { padding: 28px 20px 22px; border-radius: 20px; }
-  .lc-card::before { left: 20px; right: 20px; }
-  .lc-frame { inset: 8px; }
-  .lc-waves { width: 280%; left: -90%; }
-  .lc-waves .low { opacity: .22; }
-  .lc-waves .high { opacity: .1; }
-}
-
 
 .alert { padding: 12px 14px; border-radius: 10px; margin: 12px 0; font-size: 13.5px; }
 .alert.error { background: #FDECEA; color: var(--danger); }

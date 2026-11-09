@@ -17,27 +17,6 @@ import Monogram from '@/components/Monogram';
  * Borrowers create an account at /signup and reset via our own SMTP; admin
  * and staff accounts are created by an existing admin.
  */
-/**
- * Fine engraved-style wave lines, like the pattern on a banknote or bank
- * check. Computed once here so the page carries no image files.
- */
-function waveBand(count: number, baseY: number, gap: number, amp: number, phase: number) {
-  const paths: string[] = [];
-  for (let i = 0; i < count; i++) {
-    let d = '';
-    for (let x = 0; x <= 1440; x += 16) {
-      const y = baseY + i * gap
-        + amp * Math.sin(x / 260 + i * 0.07 + phase)
-        + amp * 0.35 * Math.sin(x / 110 - i * 0.05);
-      d += (x === 0 ? 'M' : 'L') + x + ' ' + y.toFixed(1);
-    }
-    paths.push(d);
-  }
-  return paths;
-}
-const WAVES_LOW = waveBand(34, 640, 6, 70, 0);
-const WAVES_HIGH = waveBand(22, 40, 6, 55, 2.2);
-
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -73,34 +52,34 @@ function LoginForm() {
     setInfo(res.message || '');
   }
 
-  const lock = (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-  );
-  const tick = (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+  const check = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D9B676" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
   );
 
   return (
-    <div className="lc">
-      {/* Background: warm light wash and faint gold engraved waves. Decorative only. */}
-      <div className="lc-bg" aria-hidden="true">
-        <span className="lc-glow g1" />
-        <span className="lc-glow g2" />
-        <svg className="lc-waves" viewBox="0 0 1440 900" preserveAspectRatio="none">
-          <g className="low">{WAVES_LOW.map((d, i) => <path key={i} d={d} />)}</g>
-          <g className="high">{WAVES_HIGH.map((d, i) => <path key={i} d={d} />)}</g>
-        </svg>
-        <span className="lc-frame" />
-      </div>
-
-      <main className="lc-main">
-        <Link href="/" className="lc-logo lc-in" aria-label="Jay Capital Funding">
-          <Monogram height={58} />
-          <span><b>JAY CAPITAL</b><small>FUNDING</small></span>
+    <div className="auth-split">
+      <section className="auth-brand">
+        <Monogram className="watermark" height={620} />
+        <Link href="/" className="side-brand" style={{ position: 'relative', padding: 0 }}>
+          <Monogram height={50} />
+          <span className="wm"><b style={{ fontSize: 20 }}>JAY CAPITAL</b><span style={{ fontSize: 11 }}>FUNDING</span></span>
         </Link>
+        <div style={{ position: 'relative' }}>
+          <h1>Your loan, always within reach.</h1>
+          <p className="hide-sm">See your balance, what&apos;s due and every monthly statement, any time, from any device.</p>
+          <ul className="auth-points hide-sm">
+            <li>{check}Statements ready each month</li>
+            <li>{check}Payment instructions in one tap</li>
+            <li>{check}Private and secure, just for you</li>
+          </ul>
+        </div>
+        <span className="hide-sm" style={{ position: 'relative', fontSize: 13, color: '#8597AD' }}>
+          Questions? Call <a href="tel:+18458280731" style={{ color: '#DCE3EC' }}>(845) 828-0731</a>
+        </span>
+      </section>
 
-        <div className="lc-card lc-in d1">
-          <span className="auth-secure">{lock}Secure sign-in</span>
+      <section className="auth-form-side">
+        <div className="auth-form">
           <h2>{mode === 'signin' ? 'Welcome back' : 'Reset your password'}</h2>
           <p className="lead">
             {mode === 'signin'
@@ -157,25 +136,15 @@ function LoginForm() {
           <p className="muted" style={{ fontSize: 12.5, marginTop: 8, textAlign: 'center' }}>
             Borrowers: use the email address registered on your loan.
           </p>
-          <div className="auth-foot">{lock}Your connection is encrypted</div>
         </div>
-
-        <ul className="lc-chips lc-in d2">
-          <li>{tick}Monthly statements</li>
-          <li>{tick}Payment instructions</li>
-          <li>{tick}Private &amp; secure</li>
-        </ul>
-        <p className="lc-call lc-in d3">
-          Questions? Call <a href="tel:+18458280731">(845) 828-0731</a>
-        </p>
-      </main>
+      </section>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="lc" />}>
+    <Suspense fallback={<div className="auth-split" />}>
       <LoginForm />
     </Suspense>
   );
