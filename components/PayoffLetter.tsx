@@ -261,12 +261,14 @@ export default function PayoffLetter({ loan, draws, payments, allocations, lette
   );
 }
 
-/** The letter itself, on the letterhead like the other statements. */
+/**
+ * The letter itself, on the letterhead like the other statements. It goes to
+ * title companies and other lenders, so it names the borrower but carries no
+ * personal name, phone or email.
+ */
 function PayoffDocument({ loan, fig, wire, issuedOn, updatedAt }: {
   loan: any; fig: PayoffFigures; wire: string; issuedOn: string; updatedAt?: string;
 }) {
-  const entity = loan.is_entity && loan.entity_name;
-  const contact = [entity ? loan.borrower_name : '', loan.borrower_phone, loan.borrower_email].filter(Boolean).join(' · ');
   return (
     <div className="card doc">
       <div className="doc-head">
@@ -280,7 +282,6 @@ function PayoffDocument({ loan, fig, wire, issuedOn, updatedAt }: {
           <div className="muted" style={{ fontSize: 12 }}>Property Address:</div>
           <div className="name">{loan.property}</div>
           <div><b style={{ color: 'var(--navy)' }}>Borrower:</b> {borrowerDisplayName(loan)}</div>
-          {contact && <div className="muted">{contact}</div>}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="muted">Date Issued</div>
