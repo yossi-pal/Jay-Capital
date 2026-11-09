@@ -22,25 +22,23 @@ export const POF_SIGNOFF = ['Yours Truly,', '', 'Joel Brull', 'Jay Capital Fundi
  */
 export async function proofOfFundsPDF(input: ProofOfFundsInput): Promise<Uint8Array> {
   const L = await startLetter('Proof of Funds');
-  const { font, bold, clean, wrap } = L;
+  const { font, clean, wrap } = L;
   const name = input.borrowerName.trim();
 
   const body = (gap: number) => {
     const ops: (() => void)[] = [];
     let b = FIRST_BASE;
     const line = (text: string, x = M, f = font) => { const yy = b; ops.push(() => L.line(text, yy, x, f)); };
-    const para = (t: string, firstX = M, firstW = W) => {
-      wrap(clean(t, font), font, SIZE, W, firstW).forEach((l, i) => { line(l, i === 0 ? firstX : M); b += LH; });
-    };
+    const para = (t: string) => { for (const l of wrap(clean(t, font), font, SIZE, W)) { line(l); b += LH; } };
     line(clean(input.date, font));
     b += LH * (gap + 1);
-    const reW = bold.widthOfTextAtSize('Re: ', SIZE);
-    line('Re:', M, bold);
-    para(name, M + reW, W - reW);
+    para(`Re: ${name}`);
     b += LH * gap;
     line('To Whom It May Concern,'); b += LH;
     b += LH * Math.min(gap, 1);
-    para(`This is to inform you that Jay Capital Funding Inc. (private lender) has reviewed the information provided and is pleased to notify you that on behalf of ${name}, unencumbered liquid funds are available for the purchase of ${input.property.trim()} for the purchase price of ${input.purchasePrice}, as of the date of this letter subject to final underwriting. Should you have any questions, please feel free to contact us.`);
+    para(`This is to inform you that Jay Capital Funding Inc. (private lender) has reviewed the information provided and is pleased to notify you that on behalf of ${name}, unencumbered liquid funds are available for the purchase of ${input.property.trim()} for the purchase price of ${input.purchasePrice}, as of the date of this letter subject to final underwriting.`);
+    b += LH * Math.min(gap, 1);
+    para('Should you have any questions, please feel free to contact us.');
     b += LH * gap;
     for (const s of POF_SIGNOFF) { if (s) line(s); b += LH; }
     return { last: b - LH, ops };
