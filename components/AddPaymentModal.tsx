@@ -121,6 +121,7 @@ export default function AddPaymentModal({
             {charges.length === 0 ? (
               <p className="muted" style={{ margin: 0 }}>Nothing is currently outstanding on this loan.</p>
             ) : (
+              <div className="tablescroll narrow">
               <table className="bordered">
                 <thead><tr><th>Statement Date</th><th className="num">Charged</th><th className="num">Open</th><th className="num">Apply</th></tr></thead>
                 <tbody>
@@ -144,6 +145,7 @@ export default function AddPaymentModal({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
             <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
               Charges are listed by the statement they appear on. The &ldquo;in progress&rdquo;
