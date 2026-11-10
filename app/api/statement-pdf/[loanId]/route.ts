@@ -31,13 +31,16 @@ export async function GET(req: NextRequest, { params }: { params: { loanId: stri
   const { data: draws } = await supabase
     .from('draw_details').select('*').eq('loan_id', loan.loan_id).order('draw_date', { ascending: true });
 
-  const monthParam = new URL(req.url).searchParams.get('month');
+  const params2 = new URL(req.url).searchParams;
+  const monthParam = params2.get('month');
+  // ?view=1 opens the PDF in the browser tab (preview) instead of saving it.
+  const preview = params2.get('view') === '1';
   const requested = monthParam ? firstOfMonth(monthParam) : defaultStatementMonth();
   const statementDate = clampMonth(requested, loan.closing_date);
 
   const extras = await fetchStatementExtras(loan.loan_id, { requireUserAccess: true });
   await logActivity('pdf_download', loan.loan_id, user.id,
-    `Statement ${statementDate} · ${loan.loan_number} · ${loan.property}`);
+    `${preview ? 'Previewed s' : 'S'}tatement ${statementDate} · ${loan.loan_number} · ${loan.property}`);
 
   const pdf = await statementPDF(loan, draws ?? [], statementDate, extras);
   const displayName = loan.is_entity && loan.entity_name ? loan.entity_name : loan.borrower_name;
@@ -46,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { loanId: stri
   return new Response(Buffer.from(pdf), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeName}"`,
+      'Content-Disposition': `${preview ? 'inline' : 'attachment'}; filename="${safeName}"`,
       'Cache-Control': 'no-store',
     },
   });

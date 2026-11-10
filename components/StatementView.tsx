@@ -91,7 +91,10 @@ export default function StatementView({
                 Next &rarr;
               </button>
             </div>
-            <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a className="btn secondary" href={`${pdfHref}&view=1`} target="_blank" rel="noopener">Preview PDF</a>
+              <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
+            </div>
           </div>
         )}
 

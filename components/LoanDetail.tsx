@@ -306,6 +306,7 @@ export default function LoanDetail({
                     title={atNewest ? 'This is the most recent statement' : undefined}>
                     Next &rarr;
                   </button>
+                  <a className="btn secondary" href={`${pdfHref}&view=1`} target="_blank" rel="noopener">Preview PDF</a>
                   <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
                 </div>
               </div>
