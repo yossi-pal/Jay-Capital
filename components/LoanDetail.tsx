@@ -362,7 +362,7 @@ export default function LoanDetail({
                 <table className="bordered">
                   <thead><tr><th>Date</th><th>Method</th><th>Note</th><th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
                   <tbody>
-                    {[...payments].reverse().map(p => {
+                    {payments.map(p => {
                       const mine = allocations.filter(a => a.payment_id === p.id);
                       return (
                         <tr key={p.id}>

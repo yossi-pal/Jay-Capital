@@ -142,10 +142,10 @@ export function PendingDrawRequests({
   );
 }
 
-/** Every request on the loan, newest first, for the Draws tab. */
+/** Every request on the loan, oldest first, for the Draws tab. */
 export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] }) {
   if (requests.length === 0) return null;
-  const list = [...requests].sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+  const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
   return (
     <>
       <h3 style={{ margin: '24px 0 10px', fontSize: 16, color: 'var(--navy)' }}>Draw requests from the borrower</h3>

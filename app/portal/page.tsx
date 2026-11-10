@@ -58,7 +58,7 @@ export default async function PortalPage() {
         fetchStatementExtras(loan.loan_id, { requireUserAccess: true }),
         // Read as the borrower: row level security returns only their own requests.
         supabase.from('draw_requests').select(DRAW_REQUEST_COLUMNS).eq('loan_id', loan.loan_id)
-          .order('requested_at', { ascending: false }),
+          .order('requested_at', { ascending: true }),
       ]);
       return {
         loan, draws: draws ?? [], drawRequests: (requests ?? []) as DrawRequestRow[],
