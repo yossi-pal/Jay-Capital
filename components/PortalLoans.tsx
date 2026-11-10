@@ -152,7 +152,8 @@ export default function PortalLoans({
   });
   const totalStmts = statementMonths(L.closing_date, L.paid_off_date).length;
 
-  const paymentsDesc = [...current.payments].sort((x, y) => y.payment_date.localeCompare(x.payment_date));
+  // Oldest first, like the draws. When collapsed we show the 5 most recent, still in date order.
+  const paymentsAsc = [...current.payments].sort((x, y) => x.payment_date.localeCompare(y.payment_date));
   const drawnPct = Number(L.loan_amount) > 0 ? Math.min(100, (Number(L.total_disbursed) / Number(L.loan_amount)) * 100) : 0;
   const pdfFor = (m: string) => `/api/statement-pdf/${L.loan_id}?month=${m}`;
 
@@ -293,17 +294,17 @@ export default function PortalLoans({
 
           <section className="card bcard">
               <h2 className="bcard-h">Payment history</h2>
-              {paymentsDesc.length === 0 && <p className="muted" style={{ margin: '4px 0 0' }}>No payments recorded yet.</p>}
-              {paymentsDesc.slice(0, showAllPays ? 200 : 5).map(p => (
+              {paymentsAsc.length === 0 && <p className="muted" style={{ margin: '4px 0 0' }}>No payments recorded yet.</p>}
+              {(showAllPays ? paymentsAsc : paymentsAsc.slice(-5)).map(p => (
                 <div className="prow" key={p.id}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7F4F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></svg>
                   <span className="pd">{fmtDate(p.payment_date)}{p.method ? <span className="muted"> · {p.method}</span> : null}</span>
                   <span className="pa">{money(p.amount)}</span>
                 </div>
               ))}
-              {paymentsDesc.length > 5 && (
+              {paymentsAsc.length > 5 && (
                 <button type="button" className="linkish" style={{ marginTop: 12, fontWeight: 600 }} onClick={() => setShowAllPays(v => !v)}>
-                  {showAllPays ? 'Show fewer' : `Show all ${paymentsDesc.length} payments`}
+                  {showAllPays ? 'Show fewer' : `Show all ${paymentsAsc.length} payments`}
                 </button>
               )}
             </section>

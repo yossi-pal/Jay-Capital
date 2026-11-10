@@ -33,7 +33,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
     supabase.from('loan_payoffs').select('amount_received, late_fee, discharge_fee, figures').eq('loan_id', params.id).maybeSingle(),
     getMe(),
     supabase.from('draw_requests').select(DRAW_REQUEST_COLUMNS).eq('loan_id', params.id)
-      .order('requested_at', { ascending: false }),
+      .order('requested_at', { ascending: true }),
   ]);
   if (!summary) notFound();
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
