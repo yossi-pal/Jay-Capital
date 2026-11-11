@@ -391,7 +391,6 @@ export default function LoanDetail({
                   </tbody>
                 </table>
               </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Oldest first.</p>
             </>
           )}
 
