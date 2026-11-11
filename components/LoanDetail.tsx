@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, defaultStatementMonth, lienPositionLabel, shortAddress } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { deleteDraw, setLoanStatus, deletePayment } from '@/lib/actions';
-import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, pastDueAsOf, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
 import AddDrawModal from '@/components/AddDrawModal';
@@ -67,6 +67,7 @@ export default function LoanDetail({
     loan_amount: Number(summary.loan_amount), acquisition: Number(summary.acquisition),
     annual_rate: rate, closing_date: summary.closing_date,
     paid_off_date: summary.paid_off_date ?? null,
+    ...reserveFields(summary),
   };
   const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
   const stmt = buildStatement(engineLoan, engineDraws, stmtDate);
@@ -327,6 +328,10 @@ export default function LoanDetail({
                   <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
                   <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
                   <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
+                  {ledger.currentReserve > 0 && <>
+                    <div className="row"><span className="k">Interest this period</span><span className="v">{money(ledger.currentInterest)}</span></div>
+                    <div className="row"><span className="k">Less interest reserve</span><span className="v">({money(ledger.currentReserve)})</span></div>
+                  </>}
                   <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
                 </div>
                 {/* Its own grid cell: under the left column on a computer, last on a phone. */}

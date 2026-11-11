@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import StatementView, { type StatementData, type StatementDraw, type PayInfo } from '@/components/StatementView';
 import { money, pct, fmtDate, shortAddress, clampMonth, defaultStatementMonth, firstOfMonth, todayInAppTz, monthName, statementMonths } from '@/lib/format';
-import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, pastDueAsOf, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import EmailUs from '@/components/EmailUs';
 import Monogram from '@/components/Monogram';
 import DrawRequestCard from '@/components/DrawRequestCard';
@@ -26,6 +26,7 @@ function engineOf(p: PortalLoan) {
       loan_amount: Number(l.loan_amount), acquisition: Number(l.acquisition),
       annual_rate: Number(l.annual_rate), closing_date: l.closing_date,
       paid_off_date: l.paid_off_date ?? null,
+      ...reserveFields(l),
     },
     draws: p.draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description })),
   };

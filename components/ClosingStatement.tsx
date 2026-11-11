@@ -28,7 +28,6 @@ function formFrom(s: Stored | null) {
   const n = (v: number | string | null | undefined) => (s ? String(Number(v ?? 0)) : '');
   return {
     points: n(s?.lender_points_pct),
-    months: n(s?.interest_reserve_months),
     broker: n(s?.broker_fee_pct),
     processing: n(s?.processing_fee),
     legal: n(s?.legal_fee),
@@ -52,18 +51,21 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
   // On screen the figures follow what is typed; once saved they come from the stored row.
   const source = editing
     ? {
-        lender_points_pct: form.points, interest_reserve_months: form.months,
+        lender_points_pct: form.points,
         broker_fee_pct: form.broker, processing_fee: form.processing, legal_fee: form.legal,
         other_fees: form.other.map(o => ({ label: o.label, amount: Number(o.amount) || 0 })),
       }
     : {
-        lender_points_pct: statement?.lender_points_pct ?? 0, interest_reserve_months: statement?.interest_reserve_months ?? 0,
+        lender_points_pct: statement?.lender_points_pct ?? 0,
         broker_fee_pct: statement?.broker_fee_pct ?? 0, processing_fee: statement?.processing_fee ?? 0,
         legal_fee: statement?.legal_fee ?? 0, other_fees: statement?.other_fees ?? [],
       };
   const fig = closingFigures({
     loan_amount: loan.loan_amount, acquisition: loan.acquisition, construction: loan.construction,
     annual_rate: loan.annual_rate, closing_date: loan.closing_date, ...source,
+    // Set on the loan, so the statement, monthly statements and payoff agree.
+    interest_reserve_months: loan.interest_reserve_months ?? 0,
+    interest_reserve_monthly: loan.interest_reserve_monthly ?? 0,
   });
   const notes = view === 'lender'
     ? (editing ? form.lenderNotes : statement?.lender_notes ?? '')
@@ -79,7 +81,6 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
     setBusy(true); setError('');
     const res = await saveClosingStatement(loan.loan_id, {
       lenderPointsPct: Number(form.points) || 0,
-      interestReserveMonths: Number(form.months) || 0,
       brokerFeePct: Number(form.broker) || 0,
       processingFee: Number(form.processing) || 0,
       legalFee: Number(form.legal) || 0,
@@ -92,8 +93,6 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
     setEditing(false);
     router.refresh();
   }
-
-  const monthlyInterest = fig.loanAmount * fig.rate / 12;
 
   return (
     <div className="wrap" style={{ maxWidth: 960 }}>
@@ -138,10 +137,13 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
               <span className="muted hint">{money(fig.points)} &middot; on the total loan amount ({money(fig.loanAmount)})</span>
             </div>
             <div className="field-wrap">
-              <label>Interest Reserve (months)</label>
-              <input className="field" type="number" step="1" min="0" max="60" inputMode="numeric"
-                value={form.months} onChange={e => set('months', e.target.value)} placeholder="e.g. 3" />
-              <span className="muted hint">{money(fig.interestReserve)} &middot; {money(monthlyInterest)} a month at {pct(fig.rate)}</span>
+              <label>Interest Reserve (from the loan)</label>
+              <input className="field" readOnly style={{ background: 'var(--pale)' }}
+                value={fig.reserveMonths > 0 ? `${money(fig.interestReserve)} (${fig.reserveMonths} × ${money(fig.reserveMonthly)})` : 'None'} />
+              <span className="muted hint">
+                Set on the loan so monthly statements and payoffs match.{' '}
+                <Link href={`/admin/loans/${loan.loan_id}/edit`}>Change it on Edit Loan</Link>
+              </span>
             </div>
             <div className="field-wrap">
               <label>Daily Interest (auto)</label>

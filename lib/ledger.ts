@@ -31,6 +31,16 @@ import { firstOfMonth, monthName, todayInAppTz } from '@/lib/format';
  *
  *   Unpaid balances do NOT themselves accrue interest -- they carry forward
  *   at face value. This matches interest-only hard-money servicing.
+ *
+ *   INTEREST RESERVE
+ *   A loan can collect N months of interest at closing. The reserve covers a
+ *   fixed amount (interest_reserve_monthly) in each of the N months straight
+ *   after the closing month -- never more than that month's interest. The
+ *   borrower is billed only what is left: for a reserve month,
+ *       billed(P) = charge(P) - reserve(P)
+ *   Every balance, past-due and payment figure works off billed(P), so a
+ *   reserve is never entered as a payment and never shows as a credit. A loan
+ *   with no reserve has reserve(P) = 0 everywhere, so nothing changes for it.
  */
 
 export interface PaymentRow {
@@ -52,7 +62,9 @@ export interface PeriodCharge {
   label: string;                // "July 2026" -- the period covered
   statementDate: string;        // YYYY-MM-01 -- the statement this charge bills on
   statementLabel: string;       // "August 2026" -- that statement's month
-  charge: number;
+  charge: number;               // interest for the period, before any reserve
+  reserve: number;              // covered by the interest reserve
+  billed: number;               // charge - reserve: what the borrower owes for it
   paid: number;
   balance: number;
   inProgress: boolean;          // period hasn't ended yet, so the figure can still move
@@ -61,7 +73,12 @@ export interface PeriodCharge {
 export interface Ledger {
   periodMonth: string;
   periodLabel: string;
+  /** What this statement bills: interest less any interest reserve. */
   currentCharge: number;
+  /** Interest for the period(s) billed, before the reserve. */
+  currentInterest: number;
+  /** The part of currentInterest the interest reserve covers. */
+  currentReserve: number;
   previousBalance: number;
   paymentsThisPeriod: number;
   /** previousBalance - paymentsThisPeriod: what was still open before this
@@ -120,6 +137,52 @@ export function periodsThrough(
 /** The loan fields the ledger needs beyond the interest engine's. */
 export interface LedgerLoan extends Loan {
   paid_off_date?: string | null;
+  interest_reserve_months?: number | string | null;
+  interest_reserve_monthly?: number | string | null;
+}
+
+/** The reserve fields of a loan row, as numbers, for building a LedgerLoan. */
+export function reserveFields(row: object | null | undefined) {
+  const r = (row ?? {}) as { interest_reserve_months?: unknown; interest_reserve_monthly?: unknown };
+  return {
+    interest_reserve_months: Number(r.interest_reserve_months) || 0,
+    interest_reserve_monthly: Number(r.interest_reserve_monthly) || 0,
+  };
+}
+
+/** The periods an interest reserve covers: the N months after the closing month. */
+export function reservePeriods(loan: LedgerLoan): string[] {
+  const months = Math.max(0, Math.floor(Number(loan.interest_reserve_months) || 0));
+  const monthly = Number(loan.interest_reserve_monthly) || 0;
+  if (!months || !(monthly > 0)) return [];
+  return Array.from({ length: months }, (_, i) => firstOfMonth(loan.closing_date, i + 1));
+}
+
+/** The part of a period's interest the interest reserve covers (never more than the interest). */
+export function reserveForPeriod(loan: LedgerLoan, draws: Draw[], periodMonth: string): number {
+  const p = firstOfMonth(periodMonth);
+  if (!reservePeriods(loan).includes(p)) return 0;
+  return cents(Math.min(cents(Number(loan.interest_reserve_monthly) || 0), chargeForPeriod(loan, draws, p)));
+}
+
+/** What the borrower is billed for a period: its interest less any reserve. */
+export function billedForPeriod(loan: LedgerLoan, draws: Draw[], periodMonth: string): number {
+  return cents(chargeForPeriod(loan, draws, periodMonth) - reserveForPeriod(loan, draws, periodMonth));
+}
+
+/** One period's row, with what the reserve and the borrower's payments cover. */
+function periodRow(
+  loan: LedgerLoan, draws: Draw[], p: string, paid: number, inProgress = false,
+): PeriodCharge {
+  const charge = chargeForPeriod(loan, draws, p);
+  const reserve = reserveForPeriod(loan, draws, p);
+  const billed = cents(charge - reserve);
+  const due = dueDateFor(p, loan.closing_date);
+  return {
+    periodMonth: p, label: monthName(p),
+    statementDate: due, statementLabel: monthName(due),
+    charge, reserve, billed, paid, balance: cents(billed - paid), inProgress,
+  };
 }
 
 /** Statement dates that make sense for a loan: none past its payoff. */
@@ -138,7 +201,7 @@ export function chargeForPeriod(loan: Loan, draws: Draw[], periodMonth: string):
  * later charges do not appear, exactly like draws.
  */
 export function buildLedger(
-  loan: Loan,
+  loan: LedgerLoan,
   draws: Draw[],
   payments: PaymentRow[],
   allocations: AllocationRow[],
@@ -156,15 +219,18 @@ export function buildLedger(
   const currentPeriodMonths = allPeriods.filter(p => dueDateFor(p, loan.closing_date) === statementMonth);
   const priorPeriods = allPeriods.filter(p => dueDateFor(p, loan.closing_date) < statementMonth);
 
-  const currentCharge = currentPeriodMonths
+  const currentInterest = currentPeriodMonths
     .reduce((sum, p) => cents(sum + chargeForPeriod(loan, draws, p)), 0);
+  const currentReserve = currentPeriodMonths
+    .reduce((sum, p) => cents(sum + reserveForPeriod(loan, draws, p)), 0);
+  const currentCharge = cents(currentInterest - currentReserve);
 
   // ---- date-based running balance
   const paidBefore = payments
     .filter(p => p.payment_date < periodStart)
     .reduce((s, p) => cents(s + Number(p.amount)), 0);
 
-  const priorCharges = priorPeriods.reduce((s, p) => cents(s + chargeForPeriod(loan, draws, p)), 0);
+  const priorCharges = priorPeriods.reduce((s, p) => cents(s + billedForPeriod(loan, draws, p)), 0);
   const previousBalance = cents(priorCharges - paidBefore);
 
   const paymentsInPeriod = payments
@@ -188,28 +254,11 @@ export function buildLedger(
     paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
 
-  const currentPeriods: PeriodCharge[] = currentPeriodMonths.map(p => {
-    const charge = chargeForPeriod(loan, draws, p);
-    const paid = paidByPeriod.get(p) ?? 0;
-    return {
-      periodMonth: p, label: monthName(p),
-      statementDate: dueDateFor(p, loan.closing_date),
-      statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-      charge, paid, balance: cents(charge - paid), inProgress: false,
-    };
-  });
+  const currentPeriods: PeriodCharge[] = currentPeriodMonths
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0));
 
   const priorUnpaid: PeriodCharge[] = priorPeriods
-    .map(p => {
-      const charge = chargeForPeriod(loan, draws, p);
-      const paid = paidByPeriod.get(p) ?? 0;
-      return {
-        periodMonth: p, label: monthName(p),
-        statementDate: dueDateFor(p, loan.closing_date),
-        statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: cents(charge - paid), inProgress: false,
-      };
-    })
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0))
     .filter(r => r.balance > 0.005);
 
   // Payments received but not applied to any month yet.
@@ -223,6 +272,8 @@ export function buildLedger(
     periodMonth,
     periodLabel: monthName(periodMonth),
     currentCharge,
+    currentInterest,
+    currentReserve,
     currentPeriods,
     deferredToNext: currentPeriodMonths.length === 0,
     previousBalance,
@@ -260,7 +311,7 @@ export function dueDateFor(periodMonth: string, closingDate: string): string {
  * stays invisible until the next statement is issued.
  */
 export function pastDueAsOf(
-  loan: Loan,
+  loan: LedgerLoan,
   draws: Draw[],
   payments: PaymentRow[],
   allocations: AllocationRow[],
@@ -278,17 +329,8 @@ export function pastDueAsOf(
   const thisMonth = firstOfMonth(today);
   return periodsThrough(loan.closing_date, firstOfMonth(today, -1), (loan as LedgerLoan).paid_off_date)
     .filter(p => dueDateFor(p, loan.closing_date) <= thisMonth)
-    .map(p => {
-      const charge = chargeForPeriod(loan, draws, p);
-      const paid = paidByPeriod.get(p) ?? 0;
-      return {
-        periodMonth: p, label: monthName(p),
-        statementDate: dueDateFor(p, loan.closing_date),
-        statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: cents(charge - paid), inProgress: false,
-      };
-    })
-    .filter(r => r.charge > 0.005 && r.balance > 0.005);
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0))
+    .filter(r => r.billed > 0.005 && r.balance > 0.005);
 }
 
 /**
@@ -301,7 +343,7 @@ export function pastDueAsOf(
  * still move its figure.
  */
 export function openCharges(
-  loan: Loan,
+  loan: LedgerLoan,
   draws: Draw[],
   payments: PaymentRow[],
   allocations: AllocationRow[],
@@ -314,15 +356,6 @@ export function openCharges(
     paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
   return periodsThrough(loan.closing_date, throughPeriodMonth, (loan as LedgerLoan).paid_off_date)
-    .map(p => {
-      const charge = chargeForPeriod(loan, draws, p);
-      const paid = paidByPeriod.get(p) ?? 0;
-      return {
-        periodMonth: p, label: monthName(p),
-        statementDate: dueDateFor(p, loan.closing_date),
-        statementLabel: monthName(dueDateFor(p, loan.closing_date)),
-        charge, paid, balance: cents(charge - paid), inProgress: p >= currentPeriod,
-      };
-    })
-    .filter(r => r.charge > 0.005 && r.balance > 0.005);
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, p >= currentPeriod))
+    .filter(r => r.billed > 0.005 && r.balance > 0.005);
 }

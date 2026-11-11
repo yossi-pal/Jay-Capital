@@ -13,9 +13,18 @@
  * prepaid at closing, so it is never charged again. A full month therefore
  * comes to exactly what the statement for that month charged, and a part
  * month is prorated by days.
+ *
+ * An interest reserve collected at closing counts like a payment applied to
+ * the months it covers (see lib/ledger.ts): a reserve month whose leftover
+ * draw interest is paid counts as paid, interest starts after the reserve,
+ * and any reserve for months inside or after the interest window comes off
+ * the payoff as its own line -- reserve money the lender is still holding.
  */
 
-import { chargeForPeriod, periodEndOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import {
+  chargeForPeriod, periodEndOf, reserveForPeriod, reservePeriods,
+  type PaymentRow, type AllocationRow, type LedgerLoan,
+} from '@/lib/ledger';
 import { DRAW_DESCRIPTION, cents, type Draw } from '@/lib/interest';
 import { firstOfMonth, fmtDate, money, monthName } from '@/lib/format';
 
@@ -33,6 +42,8 @@ export interface PayoffLoan {
   acquisition: number | string;
   annual_rate: number | string;   // 0.12 = 12%
   closing_date: string;           // YYYY-MM-DD
+  interest_reserve_months?: number | string | null;
+  interest_reserve_monthly?: number | string | null;
 }
 
 export interface PayoffInput {
@@ -54,11 +65,27 @@ const iso = (d: Date) =>
 export const addDays = (s: string, n: number) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 const dim = (s: string) => { const d = parse(s); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); };
 
-function engineLoan(loan: PayoffLoan) {
+function engineLoan(loan: PayoffLoan): LedgerLoan {
   return {
     loan_amount: Number(loan.loan_amount) || 0, acquisition: Number(loan.acquisition) || 0,
     annual_rate: Number(loan.annual_rate) || 0, closing_date: loan.closing_date,
+    interest_reserve_months: Number(loan.interest_reserve_months) || 0,
+    interest_reserve_monthly: Number(loan.interest_reserve_monthly) || 0,
   };
+}
+
+/** Per month: interest paid by the borrower's applied payments plus the interest reserve. */
+function coveredByMonth(loan: PayoffLoan, draws: Draw[], allocations: AllocationRow[]): Map<string, number> {
+  const eng = engineLoan(loan);
+  const covered = new Map<string, number>();
+  for (const a of allocations) {
+    const k = firstOfMonth(a.period_month);
+    covered.set(k, (covered.get(k) ?? 0) + Number(a.amount));
+  }
+  for (const p of reservePeriods(eng)) {
+    covered.set(p, (covered.get(p) ?? 0) + reserveForPeriod(eng, draws, p));
+  }
+  return covered;
 }
 
 /**
@@ -73,16 +100,17 @@ export function autoInterestFrom(
   loan: PayoffLoan, draws: Draw[], allocations: AllocationRow[], throughDate: string,
 ): { from: string; paidThrough: string | null } {
   const eng = engineLoan(loan);
-  const paid = new Map<string, number>();
-  for (const a of allocations) {
-    const k = firstOfMonth(a.period_month);
-    paid.set(k, (paid.get(k) ?? 0) + Number(a.amount));
-  }
+  const paid = coveredByMonth(loan, draws, allocations);
   const lastMonth = firstOfMonth(throughDate);
+  // A reserve month counts as settled here too, even when draw interest above
+  // the reserve is still owed: that leftover is listed as unpaid interest, so
+  // the letter doesn't read as if nothing had been paid since closing.
+  const reserved = new Set(reservePeriods(eng));
   let paidThrough: string | null = null;
   for (let p = firstOfMonth(loan.closing_date), i = 0; p <= lastMonth && i < 600; p = firstOfMonth(p, 1), i++) {
     const charge = chargeForPeriod(eng, draws, p);
-    if ((paid.get(p) ?? 0) + 0.005 >= charge) paidThrough = periodEndOf(p);
+    const reserveDone = reserved.has(p) && periodEndOf(p) <= throughDate.slice(0, 10);
+    if (reserveDone || (paid.get(p) ?? 0) + 0.005 >= charge) paidThrough = periodEndOf(p);
   }
   return { from: paidThrough ? addDays(paidThrough, 1) : loan.closing_date, paidThrough };
 }
@@ -137,12 +165,16 @@ export function payoffFigures(
   const alreadyPaid = from > through ? 0 : cents(allocations
     .filter(a => { const k = firstOfMonth(a.period_month); return k >= fromMonth && k <= throughMonth; })
     .reduce((s, a) => s + Number(a.amount), 0));
+  // Interest reserve the lender still holds: the reserve for months inside the
+  // interest window, plus whole reserve months after it (never used).
+  const eng = engineLoan(loan);
+  const reserveCredit = cents(reservePeriods(eng)
+    .filter(p => p >= fromMonth)
+    .reduce((s, p) => s + (p <= throughMonth
+      ? reserveForPeriod(eng, draws, p)
+      : cents(Number(loan.interest_reserve_monthly) || 0)), 0));
   // Months before the interest window that are still not paid in full.
-  const paidByMonth = new Map<string, number>();
-  for (const a of allocations) {
-    const k = firstOfMonth(a.period_month);
-    paidByMonth.set(k, (paidByMonth.get(k) ?? 0) + Number(a.amount));
-  }
+  const paidByMonth = coveredByMonth(loan, draws, allocations);
   const openEarlier: { month: string; balance: number }[] = [];
   for (let m = firstOfMonth(loan.closing_date), i = 0; m < fromMonth && i < 600; m = firstOfMonth(m, 1), i++) {
     const balance = cents(chargeForPeriod(engineLoan(loan), draws, m) - (paidByMonth.get(m) ?? 0));
@@ -167,6 +199,7 @@ export function payoffFigures(
   const lines: PayoffLine[] = [{ label: 'Outstanding Principal Balance', amount: principal }];
   if (from <= through) lines.push({ label: `Interest from ${fmtDate(from)} through ${fmtDate(through)}`, amount: grossInterest });
   if (alreadyPaid > 0) lines.push({ label: 'Less: Interest Already Paid', amount: -alreadyPaid });
+  if (reserveCredit > 0) lines.push({ label: 'Less: Interest Reserve (prepaid at closing)', amount: -reserveCredit });
   if (unpaidEarlier > 0) {
     lines.push({ label: `Unpaid Interest (${openEarlier.map(x => monthName(x.month)).join(', ')})`, amount: unpaidEarlier });
   }
@@ -187,7 +220,7 @@ export function payoffFigures(
 
   return {
     through, from, autoFrom: auto.from, paidThrough: addDays(from, -1),
-    principal, drawCount: construction.length, grossInterest, alreadyPaid, unpaidEarlier, unapplied,
+    principal, drawCount: construction.length, grossInterest, alreadyPaid, reserveCredit, unpaidEarlier, unapplied,
     fees, drawFee, prepaymentPct, lines, total, perDiem, validUntil: dayAfter,
   };
 }

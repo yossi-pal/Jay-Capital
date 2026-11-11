@@ -9,6 +9,7 @@ import LenderSelect, { type LenderOption } from '@/components/LenderSelect';
 import EntityFields from '@/components/EntityFields';
 import DeleteLoanButton from '@/components/DeleteLoanButton';
 import LienPositionField from '@/components/LienPositionField';
+import InterestReserveFields from '@/components/InterestReserveFields';
 import { formatPhone, formatAddress } from '@/lib/formatting';
 
 interface Loan {
@@ -20,6 +21,8 @@ interface Loan {
   is_entity?: boolean | null;
   entity_name?: string | null;
   lien_position?: number | null;
+  interest_reserve_months?: number | null;
+  interest_reserve_monthly?: number | null;
 }
 
 export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: LenderOption[] }) {
@@ -33,7 +36,7 @@ export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: L
   const construction = Math.max(0, loanAmount - acquisition);
 
   // annual_rate stored as fraction; show as percent
-  const ratePct = (rateFraction(loan.annual_rate) * 100).toString();
+  const [ratePct, setRatePct] = useState(String(Math.round(rateFraction(loan.annual_rate) * 100 * 10000) / 10000));
 
   return (
     <div className="wrap">
@@ -62,8 +65,10 @@ export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: L
             <div className="field-wrap"><label>Loan Amount *</label><input className="field" type="number" step="0.01" name="loan_amount" value={loanAmount} onChange={e => setLoanAmount(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Acquisition *</label><input className="field" type="number" step="0.01" name="acquisition" value={acquisition} onChange={e => setAcquisition(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Construction (auto)</label><input className="field" type="number" value={construction.toFixed(2)} readOnly style={{ background: 'var(--pale)' }} /></div>
-            <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" defaultValue={ratePct} required /></div>
+            <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" value={ratePct} onChange={e => setRatePct(e.target.value)} required /></div>
             <div className="field-wrap"><label>Closing Date *</label><input className="field" type="date" name="closing_date" defaultValue={loan.closing_date} required /></div>
+            <InterestReserveFields acquisition={acquisition} ratePct={Number(ratePct)}
+              defaultMonths={loan.interest_reserve_months} defaultMonthly={loan.interest_reserve_monthly} />
           </div>
           <p className="muted" style={{ fontSize: 12 }}>All fields are required except the borrower&apos;s phone number. Construction is calculated as Loan Amount minus Acquisition.</p>
           <div style={{ marginTop: 12 }}>
