@@ -317,25 +317,24 @@ export default function LoanDetail({
                 {ledger.currentPeriods.length > 1 &&
                   ` · bills ${ledger.currentPeriods.map(c => c.label).join(' + ')}`}
               </p>
+              {/* Left: how this period's interest is made up. Right: the account,
+                  reading straight down to the Amount Due like the borrower's statement. */}
               <div className="summary">
                 <div className="col">
                   <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
+                  <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
                   <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
-                  <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
-                  <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
+                  <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
                 </div>
                 <div className="col">
-                  <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
-                  <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
+                  <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
                   <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
+                  <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
                   {ledger.currentReserve > 0 && <>
                     <div className="row"><span className="k">Interest this period</span><span className="v">{money(ledger.currentInterest)}</span></div>
                     <div className="row"><span className="k">Less interest reserve</span><span className="v">({money(ledger.currentReserve)})</span></div>
                   </>}
                   <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
-                </div>
-                {/* Its own grid cell: under the left column on a computer, last on a phone. */}
-                <div className="col">
                   <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
                 </div>
               </div>

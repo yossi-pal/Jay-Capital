@@ -7,7 +7,7 @@
  *   Net wire = total loan amount
  *            - construction holdback (kept back, released later as draws)
  *            - lender points (a percent of the total loan amount)
- *            - interest reserve (months x the monthly reserve, both set on the loan)
+ *            - interest reserve (the total collected, set on the loan)
  *            - daily interest (acquisition, closing date through month end)
  *
  * CLOSING STATEMENT
@@ -32,7 +32,7 @@ export interface ClosingInput {
   closing_date: string;           // YYYY-MM-DD
   lender_points_pct: number | string;
   interest_reserve_months: number | string | null;   // from the loan
-  interest_reserve_monthly: number | string | null;  // from the loan
+  interest_reserve_total: number | string | null;    // from the loan
   broker_fee_pct: number | string;
   processing_fee: number | string;
   legal_fee: number | string;
@@ -51,8 +51,8 @@ export function closingFigures(c: ClosingInput) {
   const pointsPct = Number(c.lender_points_pct) || 0;
   const points = cents(loanAmount * pointsPct / 100);
   const reserveMonths = Number(c.interest_reserve_months) || 0;
-  const reserveMonthly = reserveMonths > 0 ? cents(Number(c.interest_reserve_monthly) || 0) : 0;
-  const interestReserve = cents(reserveMonthly * reserveMonths);
+  const interestReserve = reserveMonths > 0 ? cents(Number(c.interest_reserve_total) || 0) : 0;
+  const reserveMonthly = reserveMonths > 0 ? cents(interestReserve / reserveMonths) : 0;
   const dailyInterest = c.closing_date ? cents(drawInterest(acquisition, rate, c.closing_date)) : 0;
   const [y, m, d] = String(c.closing_date || '').slice(0, 10).split('-').map(Number);
   const monthEnd = c.closing_date ? new Date(y, m, 0).getDate() : 0;
@@ -91,7 +91,7 @@ export function cleanFees(raw: unknown): OtherFee[] {
 export interface StatementLine { label: string; detail?: string; amount: number; deduct?: boolean }
 
 const reserveDetail = (f: ClosingFigures) =>
-  `${f.reserveMonths} month${f.reserveMonths === 1 ? '' : 's'} × ${money(f.reserveMonthly)}`;
+  `${f.reserveMonths} month${f.reserveMonths === 1 ? '' : 's'}, about ${money(f.reserveMonthly)} a month`;
 
 const dailyDetail = (f: ClosingFigures) =>
   `${f.interestDays} day${f.interestDays === 1 ? '' : 's'} on acquisition, ${fmtDate(f.closingDate)} – ${fmtDate(f.interestThrough)}`;

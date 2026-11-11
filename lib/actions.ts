@@ -146,9 +146,9 @@ function reserveFromForm(form: FormData) {
   if (!Number.isInteger(months) || months < 0 || months > 60) {
     throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
   }
-  const monthly = months > 0 ? Math.round(Number(form.get('interest_reserve_monthly') || 0) * 100) / 100 : 0;
-  if (months > 0 && !(monthly > 0)) throw new Error('Please enter the reserve amount per month.');
-  return { interest_reserve_months: months, interest_reserve_monthly: monthly };
+  const total = months > 0 ? Math.round(Number(form.get('interest_reserve_total') || 0) * 100) / 100 : 0;
+  if (months > 0 && !(total > 0)) throw new Error('Please enter the total interest reserve collected at closing.');
+  return { interest_reserve_months: months, interest_reserve_total: total };
 }
 
 async function saveLienPosition(supabase: any, loanId: string, form: FormData) {
@@ -216,7 +216,7 @@ export async function saveClosingStatement(loanId: string, opts: {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: loan } = await supabase.from('loans')
-      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date, interest_reserve_months, interest_reserve_monthly').eq('id', loanId).maybeSingle();
+      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle();
     if (!loan) throw new Error('That loan could not be found.');
 
     const points = Number(opts.lenderPointsPct);
@@ -262,7 +262,7 @@ export async function saveClosingStatement(loanId: string, opts: {
 /** Everything a payoff letter's amounts are worked out from, read fresh. */
 async function payoffSources(supabase: any, loanId: string) {
   const [{ data: loan }, { data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
-    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date, interest_reserve_months, interest_reserve_monthly').eq('id', loanId).maybeSingle(),
+    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle(),
     supabase.from('draws').select('draw_date, amount, description').eq('loan_id', loanId),
     supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loanId),
     supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loanId),

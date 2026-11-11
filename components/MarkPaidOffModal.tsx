@@ -32,7 +32,7 @@ export default function MarkPaidOffModal({
   open: boolean; onClose: () => void; onSaved: () => void;
   loan: {
     loan_id: string; loan_amount: number | string; acquisition: number | string; annual_rate: number | string; closing_date: string;
-    interest_reserve_months?: number | string | null; interest_reserve_monthly?: number | string | null;
+    interest_reserve_months?: number | string | null; interest_reserve_total?: number | string | null;
   };
   draws: Draw[]; payments: PaymentRow[]; allocations: AllocationRow[];
   quote: PayoffQuote | null;

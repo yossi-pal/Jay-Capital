@@ -33,10 +33,13 @@ import { firstOfMonth, monthName, todayInAppTz } from '@/lib/format';
  *   at face value. This matches interest-only hard-money servicing.
  *
  *   INTEREST RESERVE
- *   A loan can collect N months of interest at closing. The reserve covers a
- *   fixed amount (interest_reserve_monthly) in each of the N months straight
- *   after the closing month -- never more than that month's interest. The
- *   borrower is billed only what is left: for a reserve month,
+ *   A loan can collect N months of interest at closing. The total collected
+ *   (interest_reserve_total) is split evenly over the N months straight after
+ *   the closing month, any leftover cent going to the last month so the months
+ *   always add back up to exactly what was collected ($4,000 over 3 months is
+ *   1,333.33 + 1,333.33 + 1,333.34). Each month the reserve covers its share,
+ *   never more than that month's interest. The borrower is billed only what is
+ *   left: for a reserve month,
  *       billed(P) = charge(P) - reserve(P)
  *   Every balance, past-due and payment figure works off billed(P), so a
  *   reserve is never entered as a payment and never shows as a credit. A loan
@@ -138,31 +141,48 @@ export function periodsThrough(
 export interface LedgerLoan extends Loan {
   paid_off_date?: string | null;
   interest_reserve_months?: number | string | null;
-  interest_reserve_monthly?: number | string | null;
+  interest_reserve_total?: number | string | null;
 }
 
 /** The reserve fields of a loan row, as numbers, for building a LedgerLoan. */
 export function reserveFields(row: object | null | undefined) {
-  const r = (row ?? {}) as { interest_reserve_months?: unknown; interest_reserve_monthly?: unknown };
+  const r = (row ?? {}) as { interest_reserve_months?: unknown; interest_reserve_total?: unknown };
   return {
     interest_reserve_months: Number(r.interest_reserve_months) || 0,
-    interest_reserve_monthly: Number(r.interest_reserve_monthly) || 0,
+    interest_reserve_total: Number(r.interest_reserve_total) || 0,
   };
 }
 
 /** The periods an interest reserve covers: the N months after the closing month. */
 export function reservePeriods(loan: LedgerLoan): string[] {
   const months = Math.max(0, Math.floor(Number(loan.interest_reserve_months) || 0));
-  const monthly = Number(loan.interest_reserve_monthly) || 0;
-  if (!months || !(monthly > 0)) return [];
+  const total = Number(loan.interest_reserve_total) || 0;
+  if (!months || !(total > 0)) return [];
   return Array.from({ length: months }, (_, i) => firstOfMonth(loan.closing_date, i + 1));
+}
+
+/** Each reserve month's share of the total collected, oldest first. Adds up to the total exactly. */
+export function reserveShares(totalCollected: number, months: number): number[] {
+  const n = Math.max(0, Math.floor(months));
+  if (!n) return [];
+  const total = cents(totalCollected);
+  const each = cents(total / n);
+  return Array.from({ length: n }, (_, i) => (i < n - 1 ? each : cents(total - each * (n - 1))));
+}
+
+/** The reserve set aside for a period, before comparing it with that period's interest. */
+export function reserveShareForPeriod(loan: LedgerLoan, periodMonth: string): number {
+  const periods = reservePeriods(loan);
+  const i = periods.indexOf(firstOfMonth(periodMonth));
+  if (i < 0) return 0;
+  return reserveShares(Number(loan.interest_reserve_total) || 0, periods.length)[i];
 }
 
 /** The part of a period's interest the interest reserve covers (never more than the interest). */
 export function reserveForPeriod(loan: LedgerLoan, draws: Draw[], periodMonth: string): number {
-  const p = firstOfMonth(periodMonth);
-  if (!reservePeriods(loan).includes(p)) return 0;
-  return cents(Math.min(cents(Number(loan.interest_reserve_monthly) || 0), chargeForPeriod(loan, draws, p)));
+  const share = reserveShareForPeriod(loan, periodMonth);
+  if (!share) return 0;
+  return cents(Math.min(share, chargeForPeriod(loan, draws, firstOfMonth(periodMonth))));
 }
 
 /** What the borrower is billed for a period: its interest less any reserve. */

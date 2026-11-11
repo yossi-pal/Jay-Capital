@@ -22,7 +22,7 @@ interface Loan {
   entity_name?: string | null;
   lien_position?: number | null;
   interest_reserve_months?: number | null;
-  interest_reserve_monthly?: number | null;
+  interest_reserve_total?: number | null;
 }
 
 export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: LenderOption[] }) {
@@ -67,8 +67,8 @@ export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: L
             <div className="field-wrap"><label>Construction (auto)</label><input className="field" type="number" value={construction.toFixed(2)} readOnly style={{ background: 'var(--pale)' }} /></div>
             <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" value={ratePct} onChange={e => setRatePct(e.target.value)} required /></div>
             <div className="field-wrap"><label>Closing Date *</label><input className="field" type="date" name="closing_date" defaultValue={loan.closing_date} required /></div>
-            <InterestReserveFields acquisition={acquisition} ratePct={Number(ratePct)}
-              defaultMonths={loan.interest_reserve_months} defaultMonthly={loan.interest_reserve_monthly} />
+            <InterestReserveFields loanAmount={loanAmount} acquisition={acquisition} ratePct={Number(ratePct)}
+              defaultMonths={loan.interest_reserve_months} defaultTotal={loan.interest_reserve_total} />
           </div>
           <p className="muted" style={{ fontSize: 12 }}>All fields are required except the borrower&apos;s phone number. Construction is calculated as Loan Amount minus Acquisition.</p>
           <div style={{ marginTop: 12 }}>

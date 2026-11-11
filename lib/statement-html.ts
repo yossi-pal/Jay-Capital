@@ -8,7 +8,7 @@ export interface StatementLoan {
   lender_name: string | null;
   is_entity?: boolean | null; entity_name?: string | null;
   paid_off_date?: string | null;
-  interest_reserve_months?: number | string | null; interest_reserve_monthly?: number | string | null;
+  interest_reserve_months?: number | string | null; interest_reserve_total?: number | string | null;
 }
 export interface StatementDraw { draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 

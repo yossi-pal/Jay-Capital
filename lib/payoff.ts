@@ -22,7 +22,7 @@
  */
 
 import {
-  chargeForPeriod, periodEndOf, reserveForPeriod, reservePeriods,
+  chargeForPeriod, periodEndOf, reserveForPeriod, reservePeriods, reserveShareForPeriod,
   type PaymentRow, type AllocationRow, type LedgerLoan,
 } from '@/lib/ledger';
 import { DRAW_DESCRIPTION, cents, type Draw } from '@/lib/interest';
@@ -43,7 +43,7 @@ export interface PayoffLoan {
   annual_rate: number | string;   // 0.12 = 12%
   closing_date: string;           // YYYY-MM-DD
   interest_reserve_months?: number | string | null;
-  interest_reserve_monthly?: number | string | null;
+  interest_reserve_total?: number | string | null;
 }
 
 export interface PayoffInput {
@@ -70,7 +70,7 @@ function engineLoan(loan: PayoffLoan): LedgerLoan {
     loan_amount: Number(loan.loan_amount) || 0, acquisition: Number(loan.acquisition) || 0,
     annual_rate: Number(loan.annual_rate) || 0, closing_date: loan.closing_date,
     interest_reserve_months: Number(loan.interest_reserve_months) || 0,
-    interest_reserve_monthly: Number(loan.interest_reserve_monthly) || 0,
+    interest_reserve_total: Number(loan.interest_reserve_total) || 0,
   };
 }
 
@@ -172,7 +172,7 @@ export function payoffFigures(
     .filter(p => p >= fromMonth)
     .reduce((s, p) => s + (p <= throughMonth
       ? reserveForPeriod(eng, draws, p)
-      : cents(Number(loan.interest_reserve_monthly) || 0)), 0));
+      : reserveShareForPeriod(eng, p)), 0));
   // Months before the interest window that are still not paid in full.
   const paidByMonth = coveredByMonth(loan, draws, allocations);
   const openEarlier: { month: string; balance: number }[] = [];

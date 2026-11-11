@@ -65,7 +65,7 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
     annual_rate: loan.annual_rate, closing_date: loan.closing_date, ...source,
     // Set on the loan, so the statement, monthly statements and payoff agree.
     interest_reserve_months: loan.interest_reserve_months ?? 0,
-    interest_reserve_monthly: loan.interest_reserve_monthly ?? 0,
+    interest_reserve_total: loan.interest_reserve_total ?? 0,
   });
   const notes = view === 'lender'
     ? (editing ? form.lenderNotes : statement?.lender_notes ?? '')
@@ -139,7 +139,7 @@ export default function ClosingStatement({ loan, statement, canEdit, initialView
             <div className="field-wrap">
               <label>Interest Reserve (from the loan)</label>
               <input className="field" readOnly style={{ background: 'var(--pale)' }}
-                value={fig.reserveMonths > 0 ? `${money(fig.interestReserve)} (${fig.reserveMonths} × ${money(fig.reserveMonthly)})` : 'None'} />
+                value={fig.reserveMonths > 0 ? `${money(fig.interestReserve)} (${fig.reserveMonths} month${fig.reserveMonths === 1 ? '' : 's'})` : 'None'} />
               <span className="muted hint">
                 Set on the loan so monthly statements and payoffs match.{' '}
                 <Link href={`/admin/loans/${loan.loan_id}/edit`}>Change it on Edit Loan</Link>
