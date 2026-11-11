@@ -685,6 +685,28 @@ export async function setLenderActive(id: string, active: boolean) {
  * ============================================================ */
 
 /**
+ * Catch a mistyped payment date before it is saved. A year typed as "0206"
+ * instead of "2026" is a valid date to the browser, but it sorts before the
+ * loan closed, so every statement would treat the money as already paid on
+ * day one and the running balance would go wrong.
+ */
+async function assertSensiblePaymentDate(loanId: string, paymentDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error('Payment date is not a valid date.');
+  const { data: loan, error } = await serviceClient().from('loans')
+    .select('closing_date').eq('id', loanId).single();
+  if (error) throw new Error(error.message);
+  const t = todayInAppTz();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const closing = String(loan.closing_date).slice(0, 10);
+  if (paymentDate < closing) {
+    throw new Error(`The payment date ${paymentDate} is before this loan closed (${closing}). Please check the year.`);
+  }
+  if (paymentDate > today) {
+    throw new Error(`The payment date ${paymentDate} is in the future. Please check the date.`);
+  }
+}
+
+/**
  * Record a borrower payment and apply it to specific charge periods.
  * `allocations` is [{ periodMonth, amount }]; the total may be less than the
  * payment (the remainder shows on statements as unapplied) but never more.
@@ -696,6 +718,7 @@ export async function addPayment(loanId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
@@ -748,6 +771,7 @@ export async function updatePayment(loanId: string, paymentId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
