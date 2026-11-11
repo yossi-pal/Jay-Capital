@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { getMe } from '@/lib/session';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
-import { buildLedger, chargeForPeriod, periodsThrough } from '@/lib/ledger';
+import { buildLedger, billedForPeriod, periodsThrough, reserveFields } from '@/lib/ledger';
 import { firstOfMonth } from '@/lib/format';
 import InsightsCharts from '@/components/InsightsCharts';
 import ActivityFeed from '@/components/ActivityFeed';
@@ -63,6 +63,7 @@ export default async function InsightsPage() {
       loan_amount: Number(l.loan_amount), acquisition: Number(l.acquisition),
       annual_rate: Number(l.annual_rate), closing_date: l.closing_date,
       paid_off_date: l.paid_off_date,
+      ...reserveFields(l),
     };
     const d = drawList.filter((x: any) => x.loan_id === l.loan_id)
       .map((x: any) => ({ draw_date: x.draw_date, amount: Number(x.amount), description: x.description }));
@@ -72,7 +73,7 @@ export default async function InsightsPage() {
       .map((x: any) => ({ payment_id: x.payment_id, period_month: x.period_month, amount: Number(x.amount) }));
 
     for (const per of periodsThrough(l.closing_date, thisPeriod)) {
-      billed += chargeForPeriod(engineLoan, d, per);
+      billed += billedForPeriod(engineLoan, d, per);
     }
     collected += p.reduce((s, x) => s + x.amount, 0);
 

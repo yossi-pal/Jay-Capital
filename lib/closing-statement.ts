@@ -7,7 +7,7 @@
  *   Net wire = total loan amount
  *            - construction holdback (kept back, released later as draws)
  *            - lender points (a percent of the total loan amount)
- *            - interest reserve (months of interest on the total loan amount)
+ *            - interest reserve (the total collected, set on the loan)
  *            - daily interest (acquisition, closing date through month end)
  *
  * CLOSING STATEMENT
@@ -20,7 +20,7 @@
  */
 
 import { drawInterest } from '@/lib/interest';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, money } from '@/lib/format';
 
 export interface OtherFee { label: string; amount: number }
 
@@ -31,7 +31,8 @@ export interface ClosingInput {
   annual_rate: number | string;   // 0.12 = 12%
   closing_date: string;           // YYYY-MM-DD
   lender_points_pct: number | string;
-  interest_reserve_months: number | string;
+  interest_reserve_months: number | string | null;   // from the loan
+  interest_reserve_total: number | string | null;    // from the loan
   broker_fee_pct: number | string;
   processing_fee: number | string;
   legal_fee: number | string;
@@ -50,7 +51,8 @@ export function closingFigures(c: ClosingInput) {
   const pointsPct = Number(c.lender_points_pct) || 0;
   const points = cents(loanAmount * pointsPct / 100);
   const reserveMonths = Number(c.interest_reserve_months) || 0;
-  const interestReserve = cents(loanAmount * (rate / 12) * reserveMonths);
+  const interestReserve = reserveMonths > 0 ? cents(Number(c.interest_reserve_total) || 0) : 0;
+  const reserveMonthly = reserveMonths > 0 ? cents(interestReserve / reserveMonths) : 0;
   const dailyInterest = c.closing_date ? cents(drawInterest(acquisition, rate, c.closing_date)) : 0;
   const [y, m, d] = String(c.closing_date || '').slice(0, 10).split('-').map(Number);
   const monthEnd = c.closing_date ? new Date(y, m, 0).getDate() : 0;
@@ -69,7 +71,7 @@ export function closingFigures(c: ClosingInput) {
 
   return {
     loanAmount, acquisition, construction, rate, closingDate: String(c.closing_date || '').slice(0, 10),
-    pointsPct, points, reserveMonths, interestReserve,
+    pointsPct, points, reserveMonths, reserveMonthly, interestReserve,
     dailyInterest, interestDays, interestThrough, netWire,
     brokerPct, brokerFee, processingFee, legalFee, otherFees, totalClosingCost,
   };
@@ -88,6 +90,9 @@ export function cleanFees(raw: unknown): OtherFee[] {
 /** One line of a statement, shared by the screen and the PDF so they match. */
 export interface StatementLine { label: string; detail?: string; amount: number; deduct?: boolean }
 
+const reserveDetail = (f: ClosingFigures) =>
+  `${f.reserveMonths} month${f.reserveMonths === 1 ? '' : 's'}, about ${money(f.reserveMonthly)} a month`;
+
 const dailyDetail = (f: ClosingFigures) =>
   `${f.interestDays} day${f.interestDays === 1 ? '' : 's'} on acquisition, ${fmtDate(f.closingDate)} – ${fmtDate(f.interestThrough)}`;
 
@@ -96,7 +101,7 @@ export function lenderLines(f: ClosingFigures): StatementLine[] {
     { label: 'Total Loan Amount', amount: f.loanAmount },
     { label: 'Construction Holdback', amount: f.construction, deduct: true },
     { label: 'Points to Lender', detail: `${f.pointsPct}% of total loan amount`, amount: f.points, deduct: true },
-    { label: 'Interest Reserve', detail: `${f.reserveMonths} month${f.reserveMonths === 1 ? '' : 's'} on total loan amount`, amount: f.interestReserve, deduct: true },
+    { label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve, deduct: true },
     { label: 'Daily Interest', detail: dailyDetail(f), amount: f.dailyInterest, deduct: true },
   ];
 }
@@ -104,7 +109,7 @@ export function lenderLines(f: ClosingFigures): StatementLine[] {
 export function closingCostLines(f: ClosingFigures): StatementLine[] {
   return [
     { label: 'Points to Lender', detail: `${f.pointsPct}% of total loan amount`, amount: f.points },
-    { label: 'Interest Reserve', detail: `${f.reserveMonths} month${f.reserveMonths === 1 ? '' : 's'} on total loan amount`, amount: f.interestReserve },
+    { label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve },
     { label: 'Daily Interest', detail: dailyDetail(f), amount: f.dailyInterest },
     { label: 'Broker Origination Fee', detail: `${f.brokerPct}% of total loan amount`, amount: f.brokerFee },
     { label: 'Processing Fee', amount: f.processingFee },

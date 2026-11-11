@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, statementPeriod, borrowerDisplayName, todayInAppTz, defaultStatementMonth } from '@/lib/format';
 import { drawInterest, buildStatement, type Draw as EngineDraw } from '@/lib/interest';
-import { buildLedger, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 
 export const SERVICER = 'Jay Capital Funding Inc.';
 
@@ -41,6 +41,7 @@ export default function StatementView({
     loan_amount: Number(loan.loan_amount), acquisition: Number(loan.acquisition),
     annual_rate: rate, closing_date: loan.closing_date,
     paid_off_date: loan.paid_off_date ?? null,
+    ...reserveFields(loan),
   };
   // The engine hands back the same draw objects it was given, so this map
   // recovers each period draw's method and note for the table below.
@@ -151,13 +152,17 @@ export default function StatementView({
             <div className="row"><span className="k">Previous Balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
             <div className="row"><span className="k">Payments Received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
             <div className="row"><span className="k">Previous Open Balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
+            {ledger.currentReserve > 0 && <>
+              <div className="row"><span className="k">Interest This Period</span><span className="v">{money(ledger.currentInterest)}</span></div>
+              <div className="row"><span className="k">Less Interest Reserve (prepaid at closing)</span><span className="v">({money(ledger.currentReserve)})</span></div>
+            </>}
             <div className="row"><span className="k">Current Charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
             {ledger.currentPeriods.length > 1 && ledger.currentPeriods.map(c => (
               <div className="row" key={c.periodMonth} style={{ paddingLeft: 14 }}>
                 <span className="k" style={{ fontWeight: 400, color: 'var(--muted)' }}>
-                  &mdash; {c.label} interest
+                  &mdash; {c.label} interest{c.reserve > 0 ? ' after reserve' : ''}
                 </span>
-                <span className="v" style={{ color: 'var(--muted)' }}>{money(c.charge)}</span>
+                <span className="v" style={{ color: 'var(--muted)' }}>{money(c.billed)}</span>
               </div>
             ))}
             <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
@@ -232,7 +237,7 @@ export default function StatementView({
                 {ledger.priorUnpaid.map(r => (
                   <tr key={r.periodMonth}>
                     <td>{fmtDate(r.statementDate)}</td>
-                    <td className="num">{money(r.charge)}</td>
+                    <td className="num">{money(r.billed)}</td>
                     <td className="num">{money(r.paid)}</td>
                     <td className="num">{money(r.balance)}</td>
                   </tr>

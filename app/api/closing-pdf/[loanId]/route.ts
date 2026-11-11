@@ -32,7 +32,8 @@ export async function GET(req: NextRequest, { params }: { params: { loanId: stri
   const kind = new URL(req.url).searchParams.get('doc') === 'lender' ? 'lender' : 'closing';
   const { data: position } = await supabase.from('loan_positions')
     .select('lien_position').eq('loan_id', loan.loan_id).maybeSingle();
-  const fig = closingFigures({ ...loan, ...cs });
+  // The interest reserve is set on the loan, so the loan's fields win.
+  const fig = closingFigures({ ...cs, ...loan });
   const pdf = await closingPDF(kind, { ...loan, lien_position: position?.lien_position ?? null }, fig, kind === 'lender' ? cs.lender_notes : cs.notes);
 
   const label = kind === 'lender' ? 'Lender Statement' : 'Closing Statement';

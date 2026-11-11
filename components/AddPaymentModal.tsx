@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { addPayment, updatePayment } from '@/lib/actions';
 import { Modal } from '@/components/Modal';
 import { money, fmtDate } from '@/lib/format';
-import { openCharges, type PaymentRow, type AllocationRow } from '@/lib/ledger';
-import type { Loan as EngineLoan, Draw as EngineDraw } from '@/lib/interest';
+import { openCharges, type PaymentRow, type AllocationRow, type LedgerLoan as EngineLoan } from '@/lib/ledger';
+import type { Draw as EngineDraw } from '@/lib/interest';
 
 /**
  * Record a payment and choose which monthly charges it settles.
@@ -131,7 +131,7 @@ export default function AddPaymentModal({
                         {fmtDate(c.statementDate)}
                         {c.inProgress && <span className="muted" style={{ fontSize: 11 }}> &middot; in progress</span>}
                       </td>
-                      <td className="num">{money(c.charge)}</td>
+                      <td className="num">{money(c.billed)}</td>
                       <td className="num">{money(c.balance)}</td>
                       <td className="num">
                         <input

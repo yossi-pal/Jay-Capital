@@ -140,6 +140,17 @@ function requireLoanFields(form: FormData, lenderId: string | null) {
 }
 
 /** Lien position is kept apart from `loans` so borrowers can never read it (migration 015). */
+/** The interest reserve fields from the new / edit loan form, checked. */
+function reserveFromForm(form: FormData) {
+  const months = Number(form.get('interest_reserve_months') || 0);
+  if (!Number.isInteger(months) || months < 0 || months > 60) {
+    throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
+  }
+  const total = months > 0 ? Math.round(Number(form.get('interest_reserve_total') || 0) * 100) / 100 : 0;
+  if (months > 0 && !(total > 0)) throw new Error('Please enter the total interest reserve collected at closing.');
+  return { interest_reserve_months: months, interest_reserve_total: total };
+}
+
 async function saveLienPosition(supabase: any, loanId: string, form: FormData) {
   const { error } = await supabase.from('loan_positions').upsert({
     loan_id: loanId, lien_position: Number(form.get('lien_position')),
@@ -180,6 +191,7 @@ export async function createLoan(form: FormData) {
       construction,
       annual_rate: Number(form.get('annual_rate') || 0) / 100,
       closing_date: String(form.get('closing_date') || ''),
+      ...reserveFromForm(form),
     }).select('id').single();
     if (error) throw new Error(error.message);
     await saveLienPosition(supabase, created.id, form);
@@ -197,22 +209,20 @@ export async function createLoan(form: FormData) {
  * only what the loan doesn't know is stored.
  */
 export async function saveClosingStatement(loanId: string, opts: {
-  lenderPointsPct: number; interestReserveMonths: number;
+  lenderPointsPct: number;
   brokerFeePct: number; processingFee: number; legalFee: number;
   otherFees: { label: string; amount: number }[]; notes: string; lenderNotes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: loan } = await supabase.from('loans')
-      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date').eq('id', loanId).maybeSingle();
+      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle();
     if (!loan) throw new Error('That loan could not be found.');
 
     const points = Number(opts.lenderPointsPct);
     if (!Number.isFinite(points) || points < 0 || points > 100) throw new Error('Points to the lender must be between 0 and 100.');
     const broker = Number(opts.brokerFeePct);
     if (!Number.isFinite(broker) || broker < 0 || broker > 100) throw new Error('The broker origination fee must be between 0 and 100 percent.');
-    const months = Number(opts.interestReserveMonths);
-    if (!Number.isInteger(months) || months < 0 || months > 60) throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
     for (const [name, v] of [['processing fee', opts.processingFee], ['legal fee', opts.legalFee]] as const) {
       if (!Number.isFinite(Number(v)) || Number(v) < 0) throw new Error(`The ${name} cannot be negative.`);
     }
@@ -223,13 +233,14 @@ export async function saveClosingStatement(loanId: string, opts: {
 
     const row = {
       lender_points_pct: points,
-      interest_reserve_months: months,
+      // Set on the loan; kept here only as a copy of what the statement used.
+      interest_reserve_months: Number(loan.interest_reserve_months) || 0,
       broker_fee_pct: broker,
       processing_fee: Number(opts.processingFee) || 0,
       legal_fee: Number(opts.legalFee) || 0,
       other_fees: cleanFees(opts.otherFees),
     };
-    const fig = closingFigures({ ...loan, ...row });
+    const fig = closingFigures({ ...row, ...loan });
     if (fig.netWire < 0) {
       throw new Error(`The lender deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and interest reserve.`);
     }
@@ -251,7 +262,7 @@ export async function saveClosingStatement(loanId: string, opts: {
 /** Everything a payoff letter's amounts are worked out from, read fresh. */
 async function payoffSources(supabase: any, loanId: string) {
   const [{ data: loan }, { data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
-    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date').eq('id', loanId).maybeSingle(),
+    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle(),
     supabase.from('draws').select('draw_date, amount, description').eq('loan_id', loanId),
     supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loanId),
     supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loanId),
@@ -435,6 +446,7 @@ export async function updateLoan(loanId: string, form: FormData) {
       construction,
       annual_rate: Number(form.get('annual_rate') || 0) / 100,
       closing_date: String(form.get('closing_date') || ''),
+      ...reserveFromForm(form),
       updated_at: new Date().toISOString(),
     }).eq('id', loanId);
     if (error) throw new Error(error.message);
@@ -685,6 +697,28 @@ export async function setLenderActive(id: string, active: boolean) {
  * ============================================================ */
 
 /**
+ * Catch a mistyped payment date before it is saved. A year typed as "0206"
+ * instead of "2026" is a valid date to the browser, but it sorts before the
+ * loan closed, so every statement would treat the money as already paid on
+ * day one and the running balance would go wrong.
+ */
+async function assertSensiblePaymentDate(loanId: string, paymentDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error('Payment date is not a valid date.');
+  const { data: loan, error } = await serviceClient().from('loans')
+    .select('closing_date').eq('id', loanId).single();
+  if (error) throw new Error(error.message);
+  const t = todayInAppTz();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const closing = String(loan.closing_date).slice(0, 10);
+  if (paymentDate < closing) {
+    throw new Error(`The payment date ${paymentDate} is before this loan closed (${closing}). Please check the year.`);
+  }
+  if (paymentDate > today) {
+    throw new Error(`The payment date ${paymentDate} is in the future. Please check the date.`);
+  }
+}
+
+/**
  * Record a borrower payment and apply it to specific charge periods.
  * `allocations` is [{ periodMonth, amount }]; the total may be less than the
  * payment (the remainder shows on statements as unapplied) but never more.
@@ -696,6 +730,7 @@ export async function addPayment(loanId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
@@ -748,6 +783,7 @@ export async function updatePayment(loanId: string, paymentId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
