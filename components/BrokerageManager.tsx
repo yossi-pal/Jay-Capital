@@ -8,11 +8,11 @@ import { money, fmtDate } from '@/lib/format';
 import { formatAddress } from '@/lib/formatting';
 
 export interface BrokerageRow {
-  id: string; property: string; loan_amount: number | string; closing_date: string; borrower_name: string;
+  id: string; property: string; loan_amount: number | string; closing_date: string;
   lender: string | null;
 }
 
-const BLANK = { property: '', loanAmount: '', closingDate: '', borrowerName: '', lender: '' };
+const BLANK = { property: '', loanAmount: '', closingDate: '', lender: '' };
 
 export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow[]; canEdit: boolean }) {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
   const view = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter(r =>
-      (!s || `${r.borrower_name} ${r.property} ${r.lender ?? ''}`.toLowerCase().includes(s))
+      (!s || `${r.property} ${r.lender ?? ''}`.toLowerCase().includes(s))
       && (!from || r.closing_date >= from)
       && (!to || r.closing_date <= to));
   }, [rows, q, from, to]);
@@ -41,7 +41,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
   function openNew() { setErr(''); setForm({ ...BLANK }); setEditing('new'); }
   function openEdit(r: BrokerageRow) {
     setErr('');
-    setForm({ property: r.property, loanAmount: String(r.loan_amount), closingDate: r.closing_date, borrowerName: r.borrower_name, lender: r.lender ?? '' });
+    setForm({ property: r.property, loanAmount: String(r.loan_amount), closingDate: r.closing_date, lender: r.lender ?? '' });
     setEditing(r);
   }
 
@@ -81,7 +81,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
 
       <div className="card" style={{ padding: 0 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: 16 }}>
-          <input className="field" style={{ flex: '1 1 240px', maxWidth: 360 }} placeholder="Search borrower, address or lender"
+          <input className="field" style={{ flex: '1 1 240px', maxWidth: 360 }} placeholder="Search address or lender"
             value={q} onChange={e => setQ(e.target.value)} aria-label="Search brokerage loans" />
           <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
             Closed from
@@ -104,10 +104,9 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
 
         {view.length > 0 && (
           <div className="tablescroll loanlist">
-            <table style={{ minWidth: 760 }}>
+            <table style={{ minWidth: 620 }}>
               <thead>
                 <tr>
-                  <th>Borrower</th>
                   <th>Property</th>
                   <th className="num">Loan amount</th>
                   <th>Closing date</th>
@@ -118,8 +117,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
               <tbody>
                 {view.map(r => (
                   <tr key={r.id}>
-                    <td style={{ fontWeight: 600 }}>{r.borrower_name}</td>
-                    <td>{r.property}</td>
+                    <td style={{ fontWeight: 600 }}>{r.property}</td>
                     <td className="num">{money(r.loan_amount)}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.closing_date)}</td>
                     <td>{r.lender || <span className="muted">—</span>}</td>
@@ -151,12 +149,6 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
       <Modal open={!!editing} onClose={() => !busy && setEditing(null)}
         title={editing === 'new' ? 'Add Brokerage Loan' : 'Edit Brokerage Loan'} maxWidth={560}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="field-wrap">
-            <label>Borrower *</label>
-            <input className="field" value={form.borrowerName}
-              onChange={e => setForm(f => ({ ...f, borrowerName: e.target.value }))}
-              placeholder="Person or company name" />
-          </div>
           <div className="field-wrap">
             <label>Property address *</label>
             <input className="field" value={form.property}
@@ -195,7 +187,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
       <ConfirmDialog
         open={!!confirmDel}
         title="Delete brokerage loan"
-        message={confirmDel ? `Delete the ${money(confirmDel.loan_amount)} loan for ${confirmDel.borrower_name}? This can't be undone.` : ''}
+        message={confirmDel ? `Delete the ${money(confirmDel.loan_amount)} loan at ${confirmDel.property}? This can't be undone.` : ''}
         confirmLabel="Delete" danger
         onConfirm={remove}
         onCancel={() => setConfirmDel(null)}
