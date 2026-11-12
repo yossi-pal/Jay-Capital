@@ -101,7 +101,8 @@ export function lenderLines(f: ClosingFigures): StatementLine[] {
     { label: 'Total Loan Amount', amount: f.loanAmount },
     { label: 'Construction Holdback', amount: f.construction, deduct: true },
     { label: 'Points to Lender', detail: `${f.pointsPct}% of total loan amount`, amount: f.points, deduct: true },
-    { label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve, deduct: true },
+    // No reserve collected: no line at all, rather than a $0.00 one.
+    ...(f.interestReserve > 0 ? [{ label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve, deduct: true }] : []),
     { label: 'Daily Interest', detail: dailyDetail(f), amount: f.dailyInterest, deduct: true },
   ];
 }
@@ -109,7 +110,7 @@ export function lenderLines(f: ClosingFigures): StatementLine[] {
 export function closingCostLines(f: ClosingFigures): StatementLine[] {
   return [
     { label: 'Points to Lender', detail: `${f.pointsPct}% of total loan amount`, amount: f.points },
-    { label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve },
+    ...(f.interestReserve > 0 ? [{ label: 'Interest Reserve', detail: reserveDetail(f), amount: f.interestReserve }] : []),
     { label: 'Daily Interest', detail: dailyDetail(f), amount: f.dailyInterest },
     { label: 'Broker Origination Fee', detail: `${f.brokerPct}% of total loan amount`, amount: f.brokerFee },
     { label: 'Processing Fee', amount: f.processingFee },
