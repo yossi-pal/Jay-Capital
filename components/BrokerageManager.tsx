@@ -9,9 +9,10 @@ import { formatAddress } from '@/lib/formatting';
 
 export interface BrokerageRow {
   id: string; property: string; loan_amount: number | string; closing_date: string; borrower_name: string;
+  lender: string | null;
 }
 
-const BLANK = { property: '', loanAmount: '', closingDate: '', borrowerName: '' };
+const BLANK = { property: '', loanAmount: '', closingDate: '', borrowerName: '', lender: '' };
 
 export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow[]; canEdit: boolean }) {
   const router = useRouter();
@@ -27,14 +28,14 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
   const view = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rows;
-    return rows.filter(r => `${r.borrower_name} ${r.property}`.toLowerCase().includes(s));
+    return rows.filter(r => `${r.borrower_name} ${r.property} ${r.lender ?? ''}`.toLowerCase().includes(s));
   }, [rows, q]);
   const total = view.reduce((sum, r) => sum + Number(r.loan_amount || 0), 0);
 
   function openNew() { setErr(''); setForm({ ...BLANK }); setEditing('new'); }
   function openEdit(r: BrokerageRow) {
     setErr('');
-    setForm({ property: r.property, loanAmount: String(r.loan_amount), closingDate: r.closing_date, borrowerName: r.borrower_name });
+    setForm({ property: r.property, loanAmount: String(r.loan_amount), closingDate: r.closing_date, borrowerName: r.borrower_name, lender: r.lender ?? '' });
     setEditing(r);
   }
 
@@ -74,7 +75,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
 
       <div className="card" style={{ padding: 0 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: 16 }}>
-          <input className="field" style={{ flex: '1 1 240px', maxWidth: 360 }} placeholder="Search borrower or address"
+          <input className="field" style={{ flex: '1 1 240px', maxWidth: 360 }} placeholder="Search borrower, address or lender"
             value={q} onChange={e => setQ(e.target.value)} aria-label="Search brokerage loans" />
           <span className="muted" style={{ fontSize: 14 }}>
             <b style={{ color: 'var(--ink)' }}>{view.length}</b> {view.length === 1 ? 'loan' : 'loans'} ·{' '}
@@ -84,13 +85,14 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
 
         {view.length > 0 && (
           <div className="tablescroll loanlist">
-            <table style={{ minWidth: 640 }}>
+            <table style={{ minWidth: 760 }}>
               <thead>
                 <tr>
                   <th>Borrower</th>
                   <th>Property</th>
                   <th className="num">Loan amount</th>
                   <th>Closing date</th>
+                  <th>Lender</th>
                   {canEdit && <th aria-label="Actions" />}
                 </tr>
               </thead>
@@ -101,6 +103,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
                     <td>{r.property}</td>
                     <td className="num">{money(r.loan_amount)}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.closing_date)}</td>
+                    <td>{r.lender || <span className="muted">—</span>}</td>
                     {canEdit && (
                       <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         <button className="btn secondary sm" disabled={busy} onClick={() => openEdit(r)}>Edit</button>{' '}
@@ -153,6 +156,12 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
               <input className="field" type="date" value={form.closingDate}
                 onChange={e => setForm(f => ({ ...f, closingDate: e.target.value }))} />
             </div>
+          </div>
+          <div className="field-wrap">
+            <label>Lender</label>
+            <input className="field" value={form.lender}
+              onChange={e => setForm(f => ({ ...f, lender: e.target.value }))}
+              placeholder="Who funded the loan" />
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>

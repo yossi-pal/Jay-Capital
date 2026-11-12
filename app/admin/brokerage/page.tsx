@@ -12,7 +12,7 @@ export default async function BrokeragePage() {
 
   const supabase = serverClient();
   const { data, error } = await supabase.from('brokerage_loans')
-    .select('id, property, loan_amount, closing_date, borrower_name')
+    .select('id, property, loan_amount, closing_date, borrower_name, lender')
     .order('closing_date', { ascending: false });
 
   return (

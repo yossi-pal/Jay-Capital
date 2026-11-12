@@ -1,8 +1,10 @@
 -- ============================================================
 -- 021  Brokerage loans (a separate list, not part of the loan system)
+-- Already applied to production on 2026-11-12.
 --
 -- A simple record of brokered deals funded elsewhere: property address,
--- loan amount, closing date and borrower name. Nothing here touches
+-- loan amount, closing date, borrower name and lender. The lender is plain
+-- text, not a link to the lenders table, since these deals are funded elsewhere. Nothing here touches
 -- loans, draws, payments, statements or the borrower portal, and the
 -- borrower name is plain text (no link to a borrower login).
 --
@@ -16,6 +18,7 @@ create table if not exists public.brokerage_loans (
   loan_amount   numeric(14,2) not null check (loan_amount > 0),
   closing_date  date not null,
   borrower_name text not null check (length(trim(borrower_name)) > 0),
+  lender        text,
   created_by    uuid references auth.users(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
