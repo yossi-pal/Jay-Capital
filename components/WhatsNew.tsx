@@ -28,13 +28,13 @@ export default function WhatsNew({ isAdmin }: { isAdmin: boolean }) {
     <Modal open={open} onClose={() => close()} title="New: Brokerage" maxWidth={480}>
       <p style={{ margin: '0 0 12px', lineHeight: 1.55 }}>
         There&apos;s a new <b>Brokerage</b> section in the left menu. It&apos;s a separate list for
-        deals funded outside this system, showing the property address, loan amount, closing date
-        and lender.
+        deals funded outside this system, showing the borrower, property address, loan amount,
+        closing date and lender.
       </p>
       <p style={{ margin: '0 0 20px', lineHeight: 1.55 }} className="muted">
         {isAdmin
-          ? 'Use “+ Add loan” on that page to record a deal. You can search by address, lender or closing date.'
-          : 'You can view and search the list by address, lender or closing date.'}
+          ? 'Use “+ Add loan” on that page to record a deal. You can search by name, address, lender or closing date.'
+          : 'You can view and search the list by name, address, lender or closing date.'}
         {' '}It doesn&apos;t affect any loans, statements or borrowers.
       </p>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>

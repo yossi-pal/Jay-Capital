@@ -16,6 +16,7 @@ export interface BrokerageInput {
   property: string;
   loanAmount: string;
   closingDate: string;
+  borrowerName: string;
   lender: string;
 }
 
@@ -30,15 +31,17 @@ async function requireAdmin() {
 
 function clean(input: BrokerageInput) {
   const property = formatAddress(String(input.property || '').trim());
+  const borrower_name = String(input.borrowerName || '').trim() || null;
   const loan_amount = Math.round(Number(String(input.loanAmount ?? '').replace(/[$,\s]/g, '')) * 100) / 100;
   const closing_date = String(input.closingDate || '').trim();
   const lender = String(input.lender || '').trim() || null;
 
   if (!property) throw new Error('Please enter the property address.');
+  if (borrower_name && borrower_name.length > 200) throw new Error('Please keep the borrower name under 200 characters.');
   if (!Number.isFinite(loan_amount) || loan_amount <= 0) throw new Error('Please enter a loan amount greater than zero.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(closing_date)) throw new Error('Please choose the closing date.');
   if (lender && lender.length > 200) throw new Error('Please keep the lender name under 200 characters.');
-  return { property, loan_amount, closing_date, lender };
+  return { property, borrower_name, loan_amount, closing_date, lender };
 }
 
 export async function createBrokerageLoan(input: BrokerageInput) {
