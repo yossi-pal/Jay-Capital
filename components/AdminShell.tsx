@@ -41,6 +41,9 @@ const WORKSPACE: Item[] = [
     match: p => p.startsWith('/admin/loans') && !p.startsWith('/admin/loans/new') },
   { href: '/admin/insights', label: 'Insights', icon: 'chart', match: p => p.startsWith('/admin/insights') },
   { href: '/admin/documents', label: 'Documents', icon: 'doc', match: p => p.startsWith('/admin/documents') },
+];
+// A separate part of the system: deals funded elsewhere, kept for reference.
+const BROKERAGE: Item[] = [
   { href: '/admin/brokerage', label: 'Brokerage', icon: 'briefcase', match: p => p.startsWith('/admin/brokerage') },
 ];
 const MANAGE: Item[] = [
@@ -124,6 +127,10 @@ export default function AdminShell({
           <div className="side-group">
             <span className="side-label">Workspace</span>
             {WORKSPACE.map(link)}
+          </div>
+          <div className="side-group">
+            <span className="side-label" style={{ paddingTop: 14 }}>Brokerage</span>
+            {BROKERAGE.map(link)}
           </div>
           {isAdmin && (
             <div className="side-group">

@@ -1,19 +1,24 @@
+import { serverClient } from '@/lib/supabase-server';
+import { getMe } from '@/lib/session';
+import BrokerageManager, { type BrokerageRow } from '@/components/BrokerageManager';
+
 export const dynamic = 'force-dynamic';
 
-// Placeholder page for the Brokerage section. The name and contents are
-// expected to change once its purpose is settled.
-export default function BrokeragePage() {
+export default async function BrokeragePage() {
+  const { profile: me } = await getMe();
+  if (me?.role !== 'admin' && me?.role !== 'staff') {
+    return <div className="wrap"><div className="card"><div className="alert error">Admin or staff only.</div></div></div>;
+  }
+
+  const supabase = serverClient();
+  const { data, error } = await supabase.from('brokerage_loans')
+    .select('id, property, loan_amount, closing_date, borrower_name')
+    .order('closing_date', { ascending: false });
+
   return (
-    <div className="wrap" style={{ maxWidth: 1100 }}>
-      <div className="page-head">
-        <div className="grow">
-          <h1>Brokerage</h1>
-          <div className="sub">This section is coming soon.</div>
-        </div>
-      </div>
-      <div className="card">
-        <p className="muted" style={{ margin: 0 }}>Nothing here yet.</p>
-      </div>
+    <div className="wrap" style={{ maxWidth: 1200 }}>
+      {error && <div className="alert error">Could not load brokerage loans: {error.message}</div>}
+      <BrokerageManager rows={(data ?? []) as BrokerageRow[]} canEdit={me?.role === 'admin'} />
     </div>
   );
 }
