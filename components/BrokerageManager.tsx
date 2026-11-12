@@ -24,12 +24,18 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
   const [editing, setEditing] = useState<BrokerageRow | 'new' | null>(null);
   const [confirmDel, setConfirmDel] = useState<BrokerageRow | null>(null);
   const [q, setQ] = useState('');
+  // Closing-date range; dates are compared as YYYY-MM-DD text, so no time zone shifts.
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   const view = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter(r => `${r.borrower_name} ${r.property} ${r.lender ?? ''}`.toLowerCase().includes(s));
-  }, [rows, q]);
+    return rows.filter(r =>
+      (!s || `${r.borrower_name} ${r.property} ${r.lender ?? ''}`.toLowerCase().includes(s))
+      && (!from || r.closing_date >= from)
+      && (!to || r.closing_date <= to));
+  }, [rows, q, from, to]);
+  const filtered = !!(q.trim() || from || to);
   const total = view.reduce((sum, r) => sum + Number(r.loan_amount || 0), 0);
 
   function openNew() { setErr(''); setForm({ ...BLANK }); setEditing('new'); }
@@ -77,6 +83,19 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: 16 }}>
           <input className="field" style={{ flex: '1 1 240px', maxWidth: 360 }} placeholder="Search borrower, address or lender"
             value={q} onChange={e => setQ(e.target.value)} aria-label="Search brokerage loans" />
+          <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+            Closed from
+            <input className="field" type="date" value={from} max={to || undefined}
+              onChange={e => setFrom(e.target.value)} style={{ width: 'auto' }} />
+          </label>
+          <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+            to
+            <input className="field" type="date" value={to} min={from || undefined}
+              onChange={e => setTo(e.target.value)} style={{ width: 'auto' }} />
+          </label>
+          {filtered && (
+            <button className="btn secondary sm" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>Clear</button>
+          )}
           <span className="muted" style={{ fontSize: 14 }}>
             <b style={{ color: 'var(--ink)' }}>{view.length}</b> {view.length === 1 ? 'loan' : 'loans'} ·{' '}
             <b style={{ color: 'var(--ink)' }}>{money(total)}</b> total
@@ -123,7 +142,7 @@ export default function BrokerageManager({ rows, canEdit }: { rows: BrokerageRow
               {rows.length ? 'No loans match' : 'No brokerage loans yet'}
             </div>
             <div className="muted" style={{ marginTop: 4 }}>
-              {rows.length ? 'Try another search.' : canEdit ? 'Click “Add loan” to record the first one.' : 'An admin can add them here.'}
+              {rows.length ? 'Try another search or date range.' : canEdit ? 'Click “Add loan” to record the first one.' : 'An admin can add them here.'}
             </div>
           </div>
         )}
