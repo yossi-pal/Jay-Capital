@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { isVideosOwner } from '@/lib/private-videos';
+import { isVideosSignedIn } from '@/lib/private-videos';
+import VideosSignIn, { VideosSignOutButton } from '@/components/VideosSignIn';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,10 +9,8 @@ export const metadata: Metadata = { title: 'Videos', robots: { index: false, fol
 
 /**
  * Private videos page. Reached from the (c) in the landing-page footer and not
- * linked anywhere else. Only the owner set in PRIVATE_VIDEOS_OWNER_EMAIL can
- * open it; everyone else gets the ordinary "page not found", so the page does
- * not reveal that it exists. The admin layout has already sent signed-out
- * visitors to the login screen.
+ * linked anywhere else. It has its own username and password (see
+ * lib/private-videos.ts), separate from the portal accounts.
  *
  * Layout only for now: the tiles below are placeholders until the video
  * sources are connected.
@@ -20,15 +18,16 @@ export const metadata: Metadata = { title: 'Videos', robots: { index: false, fol
 const PLACEHOLDERS = Array.from({ length: 6 }, (_, i) => i);
 
 export default async function VideosPage() {
-  if (!(await isVideosOwner())) notFound();
+  if (!isVideosSignedIn()) return <VideosSignIn />;
 
   return (
-    <div className="wrap" style={{ maxWidth: 1100 }}>
+    <div className="wrap vid-page" style={{ maxWidth: 1100 }}>
       <div className="page-head">
         <div className="grow">
           <h1>Videos</h1>
           <div className="sub">Your private feed. Only you can see this page.</div>
         </div>
+        <VideosSignOutButton />
       </div>
 
       <div className="vid-chips" role="tablist" aria-label="Filter by source">

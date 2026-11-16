@@ -247,8 +247,8 @@ export default function LandingPage() {
           </div>
           <div>
             {/* The (c) quietly opens the owner's private videos page. It looks
-                like plain text; the page itself checks who is signed in. */}
-            <Link href="/admin/videos" className="lp-quiet" tabIndex={-1} aria-hidden="true">&copy;</Link>
+                like plain text; the page has its own sign-in. */}
+            <Link href="/videos" className="lp-quiet" tabIndex={-1} aria-hidden="true">&copy;</Link>
             {' '}{todayInAppTz().getFullYear()} Jay Capital Funding Inc.
           </div>
         </div>
