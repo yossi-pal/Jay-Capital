@@ -27,11 +27,22 @@ const FINE =
   'A home equity line of credit is secured by your home. Subject to credit approval, property valuation and lender ' +
   'guidelines. Jay Capital Funding Inc. · 8 Murin Street, Spring Valley, NY 10977.';
 
-// Simple one-weight line drawings, 100x100, stroked in gold.
+// Fine line drawings, 120x120, stroked in gold.
 const ICONS = {
-  chair: `<path d="M24 52V34a8 8 0 0 1 8-8h36a8 8 0 0 1 8 8v18"/><path d="M16 52a6 6 0 0 1 12 0v10h44V52a6 6 0 0 1 12 0v20H16z"/><path d="M24 72v8M76 72v8"/>`,
-  house: `<path d="M16 46 50 18l34 28"/><path d="M24 40v42h52V40"/><path d="M43 82V60h14v22"/>`,
-  key: `<circle cx="32" cy="50" r="14"/><circle cx="32" cy="50" r="4"/><path d="M46 50h38M74 50v12M64 50v8"/>`,
+  // wingback armchair
+  chair: `<path d="M38 60V32q0-10 10-10h24q10 0 10 10v28"/><path d="M38 52q-14-2-14 10v16h16"/><path d="M82 52q14-2 14 10v16H80"/>
+    <rect x="38" y="60" width="44" height="10" rx="3"/><path d="M40 70v8M80 70v8M24 78h72v6H24z"/><path d="M30 84l-2 10M90 84l2 10"/>
+    <path d="M48 32q12 6 24 0" opacity=".55"/>`,
+  // two-storey house front
+  house: `<path d="M8 100h104"/><path d="M18 54 60 22l42 32"/><path d="M80 37V24h8v19"/><path d="M26 48v52h68V48"/>
+    <path d="M52 100V80q8-8 16 0v20"/><circle cx="64" cy="90" r="1"/>
+    <rect x="33" y="58" width="13" height="14"/><path d="M39.5 58v14M33 65h13"/>
+    <rect x="74" y="58" width="13" height="14"/><path d="M80.5 58v14M74 65h13"/>
+    <path d="M56 100l-6 12M64 100l6 12"/>`,
+  // arched front door with fanlight
+  door: `<path d="M34 104V44q0-24 26-24t26 24v60"/><path d="M40 104V46q0-18 20-18t20 18v58"/><path d="M40 46h40"/>
+    <path d="M60 46V30M60 46 48 34M60 46l12-12"/><rect x="45" y="54" width="30" height="20" rx="1"/><rect x="45" y="80" width="30" height="18" rx="1"/>
+    <circle cx="73" cy="77" r="1.6"/><path d="M26 104h68M22 110h76"/>`,
 };
 
 const ADS = [
@@ -49,7 +60,7 @@ const ADS = [
   },
   {
     name: 'more-options',
-    icon: 'key',
+    icon: 'door',
     head: 'Same house.<br>More options.',
     sub: 'Tuition, a renovation, a business opportunity. Draw what you need, and pay interest only on what you use.',
   },
@@ -87,7 +98,7 @@ body{font-family:Lato,sans-serif;color:${NAVY};display:flex;flex-direction:colum
 .logo{width:${170 * u}px}
 .mid{flex:1;display:flex;flex-direction:column;justify-content:center}
 .rtl{direction:rtl;text-align:right}
-.icon{width:${120 * u}px;height:${120 * u}px;fill:none;stroke:${GOLD};stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;margin-bottom:${44 * u}px}
+.icon{width:${190 * u}px;height:${190 * u}px;margin-left:${-14 * u}px;fill:none;stroke:${GOLD};stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-bottom:${44 * u}px}
 h1{font-weight:300;font-size:${76 * u}px;line-height:1.08;letter-spacing:${-1.5 * u}px}
 .rtl h1{font-family:Heebo;font-weight:400;letter-spacing:0;font-size:${84 * u}px}
 .rule{width:${56 * u}px;height:${2 * u}px;background:${GOLD};margin:${36 * u}px 0 ${28 * u}px}
@@ -102,7 +113,7 @@ h1{font-weight:300;font-size:${76 * u}px;line-height:1.08;letter-spacing:${-1.5 
 </style></head><body>
 <img class="logo" src="${LOGO}">
 <div class="mid ${rtl ? 'rtl' : ''}">
-  <svg class="icon" viewBox="0 0 100 100">${ICONS[ad.icon]}</svg>
+  <svg class="icon" viewBox="0 0 120 120">${ICONS[ad.icon]}</svg>
   <h1>${ad.head}</h1>
   <div class="rule"></div>
   <div class="sub">${ad.sub}</div>
