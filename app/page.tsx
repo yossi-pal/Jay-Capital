@@ -245,7 +245,12 @@ export default function LandingPage() {
             <a href="#contact">{EMAIL}</a>
             <Link href="/login">Borrower Portal</Link>
           </div>
-          <div>&copy; {todayInAppTz().getFullYear()} Jay Capital Funding Inc.</div>
+          <div>
+            {/* The (c) quietly opens the owner's private videos page. It looks
+                like plain text; the page itself checks who is signed in. */}
+            <Link href="/admin/videos" className="lp-quiet" tabIndex={-1} aria-hidden="true">&copy;</Link>
+            {' '}{todayInAppTz().getFullYear()} Jay Capital Funding Inc.
+          </div>
         </div>
       </footer>
     </div>
