@@ -112,6 +112,7 @@ export default function LoanDetail({
     ? Math.min(100, (Number(summary.total_disbursed) / Number(summary.loan_amount)) * 100) : 0;
   const statusChip = paidOff ? <span className="chip">Paid off</span>
     : summary.status === 'defaulted' ? <span className="chip late">Defaulted</span>
+    : lenderView ? <span className="chip ok">Active</span>
     : isLate ? <span className="chip late">Past due</span>
     : <span className="chip ok">Current</span>;
 

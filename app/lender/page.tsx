@@ -47,7 +47,7 @@ export default async function LenderLoansPage() {
         {(ownLoans ?? []).length > 0 && <Link className="btn secondary" href="/portal">My loans as a borrower</Link>}
       </div>
       {loans.length ? (
-        <PortfolioTable loans={loans} canEdit={false} pastDue={pastDue} due={due} basePath="/lender/loans" />
+        <PortfolioTable loans={loans} canEdit={false} pastDue={pastDue} due={due} basePath="/lender/loans" neutralStatus />
       ) : (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ fontWeight: 600, color: 'var(--navy)' }}>No loans are connected to your login yet</div>
