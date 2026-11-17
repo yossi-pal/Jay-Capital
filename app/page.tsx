@@ -4,6 +4,7 @@ import Logo from '@/components/Logo';
 import { todayInAppTz } from '@/lib/format';
 import ContactForm from '@/components/ContactForm';
 import EmailUs from '@/components/EmailUs';
+import QuietWord from '@/components/QuietWord';
 
 export const metadata: Metadata = {
   title: 'Jay Capital Funding — Residential, Commercial, HELOC & Hard Money Lending',
@@ -245,7 +246,7 @@ export default function LandingPage() {
             <a href="#contact">{EMAIL}</a>
             <Link href="/login">Borrower Portal</Link>
           </div>
-          <div>&copy; {todayInAppTz().getFullYear()} Jay Capital Funding Inc.</div>
+          <div>&copy; {todayInAppTz().getFullYear()} Jay Capital Funding <QuietWord>Inc.</QuietWord></div>
         </div>
       </footer>
     </div>
