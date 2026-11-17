@@ -10,6 +10,10 @@ const SKIP = /^(data|blob|javascript|about|mailto|tel|sms|magnet|intent):/i;
 export const QUERY_KEY = '__px_u';
 export const FORM_FLAG = '__px_f';
 
+/** The browser tab always shows this name and our own icon, whatever site is open. */
+export const TAB_TITLE = 'Private';
+const TAB_ICON = '/icon.svg';
+
 export function proxyPrefix(token: string): string {
   return `/private/p/${token}?${QUERY_KEY}=`;
 }
@@ -85,6 +89,16 @@ document.addEventListener('submit',function(e){var f=e.target;if(!f||!f.getAttri
   if((f.getAttribute('method')||'get').toLowerCase()==='get'){var base=P.split('?')[0];f.setAttribute('action',base);
     [[K,abs],[F,'1']].forEach(function(p){var el=document.createElement('input');el.type='hidden';el.name=p[0];el.value=p[1];f.appendChild(el);});}
   else f.setAttribute('action',P+encodeURIComponent(abs));},true);
+// Keep the tab name and icon fixed even when the site changes them later.
+var TT=${json(TAB_TITLE)},TI=${json(TAB_ICON)};
+try{Object.defineProperty(document,'title',{configurable:true,get:function(){return TT;},set:function(){}});}catch(e){}
+function lockTab(){var h=document.head||document.documentElement;if(!h)return;
+  var ts=document.getElementsByTagName('title');for(var i=ts.length-1;i>0;i--)ts[i].parentNode.removeChild(ts[i]);
+  if(!ts.length){var t=document.createElement('title');h.appendChild(t);}if(ts[0].textContent!==TT)ts[0].textContent=TT;
+  var ls=document.querySelectorAll('link[rel~="icon"],link[rel~="shortcut"]');for(var j=0;j<ls.length;j++){if(ls[j].getAttribute('data-px')!=='1')ls[j].parentNode.removeChild(ls[j]);}
+  if(!document.querySelector('link[data-px="1"]')){var l=document.createElement('link');l.rel='icon';l.href=TI;l.setAttribute('data-px','1');h.appendChild(l);}}
+try{new MutationObserver(lockTab).observe(document.documentElement,{childList:true,subtree:true,characterData:true});}catch(e){}
+document.addEventListener('DOMContentLoaded',lockTab);
 })();`;
 }
 
@@ -151,8 +165,15 @@ export function rewriteHtml(html: string, pageUrl: string, token: string): strin
     if (m) $(el).attr('content', m[1] + proxify(m[3], base, prefix));
   });
 
+  // Tab name and icon: drop the site's own, ours are added below.
+  $('title').remove();
+  $('link[rel]').each((_, el) => {
+    const rel = ($(el).attr('rel') || '').toLowerCase().split(/\s+/);
+    if (rel.includes('icon') || rel.includes('shortcut')) $(el).remove();
+  });
+
   const head = $('head');
-  const inject = `<meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><script>${clientScript(base, prefix)}</script>`;
+  const inject = `<meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>${TAB_TITLE}</title><link rel="icon" href="${TAB_ICON}" data-px="1"><script>${clientScript(base, prefix)}</script>`;
   if (head.length) head.prepend(inject);
   else $.root().children().first().before(inject);
 
