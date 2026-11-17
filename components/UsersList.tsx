@@ -65,7 +65,7 @@ export default function UsersList({ users, selfId }: { users: UserListRow[]; sel
                         </span>
                       </div>
                     </td>
-                    <td><span className={`chip ${u.role === 'admin' ? 'navy' : u.role === 'staff' ? 'gold' : 'ok'}`}>{ROLE_LABEL[u.role] ?? u.role}</span></td>
+                    <td><span className={`chip ${u.role === 'admin' ? 'navy' : u.role === 'staff' ? 'gold' : u.role === 'lender' ? 'lender' : 'ok'}`}>{ROLE_LABEL[u.role] ?? u.role}</span></td>
                     <td>{u.active === false ? <span className="chip late">Blocked</span> : <span className="chip ok">Active</span>}</td>
                     <td style={{ minWidth: 200 }}>
                       <InviteStatus invitedAt={u.invited_at} activatedAt={u.activated_at} lastSeenAt={u.last_seen_at} />

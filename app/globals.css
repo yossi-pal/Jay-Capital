@@ -325,6 +325,7 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .badge.admin { background: var(--navy); color: #fff; }
 .badge.staff { background: var(--navy-soft); color: var(--navy); }
 .badge.borrower { background: #E7F4EC; color: #17643F; }
+.badge.lender { background: #EFEAFB; color: #5B3FA8; }
 
 /* ============================================================
    Borrower home
@@ -988,6 +989,8 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .u-av { width: 38px; height: 38px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: #E7F4EC; color: #17643F; }
 .u-av.admin { background: var(--navy); color: #D9B676; }
 .u-av.staff { background: var(--brass-bg); color: #7A5A20; }
+.u-av.lender { background: #EFEAFB; color: #5B3FA8; }
+.chip.lender { background: #EFEAFB; color: #5B3FA8; }
 .u-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .u-txt b { font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .u-txt > span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
