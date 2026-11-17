@@ -86,12 +86,6 @@ export function Ledger({ accounts, entries }: { accounts: LedgerAccount[]; entri
     (!q || r.description.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)));
 
   const balance = rows.length ? rows[rows.length - 1].total : account?.opening_balance ?? 0;
-  const clearedBal = (c(account?.opening_balance) + rows.filter(r => r.cleared).reduce((s, r) => s + c(r.deposit) - c(r.withdrawal), 0)) / 100;
-  const pending = rows.filter(r => !r.cleared);
-  const inMonth = month === 'all' ? null : {
-    out: shown.reduce((s, r) => s + c(r.withdrawal), 0) / 100,
-    in: shown.reduce((s, r) => s + c(r.deposit), 0) / 100,
-  };
 
   // Suggestions for the Type and Description boxes, from what was typed before.
   const typeHints = useMemo(() => Array.from(new Set(entries.map(e => e.type).filter(Boolean))).sort(), [entries]);
@@ -213,22 +207,6 @@ export function Ledger({ accounts, entries }: { accounts: LedgerAccount[]; entri
           <span>Balance</span>
           <b className={balance < 0 ? 'neg' : ''}>{money(balance)}</b>
         </div>
-        <div className="pv-stat">
-          <span>Cleared ✓</span>
-          <b className={clearedBal < 0 ? 'neg' : ''}>{money(clearedBal)}</b>
-        </div>
-        <div className="pv-stat">
-          <span>Not yet cleared</span>
-          <b>{pending.length}</b>
-          <small>{pending.length ? money((pending.reduce((s, r) => s + c(r.deposit) - c(r.withdrawal), 0)) / 100) : 'All cleared'}</small>
-        </div>
-        {inMonth && (
-          <div className="pv-stat">
-            <span>{monthLabel(month)}</span>
-            <small className="in">In {money(inMonth.in)}</small>
-            <small className="out">Out {money(inMonth.out)}</small>
-          </div>
-        )}
       </div>
 
       <div className="pv-toolbar">
