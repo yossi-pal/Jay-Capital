@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { PRIVATE_COOKIE, tokenIsValid } from '@/lib/private-auth';
-import { PrivateLogin, ProxyHome } from './PrivateForms';
+import { PrivateLogin, PrivateHome } from './PrivateForms';
 
 // Hidden area: keep it out of search engines and give the tab a bland name.
 export const metadata: Metadata = {
@@ -15,14 +15,13 @@ export default function PrivatePage() {
   const signedIn = tokenIsValid(token);
   return (
     <main className="pv-page">
-      {signedIn ? <ProxyHome token={token!} /> : <PrivateLogin />}
+      {signedIn ? <PrivateHome /> : <PrivateLogin />}
       <style>{`
         .pv-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
         .pv-box { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
                   padding: 28px 24px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
-        .pv-wide { max-width: 640px; }
         .pv-box h1 { margin: 0 0 4px; font-size: 20px; color: var(--navy); }
-        .pv-row { display: flex; gap: 8px; }
+        .pv-note { margin: 0; color: var(--muted); }
         .pv-input { flex: 1; min-width: 0; padding: 11px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; }
         .pv-btn { padding: 11px 20px; font-size: 15px; font-weight: 600; border: 0; border-radius: 8px; background: var(--navy); color: #fff; cursor: pointer; }
         .pv-btn:disabled { opacity: .6; }

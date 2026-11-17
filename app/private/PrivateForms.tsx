@@ -28,29 +28,16 @@ export function PrivateLogin() {
   );
 }
 
-export function ProxyHome({ token }: { token: string }) {
+export function PrivateHome() {
   const router = useRouter();
-  const [url, setUrl] = useState('');
-  function go(e: React.FormEvent) {
-    e.preventDefault();
-    let u = url.trim();
-    if (!u) return;
-    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
-    window.location.href = `/private/p/${token}?__px_u=${encodeURIComponent(u)}`;
-  }
   async function signOut() {
     await privateLogout();
     router.refresh();
   }
   return (
-    <div className="pv-box pv-wide">
-      <h1>Open a page</h1>
-      <form onSubmit={go} className="pv-row">
-        <input className="pv-input" type="text" inputMode="url" autoCapitalize="off" autoCorrect="off"
-               spellCheck={false} placeholder="Type a web address, e.g. example.com"
-               value={url} onChange={e => setUrl(e.target.value)} autoFocus />
-        <button className="pv-btn" type="submit">Go</button>
-      </form>
+    <div className="pv-box">
+      <h1>Private</h1>
+      <p className="pv-note">You are signed in.</p>
       <button className="pv-link" type="button" onClick={signOut}>Sign out</button>
     </div>
   );
