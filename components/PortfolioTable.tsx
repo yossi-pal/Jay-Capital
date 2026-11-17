@@ -62,10 +62,12 @@ const FILTERS: { value: string; label: string }[] = [
 ];
 
 export default function PortfolioTable({
-  loans, pastDue = {}, due = {},
+  loans, pastDue = {}, due = {}, basePath = '/admin/loans',
 }: {
   loans: LoanRow[]; canEdit?: boolean;
   pastDue?: Record<string, number>; due?: Record<string, DueInfo>;
+  /** Where a loan opens: the admin loan page, or the lender portal's read-only one. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const [q, setQ] = useState('');
@@ -300,10 +302,10 @@ export default function PortfolioTable({
             <tbody>
               {view.map(l => (
                 <tr key={l.loan_id} className="clickable"
-                  onClick={() => router.push(`/admin/loans/${l.loan_id}`)}>
+                  onClick={() => router.push(`${basePath}/${l.loan_id}`)}>
                   <td className="ln">{l.loan_number}</td>
                   <td>
-                    <Link href={`/admin/loans/${l.loan_id}`} className="who" onClick={e => e.stopPropagation()}>
+                    <Link href={`${basePath}/${l.loan_id}`} className="who" onClick={e => e.stopPropagation()}>
                       <b>{l.is_entity && l.entity_name ? l.entity_name : l.borrower_name}</b>
                       <span>{l.is_entity && l.entity_name ? `${l.borrower_name} · ` : ''}{shortAddress(l.property)}</span>
                     </Link>

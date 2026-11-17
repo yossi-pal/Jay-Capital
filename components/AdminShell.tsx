@@ -53,9 +53,14 @@ const MANAGE: Item[] = [
   { href: '/admin/users', label: 'Users', icon: 'users', match: p => p.startsWith('/admin/users') },
 ];
 
-function Brand() {
+// The lender portal uses this same frame with only its loan list.
+const LENDER: Item[] = [
+  { href: '/lender', label: 'Loans', icon: 'loans', match: p => p.startsWith('/lender') },
+];
+
+function Brand({ home }: { home: string }) {
   return (
-    <Link href="/admin" className="side-brand">
+    <Link href={home} className="side-brand">
       <Monogram height={40} />
       <span className="wm"><b>JAY CAPITAL</b><span>FUNDING</span></span>
     </Link>
@@ -63,9 +68,10 @@ function Brand() {
 }
 
 export default function AdminShell({
-  isAdmin, role, name, children,
-}: { isAdmin: boolean; role: string; name: string; children: React.ReactNode }) {
-  const pathname = usePathname() || '/admin';
+  isAdmin, role, name, children, lender = false,
+}: { isAdmin: boolean; role: string; name: string; children: React.ReactNode; lender?: boolean }) {
+  const home = lender ? '/lender' : '/admin';
+  const pathname = usePathname() || home;
   const [open, setOpen] = useState(false);
 
   // Close the drawer whenever a link takes you somewhere.
@@ -110,20 +116,26 @@ export default function AdminShell({
         <button type="button" className="menu-btn" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
-        <Brand />
+        <Brand home={home} />
       </header>
 
       <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />
 
       <aside className="side" aria-label="Main menu">
         <div className="side-top">
-          <Brand />
+          <Brand home={home} />
           <button type="button" className="side-close" aria-label="Close menu" title="Close menu"
             onClick={() => setOpen(false)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
           </button>
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column' }}>
+          {lender ? (
+            <div className="side-group">
+              <span className="side-label">Lender portal</span>
+              {LENDER.map(link)}
+            </div>
+          ) : (<>
           <div className="side-group">
             <span className="side-label">Workspace</span>
             {WORKSPACE.map(link)}
@@ -132,7 +144,8 @@ export default function AdminShell({
             <span className="side-label" style={{ paddingTop: 14 }}>Brokerage</span>
             {BROKERAGE.map(link)}
           </div>
-          {isAdmin && (
+          </>)}
+          {isAdmin && !lender && (
             <div className="side-group">
               <span className="side-label" style={{ paddingTop: 14 }}>Manage</span>
               {MANAGE.map(link)}

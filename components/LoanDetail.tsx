@@ -30,7 +30,7 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false,
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
@@ -43,6 +43,11 @@ export default function LoanDetail({
   fallbackOrder?: { id: string; label: string }[];
   /** Draw requests the borrower sent from the portal. */
   drawRequests?: DrawRequestRow[];
+  /** The lender portal's read-only copy of this page: links stay in /lender,
+   *  the statement downloads from the lender route, and internal details
+   *  (notes, lien position, draw requests) are left out. Pass canEdit and
+   *  canSend as false with it. */
+  lenderView?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -75,7 +80,10 @@ export default function LoanDetail({
   // Overdue as of today, independent of which statement month is on screen.
   const overdueNow = pastDueAsOf(engineLoan, engineDraws, payments, allocations, todayInAppTz());
 
-  const pdfHref = `/api/statement-pdf/${summary.loan_id}?month=${stmtDate}`;
+  const basePath = lenderView ? '/lender/loans' : '/admin/loans';
+  const pdfHref = lenderView
+    ? `/api/lender/statement-pdf/${summary.loan_id}?month=${stmtDate}`
+    : `/api/statement-pdf/${summary.loan_id}?month=${stmtDate}`;
   const go = (delta: number) => setStmtDate(cur => clampMonth(firstOfMonth(cur, delta), summary.closing_date));
 
   // months is newest-first; disable each arrow once there is nowhere to go.
@@ -120,8 +128,8 @@ export default function LoanDetail({
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         gap: 12, flexWrap: 'wrap', marginBottom: 16,
       }}>
-        <Link href="/admin/loans" style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
-        <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} />
+        <Link href={lenderView ? '/lender' : '/admin/loans'} style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
+        <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} basePath={basePath} />
       </div>
 
       {/* Header: the property, who it belongs to, and what you can do */}
@@ -252,7 +260,9 @@ export default function LoanDetail({
                       <div className="row"><span className="k">Remaining draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
                       <div className="row"><span className="k">Interest rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
                       <div className="row"><span className="k">Closing date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
-                      <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      {!lenderView && (
+                        <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      )}
                       <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
                     </div>
                   </div>
@@ -364,7 +374,7 @@ export default function LoanDetail({
             <>
               <div className="tablescroll">
                 <table className="bordered">
-                  <thead><tr><th>Date</th><th>Method</th><th>Note</th><th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
+                  <thead><tr><th>Date</th><th>Method</th>{!lenderView && <th>Note</th>}<th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
                   <tbody>
                     {payments.map(p => {
                       const mine = allocations.filter(a => a.payment_id === p.id);
@@ -372,7 +382,7 @@ export default function LoanDetail({
                         <tr key={p.id}>
                           <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(p.payment_date)}</td>
                           <td>{p.method || ''}</td>
-                          <td>{p.note || ''}</td>
+                          {!lenderView && <td>{p.note || ''}</td>}
                           <td>{mine.length ? mine.map(a => `${monthName(a.period_month)} ${money(a.amount)}`).join(', ') : <span className="muted">unapplied</span>}</td>
                           <td className="num" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
                           {canEdit && (
@@ -391,7 +401,7 @@ export default function LoanDetail({
                         </tr>
                       );
                     })}
-                    {payments.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No payments recorded yet.</td></tr>}
+                    {payments.length === 0 && <tr><td colSpan={(canEdit ? 6 : 5) - (lenderView ? 1 : 0)} className="muted" style={{ textAlign: 'center', padding: 28 }}>No payments recorded yet.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -402,13 +412,13 @@ export default function LoanDetail({
             <>
             <div className="tablescroll">
               <table className="bordered">
-                <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
+                <thead><tr><th>Date</th><th>Method</th>{!lenderView && <th>Note</th>}<th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
                 <tbody>
                   {construction.map(d => (
                     <tr key={d.id}>
                       <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.draw_date)}</td>
                       <td>{d.method || ''}</td>
-                      <td>{d.note || ''}</td>
+                      {!lenderView && <td>{d.note || ''}</td>}
                       <td className="num" style={{ fontWeight: 600 }}>{money(d.amount)}</td>
                       <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
                       {canEdit && (
@@ -422,7 +432,7 @@ export default function LoanDetail({
                       )}
                     </tr>
                   ))}
-                  {construction.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No draws yet.</td></tr>}
+                  {construction.length === 0 && <tr><td colSpan={(canEdit ? 6 : 5) - (lenderView ? 1 : 0)} className="muted" style={{ textAlign: 'center', padding: 28 }}>No draws yet.</td></tr>}
                 </tbody>
               </table>
             </div>
