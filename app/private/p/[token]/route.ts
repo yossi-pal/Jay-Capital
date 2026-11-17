@@ -1,7 +1,10 @@
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
-import { tokenIsValid } from '@/lib/private-auth';
-import { FORM_FLAG, QUERY_KEY, proxyPrefix, rewriteCss, rewriteHtml } from '@/lib/proxy-rewrite';
+import { decryptUrl, encryptUrl, tokenIsValid } from '@/lib/private-auth';
+import { FORM_FLAG, QUERY_KEY, rewriteCss, rewriteHtml, type Linker } from '@/lib/proxy-rewrite';
+
+/** Query key for a scrambled (encrypted) address. */
+const SCRAMBLED_KEY = '__px_e';
 
 /**
  * The personal web proxy: /private/p/<sign-in pass>?__px_u=<address>
@@ -94,7 +97,13 @@ async function handle(req: Request, { params }: Ctx): Promise<Response> {
 
   // Work out the real address being asked for.
   const here = new URL(req.url);
-  const raw = here.searchParams.get(QUERY_KEY);
+  const scrambled = here.searchParams.get(SCRAMBLED_KEY);
+  const plain = here.searchParams.get(QUERY_KEY);
+  let raw: string | null = plain;
+  if (scrambled) {
+    raw = decryptUrl(scrambled);
+    if (!raw) return page(400, 'This link no longer works', 'It was made before the password changed. Open the site again from the private page.');
+  }
   if (!raw) return Response.redirect(new URL('/private', req.url), 302);
   let target: URL;
   try {
@@ -113,6 +122,16 @@ async function handle(req: Request, { params }: Ctx): Promise<Response> {
   const ownHost = req.headers.get('host')?.split(':')[0] ?? '';
   if (!(await allowed(target, ownHost))) {
     return page(403, 'Address not allowed', 'Only public websites can be opened here.', { 'content-security-policy': SANDBOX });
+  }
+
+  const link: Linker = abs => `/private/p/${token}?${SCRAMBLED_KEY}=${encryptUrl(abs)}`;
+
+  // Opening a page with a readable address (the Go box, a link made by the
+  // site's own code, a search form): swap it for the scrambled one first, so
+  // the real address never stays in the address bar.
+  const navigating = req.headers.get('sec-fetch-mode') === 'navigate' || req.headers.get('sec-fetch-dest') === 'document';
+  if (!scrambled && req.method.toUpperCase() === 'GET' && navigating) {
+    return new Response(null, { status: 302, headers: { location: link(target.href), 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' } });
   }
 
   // Build the outgoing request. Our own cookies are never passed on.
@@ -144,7 +163,6 @@ async function handle(req: Request, { params }: Ctx): Promise<Response> {
       { 'content-security-policy': SANDBOX });
   }
 
-  const prefix = proxyPrefix(token);
   const out = new Headers({
     'content-security-policy': SANDBOX,
     'x-robots-tag': 'noindex, nofollow',
@@ -158,7 +176,7 @@ async function handle(req: Request, { params }: Ctx): Promise<Response> {
   if (upstream.status >= 300 && upstream.status < 400 && location) {
     let next: string;
     try { next = new URL(location, target).href; } catch { return page(502, 'Bad redirect', 'The site sent an invalid redirect.'); }
-    out.set('location', prefix + encodeURIComponent(next));
+    out.set('location', link(next));
     out.set('cache-control', 'no-store');
     return new Response(null, { status: upstream.status === 307 || upstream.status === 308 ? upstream.status : 302, headers: out });
   }
@@ -171,14 +189,14 @@ async function handle(req: Request, { params }: Ctx): Promise<Response> {
 
   if (type.includes('text/html') || type.includes('application/xhtml')) {
     const bytes = new Uint8Array(await upstream.arrayBuffer());
-    const html = rewriteHtml(decode(bytes, charsetOf(type, bytes)), target.href, token);
+    const html = rewriteHtml(decode(bytes, charsetOf(type, bytes)), target.href, token, link);
     out.set('content-type', 'text/html; charset=utf-8');
     out.set('cache-control', 'private, no-store');
     return new Response(method === 'HEAD' ? null : html, { status: upstream.status, headers: out });
   }
   if (type.includes('text/css')) {
     const bytes = new Uint8Array(await upstream.arrayBuffer());
-    const css = rewriteCss(decode(bytes, charsetOf(type, bytes)), target.href, prefix);
+    const css = rewriteCss(decode(bytes, charsetOf(type, bytes)), target.href, link);
     out.set('content-type', 'text/css; charset=utf-8');
     out.set('cache-control', 'private, max-age=300');
     return new Response(method === 'HEAD' ? null : css, { status: upstream.status, headers: out });

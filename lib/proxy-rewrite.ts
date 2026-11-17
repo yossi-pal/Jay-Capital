@@ -14,6 +14,9 @@ export const FORM_FLAG = '__px_f';
 export const TAB_TITLE = 'Private';
 const TAB_ICON = '/icon.svg';
 
+/** Turns a real address into the link the browser should use (scrambled on the server side). */
+export type Linker = (abs: string) => string;
+
 export function proxyPrefix(token: string): string {
   return `/private/p/${token}?${QUERY_KEY}=`;
 }
@@ -30,31 +33,31 @@ export function absolute(rel: string, base: string): string | null {
   }
 }
 
-function proxify(rel: string, base: string, prefix: string): string {
+function proxify(rel: string, base: string, link: Linker): string {
   if (rel.trim().startsWith('/private/p/')) return rel;
   const abs = absolute(rel, base);
-  return abs ? prefix + encodeURIComponent(abs) : rel;
+  return abs ? link(abs) : rel;
 }
 
-export function rewriteCss(css: string, base: string, prefix: string): string {
+export function rewriteCss(css: string, base: string, link: Linker): string {
   return css
     .replace(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi, (m, q, u) => {
       const abs = absolute(u, base);
-      return abs ? `url(${q}${prefix + encodeURIComponent(abs)}${q})` : m;
+      return abs ? `url(${q}${link(abs)}${q})` : m;
     })
     .replace(/@import\s+(['"])([^'"]+)\1/gi, (m, q, u) => {
       const abs = absolute(u, base);
-      return abs ? `@import ${q}${prefix + encodeURIComponent(abs)}${q}` : m;
+      return abs ? `@import ${q}${link(abs)}${q}` : m;
     });
 }
 
-function rewriteSrcset(srcset: string, base: string, prefix: string): string {
+function rewriteSrcset(srcset: string, base: string, link: Linker): string {
   return srcset
     .split(',')
     .map(part => {
       const bits = part.trim().split(/\s+/);
       if (!bits[0]) return part;
-      bits[0] = proxify(bits[0], base, prefix);
+      bits[0] = proxify(bits[0], base, link);
       return bits.join(' ');
     })
     .join(', ');
@@ -82,7 +85,8 @@ if(window.fetch){var of=window.fetch;window.fetch=function(i,o){try{if(typeof i=
 if(window.XMLHttpRequest){var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(){var a=[].slice.call(arguments);if(a[1]!=null)a[1]=px(String(a[1]));return oo.apply(this,a);};}
 var ow=window.open;window.open=function(u){var a=[].slice.call(arguments);if(u)a[0]=px(String(u));return ow.apply(window,a);};
 if(navigator.sendBeacon){var ob=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return ob(px(String(u)),d);};}
-['pushState','replaceState'].forEach(function(n){var o=history[n];history[n]=function(s,t,u){try{return u==null?o.call(history,s,t):o.call(history,s,t,px(String(u)));}catch(e){}};});
+// In-page address changes are ignored so the real address never shows in the address bar.
+['pushState','replaceState'].forEach(function(n){var o=history[n];history[n]=function(s,t){try{return o.call(history,s,t);}catch(e){}};});
 document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href'),n=px(h);if(n!==h)a.setAttribute('href',n);},true);
 document.addEventListener('submit',function(e){var f=e.target;if(!f||!f.getAttribute)return;var act=f.getAttribute('action')||'';if(act.indexOf('/private/p/')===0)return;
   var abs;try{abs=new URL(act||T,T).href;}catch(x){return;}
@@ -102,7 +106,7 @@ document.addEventListener('DOMContentLoaded',lockTab);
 })();`;
 }
 
-export function rewriteHtml(html: string, pageUrl: string, token: string): string {
+export function rewriteHtml(html: string, pageUrl: string, token: string, link: Linker): string {
   const prefix = proxyPrefix(token);
   const $ = cheerio.load(html);
 
@@ -132,37 +136,37 @@ export function rewriteHtml(html: string, pageUrl: string, token: string): strin
       f.append($('<input type="hidden">').attr('name', QUERY_KEY).attr('value', abs));
       f.append($('<input type="hidden">').attr('name', FORM_FLAG).attr('value', '1'));
     } else {
-      f.attr('action', prefix + encodeURIComponent(abs));
+      f.attr('action', link(abs));
     }
   });
   $('[formaction]').each((_, el) => {
     const v = $(el).attr('formaction');
-    if (v) $(el).attr('formaction', proxify(v, base, prefix));
+    if (v) $(el).attr('formaction', proxify(v, base, link));
   });
 
   for (const attr of ['href', 'src', 'poster', 'data', 'background', 'xlink:href']) {
     $(`[${attr.replace(':', '\\:')}]`).each((_, el) => {
       if (el.type === 'tag' && el.name === 'form') return;
       const v = $(el).attr(attr);
-      if (v != null) $(el).attr(attr, proxify(v, base, prefix));
+      if (v != null) $(el).attr(attr, proxify(v, base, link));
     });
   }
   $('[srcset]').each((_, el) => {
     const v = $(el).attr('srcset');
-    if (v) $(el).attr('srcset', rewriteSrcset(v, base, prefix));
+    if (v) $(el).attr('srcset', rewriteSrcset(v, base, link));
   });
   $('[style]').each((_, el) => {
     const v = $(el).attr('style');
-    if (v) $(el).attr('style', rewriteCss(v, base, prefix));
+    if (v) $(el).attr('style', rewriteCss(v, base, link));
   });
   $('style').each((_, el) => {
-    $(el).text(rewriteCss($(el).text(), base, prefix));
+    $(el).text(rewriteCss($(el).text(), base, link));
   });
   $('meta[http-equiv]').each((_, el) => {
     if (($(el).attr('http-equiv') || '').toLowerCase() !== 'refresh') return;
     const c = $(el).attr('content') || '';
     const m = /^(\s*\d*\s*;\s*url\s*=\s*)(['"]?)(.+?)\2\s*$/i.exec(c);
-    if (m) $(el).attr('content', m[1] + proxify(m[3], base, prefix));
+    if (m) $(el).attr('content', m[1] + proxify(m[3], base, link));
   });
 
   // Tab name and icon: drop the site's own, ours are added below.
