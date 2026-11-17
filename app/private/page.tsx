@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 };
 export const dynamic = 'force-dynamic';
 
-export default function PrivatePage() {
+export default async function PrivatePage() {
   const token = cookies().get(PRIVATE_COOKIE)?.value;
-  const signedIn = tokenIsValid(token);
+  const signedIn = await tokenIsValid(token);
   return (
     <main className="pv-page">
       {signedIn ? <PrivateHome /> : <PrivateLogin />}
@@ -22,6 +22,8 @@ export default function PrivatePage() {
                   padding: 28px 24px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
         .pv-box h1 { margin: 0 0 4px; font-size: 20px; color: var(--navy); }
         .pv-note { margin: 0; color: var(--muted); }
+        .pv-ok { margin: 0; color: var(--ok); }
+        .pv-form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
         .pv-input { flex: 1; min-width: 0; padding: 11px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; }
         .pv-btn { padding: 11px 20px; font-size: 15px; font-weight: 600; border: 0; border-radius: 8px; background: var(--navy); color: #fff; cursor: pointer; }
         .pv-btn:disabled { opacity: .6; }
