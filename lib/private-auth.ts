@@ -118,3 +118,9 @@ export async function tokenIsValid(token: string | undefined | null): Promise<bo
   if (Number(m[1]) < Date.now() / 1000) return false;
   return sameSig(m[2], sign(m[1], await sessionSecret()));
 }
+
+/** True when this request carries a valid /private pass. Server-only. */
+export async function isPrivateSignedIn(): Promise<boolean> {
+  const { cookies } = await import('next/headers');
+  return tokenIsValid(cookies().get(PRIVATE_COOKIE)?.value);
+}
