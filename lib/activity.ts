@@ -17,6 +17,7 @@ export type ActivityKind =
   | 'statement_emailed' | 'user_invited' | 'user_updated' | 'user_active_changed'
   | 'user_deleted' | 'password_reset_sent' | 'borrower_login_created'
   | 'lender_added' | 'lender_updated' | 'lender_active_changed'
+  | 'lender_login_created' | 'lender_login_removed' | 'lender_portal_view'
   | 'loans_imported';
 
 /**
@@ -32,6 +33,7 @@ export type ActivityKind =
  */
 const DEDUPE_MS: Partial<Record<ActivityKind, number>> = {
   portal_view: 15 * 60_000,
+  lender_portal_view: 15 * 60_000,
   statement_view: 15 * 60_000,
   pdf_download: 2 * 60_000,
   sign_in: 10 * 60_000,
