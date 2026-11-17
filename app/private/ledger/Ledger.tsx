@@ -99,8 +99,10 @@ export function Ledger({ accounts, entries }: { accounts: LedgerAccount[]; entri
   const balance = rows.length ? rows[rows.length - 1].total : account?.opening_balance ?? 0;
 
   // Suggestions for the Type and Description boxes, from what was typed before.
-  const typeHints = useMemo(() => Array.from(new Set(entries.map(e => e.type).filter(Boolean))).sort(), [entries]);
-  const descHints = useMemo(() => Array.from(new Set(entries.map(e => e.description).filter(Boolean))).sort(), [entries]);
+  // Each account suggests only what was typed in that account before.
+  const accountEntries = useMemo(() => entries.filter(e => e.account_id === accountId), [entries, accountId]);
+  const typeHints = useMemo(() => Array.from(new Set(accountEntries.map(e => e.type).filter(Boolean))).sort(), [accountEntries]);
+  const descHints = useMemo(() => Array.from(new Set(accountEntries.map(e => e.description).filter(Boolean))).sort(), [accountEntries]);
 
   async function act(fn: () => Promise<{ ok: boolean; error?: string }>, success?: string): Promise<string | null> {
     setBusy(true);
