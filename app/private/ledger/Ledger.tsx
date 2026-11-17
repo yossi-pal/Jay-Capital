@@ -81,9 +81,20 @@ export function Ledger({ accounts, entries }: { accounts: LedgerAccount[]; entri
   useEffect(() => { if (month !== 'all' && !months.includes(month)) setMonth('all'); }, [months, month]);
 
   const q = query.trim().toLowerCase();
+  // Typing a number also finds amounts: "102" finds $102.00 and $102.50 (not
+  // $1,020), "102.5" finds $102.50, "1,500" or "$1500" finds $1,500.00.
+  const qAmount = q.replace(/[$,\s]/g, '').replace(/^[-+−]/, '');
+  const amountSearch = /^\d+(\.\d{0,2})?$/.test(qAmount);
+  const amountMatches = (n: number | null) => {
+    if (n == null) return false;
+    return qAmount.includes('.')
+      ? n.toFixed(2).startsWith(qAmount)
+      : Math.trunc(n) === Number(qAmount);
+  };
   const shown = rows.filter(r =>
     (month === 'all' || r.entry_date.startsWith(month)) &&
-    (!q || r.description.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)));
+    (!q || r.description.toLowerCase().includes(q) || r.type.toLowerCase().includes(q) ||
+      (amountSearch && (amountMatches(r.withdrawal) || amountMatches(r.deposit)))));
 
   const balance = rows.length ? rows[rows.length - 1].total : account?.opening_balance ?? 0;
 
@@ -219,7 +230,7 @@ export function Ledger({ accounts, entries }: { accounts: LedgerAccount[]; entri
         </button>
         <div className="pv-search">
           <Icon name="search" />
-          <input className="pv-input" placeholder="Search entries" value={query} onChange={e => setQuery(e.target.value)} />
+          <input className="pv-input" placeholder="Search description or amount" value={query} onChange={e => setQuery(e.target.value)} />
         </div>
       </div>
 

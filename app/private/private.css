@@ -295,7 +295,7 @@
 
 .pv-ledger { background: var(--pv-panel); border: 1px solid var(--pv-line); border-radius: 12px; overflow: hidden; }
 .lg-row {
-  display: grid; grid-template-columns: 70px 132px minmax(0,1fr) 116px 116px 36px 120px;
+  display: grid; grid-template-columns: 90px 132px minmax(0,1fr) 116px 116px 36px 120px;
   align-items: center; border-top: 1px solid var(--pv-line); min-height: 40px; font-variant-numeric: tabular-nums;
 }
 .lg-row > div { padding: 0 10px; min-width: 0; }
@@ -343,3 +343,6 @@
 .pv-form-grid label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--pv-ink); }
 .pv-form-grid label.check input { width: 16px; height: 16px; accent-color: var(--pv-accent); }
 .pv-form-grid input[type=date] { min-width: 0; }
+/* The Type and Description boxes suggest earlier entries as you type; hide
+   the browser's small dropdown arrow so the box isn't cramped. */
+.pv-root input[list]::-webkit-calendar-picker-indicator { display: none !important; }
