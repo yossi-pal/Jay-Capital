@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, createHash, timingSafeEqual } from 'crypto';
+import { createHmac, createHash, timingSafeEqual } from 'crypto';
 
 /**
  * Sign-in for the hidden /private area (the personal web proxy).
@@ -60,40 +60,4 @@ export function tokenIsValid(token: string | undefined | null): boolean {
   if (!m) return false;
   if (Number(m[1]) < Date.now() / 1000) return false;
   return sameText(m[2], sign(m[1], pw));
-}
-
-/*
- * Scrambled addresses: the site being visited is encrypted (AES-256-GCM, key
- * made from the password) before it goes into the address bar, so the URL and
- * browser history show only random-looking characters. The same address always
- * scrambles the same way, so browser caching still works.
- */
-function urlKeys(pw: string) {
-  const enc = createHash('sha256').update('jc-private-url:' + pw).digest();
-  const iv = createHash('sha256').update('jc-private-url-iv:' + pw).digest();
-  return { enc, iv };
-}
-
-export function encryptUrl(url: string): string | null {
-  const pw = password();
-  if (!pw) return null;
-  const k = urlKeys(pw);
-  const iv = createHmac('sha256', k.iv).update(url).digest().subarray(0, 12);
-  const c = createCipheriv('aes-256-gcm', k.enc, iv);
-  const body = Buffer.concat([c.update(url, 'utf8'), c.final()]);
-  return Buffer.concat([iv, body, c.getAuthTag()]).toString('base64url');
-}
-
-export function decryptUrl(blob: string): string | null {
-  const pw = password();
-  if (!pw) return null;
-  try {
-    const raw = Buffer.from(blob, 'base64url');
-    if (raw.length < 29) return null;
-    const d = createDecipheriv('aes-256-gcm', urlKeys(pw).enc, raw.subarray(0, 12));
-    d.setAuthTag(raw.subarray(raw.length - 16));
-    return Buffer.concat([d.update(raw.subarray(12, raw.length - 16)), d.final()]).toString('utf8');
-  } catch {
-    return null;
-  }
 }
