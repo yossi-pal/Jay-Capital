@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
-import { approveDrawRequest, declineDrawRequest } from '@/lib/draw-request-actions';
+import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate } from '@/lib/draw-request-actions';
 import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
+
+/** Starting text for "Send update"; the admin can change it before sending. */
+const REVIEWING_MESSAGE =
+  'Thank you, we have received your draw request and are reviewing it now. We will be in touch shortly.';
 
 function todayIso(): string {
   const d = todayInAppTz();
@@ -24,7 +28,7 @@ export function PendingDrawRequests({
 }) {
   const router = useRouter();
   const pending = requests.filter(r => r.status === 'pending');
-  const [mode, setMode] = useState<'approve' | 'decline' | null>(null);
+  const [mode, setMode] = useState<'approve' | 'decline' | 'update' | null>(null);
   const [req, setReq] = useState<DrawRequestRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [date, setDate] = useState('');
@@ -38,15 +42,17 @@ export function PendingDrawRequests({
 
   if (pending.length === 0) return null;
 
-  function openFor(r: DrawRequestRow, m: 'approve' | 'decline') {
+  function openFor(r: DrawRequestRow, m: 'approve' | 'decline' | 'update') {
     setReq(r); setMode(m); setErr('');
     setDate(todayIso()); setAmount(String(r.amount)); setMethod('');
-    setNote(r.note ? r.note.slice(0, 200) : ''); setMessage(''); setNotify(hasEmail);
+    setNote(r.note ? r.note.slice(0, 200) : '');
+    setMessage(m === 'update' ? REVIEWING_MESSAGE : ''); setNotify(hasEmail);
   }
 
   async function submit() {
     if (!req || !mode) return;
     setErr('');
+    if (mode === 'update' && !message.trim()) { setErr('Please write the message to send.'); return; }
     if (mode === 'approve') {
       if (!date) { setErr('Please enter the draw date.'); return; }
       if (!(Number(amount) > 0)) { setErr('Draw amount must be greater than zero.'); return; }
@@ -55,7 +61,9 @@ export function PendingDrawRequests({
     const fd = new FormData();
     fd.set('draw_date', date); fd.set('amount', amount); fd.set('method', method);
     fd.set('note', note); fd.set('message', message); fd.set('notify', notify ? '1' : '');
-    const res = mode === 'approve' ? await approveDrawRequest(req.id, fd) : await declineDrawRequest(req.id, fd);
+    const res = mode === 'approve' ? await approveDrawRequest(req.id, fd)
+      : mode === 'decline' ? await declineDrawRequest(req.id, fd)
+      : await sendDrawRequestUpdate(req.id, fd);
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'That did not work.'); return; }
     setMode(null); setReq(null);
@@ -79,20 +87,26 @@ export function PendingDrawRequests({
               {' '}· requested {fmtDateTime(r.requested_at)}
             </span>
             {r.note && <div style={{ fontSize: 14, marginTop: 4, overflowWrap: 'anywhere' }}>{r.note}</div>}
+            {r.decision_note && (
+              <div className="alert info" style={{ margin: '8px 0 0', overflowWrap: 'anywhere' }}>
+                <b>Update shown to the borrower:</b> {r.decision_note}
+              </div>
+            )}
           </div>
           {canEdit ? (
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn secondary" type="button" onClick={() => openFor(r, 'update')}>Send update</button>
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'decline')}>Decline</button>
               <button className="btn" type="button" onClick={() => openFor(r, 'approve')}>Approve</button>
             </div>
           ) : (
-            <span className="muted" style={{ fontSize: 13 }}>An admin can approve or decline</span>
+            <span className="muted" style={{ fontSize: 13 }}>An admin can reply, approve or decline</span>
           )}
         </div>
       ))}
 
       <Modal open={!!mode} onClose={() => !busy && setMode(null)}
-        title={mode === 'approve' ? 'Approve draw request' : 'Decline draw request'}>
+        title={mode === 'approve' ? 'Approve draw request' : mode === 'decline' ? 'Decline draw request' : 'Send an update to the borrower'}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {req && (
             <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
@@ -121,8 +135,10 @@ export function PendingDrawRequests({
             </>
           )}
           <div className="field-wrap">
-            <label>{mode === 'approve' ? 'Message to the borrower (optional)' : 'Reason (shown to the borrower, optional)'}</label>
-            <textarea className="field" rows={3} maxLength={1000} value={message} onChange={e => setMessage(e.target.value)} />
+            <label>{mode === 'approve' ? 'Message to the borrower (optional)'
+              : mode === 'decline' ? 'Reason (shown to the borrower, optional)'
+              : 'Message (shown on the borrower\u2019s portal)'}</label>
+            <textarea className="field" rows={mode === 'update' ? 4 : 3} maxLength={1000} value={message} onChange={e => setMessage(e.target.value)} />
           </div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, opacity: hasEmail ? 1 : 0.6 }}>
             <input type="checkbox" checked={notify && hasEmail} disabled={!hasEmail} onChange={e => setNotify(e.target.checked)} />
@@ -132,7 +148,7 @@ export function PendingDrawRequests({
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
             <button className="btn secondary" type="button" disabled={busy} onClick={() => setMode(null)}>Cancel</button>
             <button className={`btn${mode === 'decline' ? ' danger' : ''}`} type="button" disabled={busy} onClick={submit}>
-              {busy ? 'Saving…' : mode === 'approve' ? 'Approve and add draw' : 'Decline request'}
+              {busy ? 'Saving…' : mode === 'approve' ? 'Approve and add draw' : mode === 'decline' ? 'Decline request' : 'Send update'}
             </button>
           </div>
         </div>
