@@ -19,5 +19,6 @@ export default async function GoPage() {
   // (migration 007). Doing it here failed silently for everyone but an admin,
   // because profiles_admin_write blocks a user writing their own row.
   await logActivity('sign_in', null, user.id, profile?.role ? `Role: ${profile.role}` : null);
-  redirect(profile?.role === 'admin' || profile?.role === 'staff' ? '/admin' : '/portal');
+  const role = profile?.role;
+  redirect(role === 'admin' || role === 'staff' ? '/admin' : role === 'lender' ? '/lender' : '/portal');
 }

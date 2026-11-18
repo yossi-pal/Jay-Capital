@@ -6,19 +6,19 @@ import InviteStatus from '@/components/InviteStatus';
 
 export interface UserListRow {
   id: string; email: string; full_name: string | null;
-  role: 'admin' | 'staff' | 'borrower'; active: boolean | null;
+  role: 'admin' | 'staff' | 'borrower' | 'lender'; active: boolean | null;
   invited_at: string | null; activated_at: string | null; last_seen_at: string | null;
 }
 
-const ROLE_LABEL = { admin: 'Admin', staff: 'Staff', borrower: 'Borrower' } as const;
+const ROLE_LABEL = { admin: 'Admin', staff: 'Staff', borrower: 'Borrower', lender: 'Lender' } as const;
 
 /** Everyone with a login: filter by role, search by name or email. */
 export default function UsersList({ users, selfId }: { users: UserListRow[]; selfId: string }) {
-  const [role, setRole] = useState<'' | 'admin' | 'staff' | 'borrower'>('');
+  const [role, setRole] = useState<'' | 'admin' | 'staff' | 'borrower' | 'lender'>('');
   const [q, setQ] = useState('');
 
   const counts = useMemo(() => {
-    const c = { '': users.length, admin: 0, staff: 0, borrower: 0 } as Record<string, number>;
+    const c = { '': users.length, admin: 0, staff: 0, borrower: 0, lender: 0 } as Record<string, number>;
     for (const u of users) c[u.role] = (c[u.role] ?? 0) + 1;
     return c;
   }, [users]);
@@ -32,7 +32,7 @@ export default function UsersList({ users, selfId }: { users: UserListRow[]; sel
   return (
     <>
       <div className="chips" role="group" aria-label="Show users">
-        {([['', 'Everyone'], ['admin', 'Admins'], ['staff', 'Staff'], ['borrower', 'Borrowers']] as const).map(([v, label]) => (
+        {([['', 'Everyone'], ['admin', 'Admins'], ['staff', 'Staff'], ['borrower', 'Borrowers'], ['lender', 'Lenders']] as const).map(([v, label]) => (
           <button key={v || 'all'} type="button" className={`fchip${role === v ? ' on' : ''}`}
             aria-pressed={role === v} onClick={() => setRole(v)}>
             {label} <span className="n">{counts[v] ?? 0}</span>
@@ -65,7 +65,7 @@ export default function UsersList({ users, selfId }: { users: UserListRow[]; sel
                         </span>
                       </div>
                     </td>
-                    <td><span className={`chip ${u.role === 'admin' ? 'navy' : u.role === 'staff' ? 'gold' : 'ok'}`}>{ROLE_LABEL[u.role] ?? u.role}</span></td>
+                    <td><span className={`chip ${u.role === 'admin' ? 'navy' : u.role === 'staff' ? 'gold' : u.role === 'lender' ? 'lender' : 'ok'}`}>{ROLE_LABEL[u.role] ?? u.role}</span></td>
                     <td>{u.active === false ? <span className="chip late">Blocked</span> : <span className="chip ok">Active</span>}</td>
                     <td style={{ minWidth: 200 }}>
                       <InviteStatus invitedAt={u.invited_at} activatedAt={u.activated_at} lastSeenAt={u.last_seen_at} />

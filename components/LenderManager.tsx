@@ -2,15 +2,21 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createLender, updateLender, setLenderActive } from '@/lib/actions';
+import { createLender, updateLender, setLenderActive, inviteLenderLogin, removeLenderLogin, resendInvitation } from '@/lib/actions';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
-import { money } from '@/lib/format';
+import { money, fmtDateTime } from '@/lib/format';
 import Link from 'next/link';
+
+export interface LenderLogin {
+  id: string; email: string; full_name: string | null; user_id: string | null;
+  invited_at: string | null; activated_at: string | null; last_seen_at: string | null; blocked: boolean;
+}
 
 export interface LenderRow {
   id: string; name: string; short_name: string | null; active: boolean; loan_count: number;
   active_loans: number; committed: number;
   payment_method: string | null; payment_instructions: string | null;
+  logins: LenderLogin[];
 }
 
 const BLANK = { name: '', shortName: '', paymentMethod: '', paymentInstructions: '' };
@@ -25,6 +31,38 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
   const [err, setErr] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  // Lender logins: who can sign in to /lender and see this lender's loans.
+  const [loginFor, setLoginFor] = useState<LenderRow | null>(null);
+  const [loginForm, setLoginForm] = useState({ email: '', fullName: '' });
+  const [confirmRemove, setConfirmRemove] = useState<{ login: LenderLogin; lender: LenderRow } | null>(null);
+
+  async function addLogin() {
+    if (!loginFor) return;
+    if (!loginForm.email.trim()) { setErr('Email is required.'); return; }
+    setBusy(true); setErr('');
+    const res = await inviteLenderLogin(loginFor.id, loginForm);
+    setBusy(false);
+    if (!res.ok) { setErr(res.error || 'Could not add the login.'); return; }
+    setLoginFor(null); setNote(res.message || 'Login added.');
+    router.refresh();
+  }
+
+  async function removeLogin(login: LenderLogin) {
+    setConfirmRemove(null);
+    setBusy(true);
+    const res = await removeLenderLogin(login.id);
+    setBusy(false);
+    setNote(res.ok ? (res.message || 'Access removed.') : (res.error || 'Could not remove the login.'));
+    router.refresh();
+  }
+
+  async function resend(login: LenderLogin) {
+    if (!login.user_id) return;
+    setBusy(true);
+    const res = await resendInvitation(login.user_id);
+    setBusy(false);
+    setNote(res.ok ? (res.message || 'Invitation re-sent.') : (res.error || 'Could not re-send the invitation.'));
+  }
 
   async function add() {
     if (!form.name.trim()) { setErr('Lender name is required.'); return; }
@@ -142,6 +180,34 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
               <span>Borrowers pay by</span>
               <b>{l.payment_method || <span className="muted" style={{ fontWeight: 400 }}>Not set yet</span>}</b>
             </div>
+            <div className="lc-logins">
+              <div className="lc-head">
+                <span>Lender portal logins</span>
+                <button className="btn secondary sm" disabled={busy}
+                  onClick={() => { setErr(''); setLoginForm({ email: '', fullName: '' }); setLoginFor(l); }}>Add login</button>
+              </div>
+              {l.logins.length === 0 && (
+                <span className="muted" style={{ fontSize: 13 }}>Nobody at this lender can sign in yet.</span>
+              )}
+              {l.logins.map(x => (
+                <div key={x.id} className="lc-login">
+                  <span className="who">
+                    {x.full_name || x.email}
+                    <span>
+                      {x.full_name ? `${x.email} · ` : ''}
+                      {x.blocked ? 'Sign-in blocked'
+                        : x.activated_at ? (x.last_seen_at ? `Last signed in ${fmtDateTime(x.last_seen_at)}` : 'Set up')
+                        : x.invited_at ? 'Invited, not set up yet' : 'Not set up yet'}
+                    </span>
+                  </span>
+                  {!x.activated_at && x.user_id && (
+                    <button className="btn secondary sm" disabled={busy} onClick={() => resend(x)}>Resend invite</button>
+                  )}
+                  <button className="btn secondary sm" disabled={busy}
+                    onClick={() => setConfirmRemove({ login: x, lender: l })}>Remove</button>
+                </div>
+              ))}
+            </div>
             <div className="lc-actions">
               <button className="btn secondary sm" disabled={busy}
                 onClick={() => {
@@ -219,6 +285,42 @@ export default function LenderManager({ lenders }: { lenders: LenderRow[] }) {
         confirmLabel="Inactivate" danger
         onConfirm={() => confirmOff && toggle(confirmOff, false)}
         onCancel={() => setConfirmOff(null)}
+      />
+
+      <Modal open={!!loginFor} onClose={() => !busy && setLoginFor(null)} title="Add Lender Login" maxWidth={520}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+            {loginFor?.name} will be able to sign in and see, read only, every loan they funded: loan
+            figures, the borrower&rsquo;s name, email and phone, and all draws and payments. They get an
+            email from Jay Capital Funding with a link to choose a password.
+          </p>
+          <div className="field-wrap">
+            <label>Full name</label>
+            <input className="field" value={loginForm.fullName} autoComplete="off"
+              onChange={e => setLoginForm(f => ({ ...f, fullName: e.target.value }))} placeholder="Person at the lender" />
+          </div>
+          <div className="field-wrap">
+            <label>Email *</label>
+            <input className="field" type="email" value={loginForm.email} autoComplete="off" inputMode="email"
+              onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} placeholder="name@lender.com" />
+          </div>
+          {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button className="btn secondary" disabled={busy} onClick={() => setLoginFor(null)}>Cancel</button>
+            <button className="btn" disabled={busy} onClick={addLogin}>{busy ? 'Sending…' : 'Send invitation'}</button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!confirmRemove}
+        title="Remove lender login"
+        message={confirmRemove
+          ? `Stop ${confirmRemove.login.email} from seeing ${confirmRemove.lender.name}'s loans? Their account is kept (block or delete it on the Users page if they should not sign in at all).`
+          : ''}
+        confirmLabel="Remove access" danger
+        onConfirm={() => confirmRemove && removeLogin(confirmRemove.login)}
+        onCancel={() => setConfirmRemove(null)}
       />
 
       <AlertDialog open={!!note} title="Lenders" message={note || ''} tone="success" onClose={() => setNote(null)} />

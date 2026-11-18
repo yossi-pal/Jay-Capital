@@ -325,6 +325,7 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .badge.admin { background: var(--navy); color: #fff; }
 .badge.staff { background: var(--navy-soft); color: var(--navy); }
 .badge.borrower { background: #E7F4EC; color: #17643F; }
+.badge.lender { background: #EFEAFB; color: #5B3FA8; }
 
 /* ============================================================
    Borrower home
@@ -988,6 +989,8 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .u-av { width: 38px; height: 38px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: #E7F4EC; color: #17643F; }
 .u-av.admin { background: var(--navy); color: #D9B676; }
 .u-av.staff { background: var(--brass-bg); color: #7A5A20; }
+.u-av.lender { background: #EFEAFB; color: #5B3FA8; }
+.chip.lender { background: #EFEAFB; color: #5B3FA8; }
 .u-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .u-txt b { font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .u-txt > span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
@@ -1034,3 +1037,10 @@ textarea.field { font-family: inherit; line-height: 1.5; }
 .doc-card b { color: var(--navy); font-size: 16px; }
 .doc-card .muted { font-size: 13.5px; line-height: 1.45; }
 .doc-ico { display: inline-flex; width: 40px; height: 40px; border-radius: 10px; align-items: center; justify-content: center; background: var(--pale); color: var(--navy); }
+
+/* Lender logins on the Lenders page */
+.lc-logins { display: flex; flex-direction: column; gap: 8px; }
+.lc-logins .lc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.lc-login { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
+.lc-login .who { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.lc-login .who span { display: block; font-size: 12px; color: var(--muted); }
