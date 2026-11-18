@@ -15,8 +15,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const role = profile?.role ?? 'borrower';
 
-  // Borrowers don't belong in the admin area -- send them to their portal.
-  if (role === 'borrower') redirect('/portal');
+  // Only admins and staff belong in the admin area. Lenders go to the lender
+  // portal; borrowers (and any role this code does not know) to theirs.
+  if (role === 'lender') redirect('/lender');
+  if (role !== 'admin' && role !== 'staff') redirect('/portal');
 
   const isAdmin = role === 'admin';
 

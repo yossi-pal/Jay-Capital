@@ -62,11 +62,17 @@ const FILTERS: { value: string; label: string }[] = [
 ];
 
 export default function PortfolioTable({
-  loans, pastDue = {}, due = {},
+  loans, pastDue = {}, due = {}, basePath = '/admin/loans', neutralStatus = false,
 }: {
   loans: LoanRow[]; canEdit?: boolean;
   pastDue?: Record<string, number>; due?: Record<string, DueInfo>;
+  /** Where a loan opens: the admin loan page, or the lender portal's read-only one. */
+  basePath?: string;
+  /** Lender portal: the Status column and filters never say "Past due"; an
+   *  active loan reads "Active" whether or not it is late. */
+  neutralStatus?: boolean;
 }) {
+  const filters = neutralStatus ? FILTERS.filter(f => f.value !== 'late') : FILTERS;
   const router = useRouter();
   const [q, setQ] = useState('');
   const [lender, setLender] = useState('');
@@ -86,7 +92,7 @@ export default function PortfolioTable({
         const v = JSON.parse(raw);
         if (typeof v.q === 'string') setQ(v.q);
         if (typeof v.lender === 'string') setLender(v.lender);
-        if (typeof v.status === 'string') setStatus(v.status);
+        if (typeof v.status === 'string' && filters.some(f => f.value === v.status)) setStatus(v.status);
         if (v.sortKey === null || COLUMNS.some(c => c.key === v.sortKey)) setSortKey(v.sortKey);
         if (v.sortDir === 1 || v.sortDir === -1) setSortDir(v.sortDir);
       }
@@ -98,8 +104,8 @@ export default function PortfolioTable({
       const params = new URLSearchParams(window.location.search);
       const want = params.get('status');
       const wantLender = params.get('lender');
-      if ((want !== null && FILTERS.some(f => f.value === want)) || wantLender) {
-        setStatus(want !== null && FILTERS.some(f => f.value === want) ? want : 'active');
+      if ((want !== null && filters.some(f => f.value === want)) || wantLender) {
+        setStatus(want !== null && filters.some(f => f.value === want) ? want : 'active');
         setQ('');
         setLender(wantLender && loans.some(l => l.lender_name === wantLender) ? wantLender : '');
         window.history.replaceState(null, '', window.location.pathname);
@@ -119,7 +125,7 @@ export default function PortfolioTable({
     const late = pastDue[l.loan_id] ?? 0;
     const d = due[l.loan_id];
     const state: Row['state'] =
-      l.status === 'active' ? (late > 0.005 ? 'late' : 'active')
+      l.status === 'active' ? (late > 0.005 && !neutralStatus ? 'late' : 'active')
         : l.status === 'paid_off' ? 'paid_off'
         : l.status === 'defaulted' ? 'defaulted' : 'other';
     return {
@@ -204,7 +210,7 @@ export default function PortfolioTable({
       { label: 'Borrower', get: l => l.borrower_name },
       { label: 'Entity', get: l => (l.is_entity ? l.entity_name : '') },
       { label: 'Property', get: l => l.property },
-      { label: 'Status', get: l => statusLabel(l.state) },
+      { label: 'Status', get: l => statusLabel(l.state, neutralStatus) },
       { label: 'Loan Amount', get: l => l.loan_amount },
       { label: 'Acquisition', get: l => l.acquisition },
       { label: 'Construction', get: l => l.construction },
@@ -238,7 +244,7 @@ export default function PortfolioTable({
   return (
     <>
       <div className="chips" role="group" aria-label="Show loans">
-        {FILTERS.map(f => (
+        {filters.map(f => (
           <button key={f.value || 'all'} type="button"
             className={`fchip${status === f.value ? ' on' : ''}${f.value === 'late' && counts.late ? ' alarm' : ''}`}
             aria-pressed={status === f.value}
@@ -300,15 +306,15 @@ export default function PortfolioTable({
             <tbody>
               {view.map(l => (
                 <tr key={l.loan_id} className="clickable"
-                  onClick={() => router.push(`/admin/loans/${l.loan_id}`)}>
+                  onClick={() => router.push(`${basePath}/${l.loan_id}`)}>
                   <td className="ln">{l.loan_number}</td>
                   <td>
-                    <Link href={`/admin/loans/${l.loan_id}`} className="who" onClick={e => e.stopPropagation()}>
+                    <Link href={`${basePath}/${l.loan_id}`} className="who" onClick={e => e.stopPropagation()}>
                       <b>{l.is_entity && l.entity_name ? l.entity_name : l.borrower_name}</b>
                       <span>{l.is_entity && l.entity_name ? `${l.borrower_name} · ` : ''}{shortAddress(l.property)}</span>
                     </Link>
                   </td>
-                  <td><StatusChip state={l.state} late={l.late} /></td>
+                  <td><StatusChip state={l.state} late={l.late} neutral={neutralStatus} /></td>
                   <td className="num">{money(l.loan_amount)}</td>
                   <td className="num" style={{ fontWeight: 600 }}>{money(l.total_disbursed)}</td>
                   <td className="num">{pct(l.annual_rate)}</td>
@@ -346,15 +352,15 @@ export default function PortfolioTable({
   );
 }
 
-function statusLabel(s: Row['state']) {
-  return s === 'late' ? 'Past due' : s === 'active' ? 'Current' : s === 'paid_off' ? 'Paid off'
+function statusLabel(s: Row['state'], neutral = false) {
+  return s === 'late' ? 'Past due' : s === 'active' ? (neutral ? 'Active' : 'Current') : s === 'paid_off' ? 'Paid off'
     : s === 'defaulted' ? 'Defaulted' : 'Other';
 }
 
 /** Status as a coloured label. A late active loan says so in red. */
-function StatusChip({ state, late }: { state: Row['state']; late: number }) {
+function StatusChip({ state, late, neutral = false }: { state: Row['state']; late: number; neutral?: boolean }) {
   if (state === 'late') return <span className="chip late" title={`${money(late)} past due`}>Past due</span>;
-  if (state === 'active') return <span className="chip ok">Current</span>;
+  if (state === 'active') return <span className="chip ok">{neutral ? 'Active' : 'Current'}</span>;
   if (state === 'defaulted') return <span className="chip late">Defaulted</span>;
   return <span className="chip">{statusLabel(state)}</span>;
 }

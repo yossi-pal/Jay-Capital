@@ -561,7 +561,7 @@ export async function setLoanStatus(loanId: string, status: string, paidOffDate?
   });
 }
 
-export async function setUserRole(userId: string, role: 'admin' | 'staff' | 'borrower') {
+export async function setUserRole(userId: string, role: 'admin' | 'staff' | 'borrower' | 'lender') {
   return run(async () => {
     const supabase = await requireAdmin();
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
@@ -690,6 +690,106 @@ export async function setLenderActive(id: string, active: boolean) {
     revalidatePath('/admin/lenders');
     return { message: 'Lender reactivated.' };
   });
+}
+
+/* ============================================================
+ * Lender logins (read-only lender portal at /lender)
+ * ============================================================ */
+
+/**
+ * Give someone at a lender a login that shows that lender's loans.
+ *
+ * Access is the lender_logins row: my_lender_ids() (migration 026) matches it
+ * on both the account id and the signed-in email, so the row's email must be
+ * the account's email. A new account gets a set-password email over our SMTP;
+ * an existing account (a borrower, or someone already logging in for another
+ * lender) is simply connected and told so.
+ */
+export async function inviteLenderLogin(lenderId: string, opts: { email: string; fullName: string }) {
+  return run(async () => {
+    await requireAdmin();
+    const svc = serviceClient();
+    const site = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const email = opts.email.trim().toLowerCase();
+    const fullName = opts.fullName.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address.');
+
+    const { data: lender } = await svc.from('lenders').select('id, name').eq('id', lenderId).maybeSingle();
+    if (!lender) throw new Error('That lender no longer exists.');
+
+    const { data: dupe } = await svc.from('lender_logins')
+      .select('id').eq('lender_id', lenderId).ilike('email', email).maybeSingle();
+    if (dupe) throw new Error(`${email} already has a login for ${lender.name}.`);
+
+    let userId: string;
+    let message: string;
+    const existing = await findUserByEmail(svc, email);
+    if (existing) {
+      userId = existing.id;
+      message = `${email} already had an account, so it now also shows ${lender.name}'s loans. They sign in with their existing password.`;
+      await sendMail({
+        to: email,
+        subject: 'Lender access on Jay Capital Funding',
+        html: brandShell(
+          `<p style="margin:0 0 14px">Hi ${esc(fullName || 'there')},</p>
+           <p style="margin:0 0 14px">Your Jay Capital Funding login can now view the loans funded by <b>${esc(lender.name)}</b>. Sign in with your existing email and password.</p>
+           ${site ? button(`${site}/login?next=/lender`, 'Sign in') : ''}`
+        ),
+      });
+    } else {
+      userId = await createUserAndEmailInvite(svc, email, fullName, site, 'lender');
+      message = `Invitation emailed to ${email}.`;
+    }
+
+    // Only a plain borrower account with no borrower records becomes a lender
+    // account; admins and staff keep their role, and a real borrower stays a
+    // borrower (they reach the lender view from a link in their portal).
+    const { data: profile } = await svc.from('profiles').select('role').eq('id', userId).maybeSingle();
+    const { count: borrowerRecords } = await svc.from('borrowers')
+      .select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    const becomeLender = !profile || (profile.role === 'borrower' && !borrowerRecords);
+    await svc.from('profiles').upsert({
+      id: userId, email,
+      ...(becomeLender ? { role: 'lender' } : {}),
+      ...(fullName ? { full_name: fullName } : {}),
+    }, { onConflict: 'id' });
+
+    const { error } = await svc.from('lender_logins').insert({
+      lender_id: lenderId, email, full_name: fullName || null, user_id: userId,
+    });
+    if (error) throw new Error(error.message);
+
+    await logActivity('lender_login_created', null, await actorId(), `${email} · ${lender.name}`);
+    revalidatePath('/admin/lenders');
+    revalidatePath('/admin/users');
+    return { message };
+  });
+}
+
+/**
+ * Take away one person's view of one lender's loans. Their account itself is
+ * left alone (it may be a borrower login, or log in for another lender);
+ * block or delete it on the Users page if they should not sign in at all.
+ */
+export async function removeLenderLogin(loginId: string) {
+  return run(async () => {
+    await requireAdmin();
+    const svc = serviceClient();
+    const { data: row } = await svc.from('lender_logins')
+      .select('id, email, lenders(name)').eq('id', loginId).maybeSingle();
+    if (!row) throw new Error('That login was already removed.');
+    const { error } = await svc.from('lender_logins').delete().eq('id', loginId);
+    if (error) throw new Error(error.message);
+    const lenderName = (row as any).lenders?.name ?? 'lender';
+    await logActivity('lender_login_removed', null, await actorId(), `${row.email} · ${lenderName}`);
+    revalidatePath('/admin/lenders');
+    return { message: `${row.email} can no longer see ${lenderName}'s loans.` };
+  });
+}
+
+/** Minimal HTML escaping for names placed in an email. */
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
 /* ============================================================
@@ -850,7 +950,7 @@ export async function deletePayment(loanId: string, paymentId: string) {
  * User management
  * ============================================================ */
 
-export async function updateUserProfile(userId: string, opts: { fullName: string; email: string; role: 'admin' | 'staff' | 'borrower' }) {
+export async function updateUserProfile(userId: string, opts: { fullName: string; email: string; role: 'admin' | 'staff' | 'borrower' | 'lender' }) {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: { user: me } } = await supabase.auth.getUser();
@@ -872,6 +972,11 @@ export async function updateUserProfile(userId: string, opts: { fullName: string
       .update({ email, full_name: opts.fullName.trim() || null, role: opts.role })
       .eq('id', userId);
     if (error) throw new Error(error.message);
+    // Lender access matches on the account's email (migration 026), so it
+    // follows the account to its new address.
+    if (current && current.email !== email) {
+      await svc.from('lender_logins').update({ email }).eq('user_id', userId);
+    }
 
     await logActivity('user_updated', null, await actorId(), `${email} · role ${opts.role}`);
     revalidatePath('/admin/users');
@@ -996,7 +1101,7 @@ export async function deleteUser(userId: string) {
  * unguessable throwaway password and mail the recovery link ourselves.
  */
 async function createUserAndEmailInvite(
-  svc: any, email: string, fullName: string, site: string, kind: 'team' | 'borrower',
+  svc: any, email: string, fullName: string, site: string, kind: 'team' | 'borrower' | 'lender',
 ): Promise<string> {
   const throwaway = randomBytes(24).toString('base64url');
   const { data, error } = await svc.auth.admin.createUser({
@@ -1017,7 +1122,9 @@ async function createUserAndEmailInvite(
 
   const intro = kind === 'borrower'
     ? 'An account has been created for you on the Jay Capital Funding borrower portal, where you can view your loan statements and construction draws.'
-    : 'You have been given access to the Jay Capital Funding portal.';
+    : kind === 'lender'
+      ? 'An account has been created for you on the Jay Capital Funding lender portal, where you can view the loans you funded, their draws and their payments.'
+      : 'You have been given access to the Jay Capital Funding portal.';
 
   await svc.from('profiles').update({ invited_at: new Date().toISOString() }).eq('id', userId);
   await logActivity('user_invited', null, await actorId(), `${email} (${kind})`);
