@@ -33,3 +33,12 @@ export const DRAW_REQUEST_LABEL: Record<DrawRequestStatus, string> = {
 export function drawRequestChip(status: DrawRequestStatus): string {
   return status === 'approved' ? 'chip ok' : status === 'declined' ? 'chip late' : 'chip';
 }
+
+/**
+ * The status as people should read it. A waiting request we have already
+ * replied to ("we are reviewing it") reads "Under review" for the borrower
+ * and for staff alike.
+ */
+export function drawRequestStatusLabel(r: Pick<DrawRequestRow, 'status' | 'decision_note'>): string {
+  return r.status === 'pending' && r.decision_note ? 'Under review' : DRAW_REQUEST_LABEL[r.status];
+}
