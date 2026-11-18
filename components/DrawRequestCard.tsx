@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 import { requestDraw, cancelDrawRequest } from '@/lib/draw-request-actions';
-import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
+import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
 import { money, fmtDateTime } from '@/lib/format';
 
 /**
@@ -97,7 +97,7 @@ export default function DrawRequestCard({
                   {money(r.status === 'approved' && r.approved_amount != null ? r.approved_amount : r.amount)}
                 </b>
                 <span className={drawRequestChip(r.status)}>
-                  {r.status === 'pending' && r.decision_note ? 'Under review' : DRAW_REQUEST_LABEL[r.status]}
+                  {drawRequestStatusLabel(r)}
                 </span>
                 <span style={{ flex: 1 }} />
                 {r.status === 'pending' && (

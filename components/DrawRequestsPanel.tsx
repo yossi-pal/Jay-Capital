@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
 import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate } from '@/lib/draw-request-actions';
-import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
+import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
 
 /** Starting text for "Send update"; the admin can change it before sending. */
@@ -86,10 +86,11 @@ export function PendingDrawRequests({
             <span className="muted" style={{ fontSize: 13 }}>
               {' '}· requested {fmtDateTime(r.requested_at)}
             </span>
+            {' '}<span className={drawRequestChip(r.status)} style={{ marginLeft: 6 }}>{drawRequestStatusLabel(r)}</span>
             {r.note && <div style={{ fontSize: 14, marginTop: 4, overflowWrap: 'anywhere' }}>{r.note}</div>}
             {r.decision_note && (
               <div className="alert info" style={{ margin: '8px 0 0', overflowWrap: 'anywhere' }}>
-                <b>Update shown to the borrower:</b> {r.decision_note}
+                <b>Update sent to the borrower:</b> {r.decision_note}
               </div>
             )}
           </div>
@@ -172,7 +173,7 @@ export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] })
             {list.map(r => (
               <tr key={r.id}>
                 <td style={{ whiteSpace: 'nowrap' }}>{fmtDateTime(r.requested_at)}</td>
-                <td><span className={drawRequestChip(r.status)}>{DRAW_REQUEST_LABEL[r.status]}</span></td>
+                <td><span className={drawRequestChip(r.status)}>{drawRequestStatusLabel(r)}</span></td>
                 <td style={{ minWidth: 180 }}>{r.note || ''}</td>
                 <td style={{ minWidth: 140 }}>{r.decision_note || ''}</td>
                 <td className="num">{money(r.amount)}</td>
