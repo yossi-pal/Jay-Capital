@@ -155,6 +155,56 @@ function firstName(name: string | null | undefined): string {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
+/**
+ * A message to the borrower while the request is still waiting, e.g. "we are
+ * reviewing it". The request stays pending; the borrower sees the latest
+ * message on their portal (it is replaced by the final reply once the request
+ * is approved or declined) and, if ticked, gets it by email.
+ */
+export async function sendDrawRequestUpdate(requestId: string, form: FormData) {
+  return run(async () => {
+    const { supabase, userId } = await requireAdmin();
+    const { req, loan } = await loadForDecision(supabase, requestId);
+
+    const message = String(form.get('message') || '').trim();
+    const notify = String(form.get('notify') || '') === '1';
+    if (!message) throw new Error('Please write the message to send.');
+    if (message.length > 1000) throw new Error('Please keep the message under 1,000 characters.');
+
+    const { data: done, error } = await supabase.from('draw_requests')
+      .update({ decision_note: message })
+      .eq('id', requestId).eq('status', 'pending').select('id');
+    if (error) throw new Error(error.message);
+    if (!done?.length) throw new Error('This request has already been handled. Refresh the page to see its status.');
+
+    await logActivity('draw_request_updated', req.loan_id, userId, `Update on ${money(req.amount)} request`);
+
+    let emailed = false;
+    if (notify && loan.borrower_email) {
+      emailed = await trySend({
+        to: loan.borrower_email,
+        subject: `Update on your draw request — ${shortAddress(loan.property)}`,
+        html: brandShell(`
+          <p style="margin:0 0 14px;line-height:1.6">Hi ${esc(firstName(loan.borrower_name))},</p>
+          <p style="margin:0 0 14px;line-height:1.6">
+            An update on your draw request of <b>${esc(money(req.amount))}</b>
+            on ${esc(shortAddress(loan.property))} (loan ${esc(loan.loan_number)}):
+          </p>
+          <p style="margin:0 0 18px;line-height:1.6;padding:10px 14px;background:#F7F9FC;border-radius:8px">${esc(message)}</p>
+          ${button(`${site()}/portal`, 'View your loan')}
+        `),
+      });
+    }
+
+    revalidatePath(`/admin/loans/${req.loan_id}`);
+    revalidatePath('/portal');
+    return {
+      message: 'Update saved. The borrower will see it on their portal.'
+        + (notify ? (emailed ? ' They were also emailed.' : ' The email to the borrower could not be sent.') : ''),
+    };
+  });
+}
+
 export async function approveDrawRequest(requestId: string, form: FormData) {
   return run(async () => {
     const { supabase, userId } = await requireAdmin();
