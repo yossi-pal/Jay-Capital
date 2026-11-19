@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
 import SendToLenderButton from '@/components/SendToLenderButton';
@@ -43,6 +43,20 @@ export function PendingDrawRequests({
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
 
+  // Folded to one line by default so the loan itself stays near the top.
+  // The choice is remembered in this browser.
+  const FOLD_KEY = 'jcf:admin:drawRequestsOpen';
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    try { if (window.localStorage.getItem(FOLD_KEY) === '1') setExpanded(true); } catch { /* ignore */ }
+  }, []);
+  function toggle() {
+    setExpanded(v => {
+      try { window.localStorage.setItem(FOLD_KEY, v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+  }
+
   if (pending.length === 0) return null;
 
   function openFor(r: DrawRequestRow, m: 'approve' | 'decline' | 'update') {
@@ -77,12 +91,34 @@ export function PendingDrawRequests({
   const over = mode === 'approve' && Number(amount) > available + 0.005;
 
   return (
-    <section className="card" style={{ borderColor: '#E9D6AE', marginBottom: 16 }} aria-label="Draw requests waiting">
-      <div className="panel-head">
-        <h2>Draw {pending.length === 1 ? 'request' : 'requests'} waiting</h2>
+    <section className="card" style={{ borderColor: '#E9D6AE', marginBottom: 16, padding: expanded ? undefined : '12px 20px' }}
+      aria-label="Draw requests waiting">
+      <button type="button" onClick={toggle} aria-expanded={expanded}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%',
+          background: 'none', border: 0, padding: 0, margin: 0, cursor: 'pointer', textAlign: 'left',
+          font: 'inherit', color: 'inherit',
+        }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round" aria-hidden="true"
+          style={{ flex: 'none', transition: 'transform .15s', transform: expanded ? 'rotate(90deg)' : 'none' }}>
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        <b style={{ fontSize: 16, color: 'var(--navy)' }}>Draw {pending.length === 1 ? 'request' : 'requests'} waiting</b>
         <span className="count">{pending.length}</span>
-      </div>
-      {pending.map(r => (
+        {!expanded && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 14 }}>
+            <b style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {money(pending.reduce((t, r) => t + Number(r.amount), 0))}
+            </b>
+            {pending.length === 1 && <span className={drawRequestChip(pending[0].status)}>{drawRequestStatusLabel(pending[0])}</span>}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {expanded && <div style={{ marginTop: 12 }} />}
+      {expanded && pending.map(r => (
         <div key={r.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '12px 0', borderTop: '1px solid var(--hair)' }}>
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <b style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{money(r.amount)}</b>
