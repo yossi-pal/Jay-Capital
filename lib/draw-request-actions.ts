@@ -5,7 +5,7 @@ import { run } from '@/lib/result';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { sendMail, brandShell, button, BRAND } from '@/lib/mailer';
 import { logActivity } from '@/lib/activity';
-import { money, fmtDate, shortAddress } from '@/lib/format';
+import { money, fmtDate, fmtDateTime, shortAddress } from '@/lib/format';
 
 /**
  * Draw requests: a borrower asks for a construction draw from the portal, an
@@ -202,6 +202,76 @@ export async function sendDrawRequestUpdate(requestId: string, form: FormData) {
       message: 'Update saved. The borrower will see it on their portal.'
         + (notify ? (emailed ? ' They were also emailed.' : ' The email to the borrower could not be sent.') : ''),
     };
+  });
+}
+
+/**
+ * Email the lender a draw request so they can fund it. Nothing about the
+ * request changes; the send is recorded in the activity log. Works while the
+ * request is waiting and after it is approved.
+ */
+export async function sendDrawRequestToLender(requestId: string, form: FormData) {
+  return run(async () => {
+    const { supabase, userId } = await requireAdmin();
+
+    const { data: req } = await supabase.from('draw_requests')
+      .select('id, loan_id, amount, note, status, requested_at, approved_amount').eq('id', requestId).maybeSingle();
+    if (!req) throw new Error('That draw request no longer exists.');
+    if (req.status === 'declined' || req.status === 'cancelled') {
+      throw new Error('This request was declined or cancelled, so there is nothing to send to the lender.');
+    }
+    const { data: loan } = await supabase.from('loan_summary')
+      .select('loan_id, loan_number, property, borrower_name, entity_name, is_entity, lender_name, loan_amount, total_disbursed, remaining_draw')
+      .eq('loan_id', req.loan_id).maybeSingle();
+    if (!loan) throw new Error('Loan not found.');
+
+    const to = Array.from(new Set(String(form.get('to') || '')
+      .split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean)));
+    if (to.length === 0) throw new Error('Please enter the lender\u2019s email address.');
+    const bad = to.filter(e => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+    if (bad.length) throw new Error(`That email address does not look right: ${bad.join(', ')}`);
+    if (to.length > 10) throw new Error('Please send to 10 addresses or fewer.');
+    const message = String(form.get('message') || '').trim();
+    if (message.length > 2000) throw new Error('Please keep the message under 2,000 characters.');
+
+    const { data: me } = await supabase.from('profiles').select('email, full_name').eq('id', userId).maybeSingle();
+
+    const approved = req.status === 'approved' && req.approved_amount != null;
+    const amount = approved ? Number(req.approved_amount) : Number(req.amount);
+    const borrower = loan.is_entity && loan.entity_name ? `${loan.entity_name} (${loan.borrower_name})` : loan.borrower_name;
+    const row = (k: string, v: string) =>
+      `<tr><td style="padding:7px 0;color:#6B7A90;border-top:1px solid #E4EAF3">${esc(k)}</td>`
+      + `<td style="padding:7px 0;text-align:right;font-weight:600;border-top:1px solid #E4EAF3">${esc(v)}</td></tr>`;
+
+    const html = brandShell(`
+      <h2 style="margin:0 0 12px;color:#04162A;font-size:18px">Draw request${approved ? ' (approved)' : ''}: ${esc(money(amount))}</h2>
+      ${message ? `<p style="margin:0 0 16px;line-height:1.6;white-space:pre-line">${esc(message)}</p>` : ''}
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">
+        ${row('Loan', String(loan.loan_number))}
+        ${row('Property', String(loan.property || ''))}
+        ${row('Borrower', String(borrower || ''))}
+        ${row(approved ? 'Amount approved' : 'Amount requested', money(amount))}
+        ${approved && Math.abs(amount - Number(req.amount)) > 0.005 ? row('Amount requested', money(req.amount)) : ''}
+        ${row('Requested', fmtDateTime(req.requested_at))}
+        ${row('Loan amount', money(loan.loan_amount))}
+        ${row('Drawn so far', money(loan.total_disbursed))}
+        ${row('Left to draw', money(loan.remaining_draw))}
+      </table>
+      ${req.note ? `<p style="margin:0 0 6px;line-height:1.6"><b>What it is for:</b> ${esc(req.note)}</p>` : ''}
+      <p style="margin:16px 0 0;line-height:1.6;color:#6B7A90;font-size:13px">Reply to this email with any questions.</p>
+    `);
+
+    await sendMail({
+      to: to.join(', '),
+      replyTo: me?.email || undefined,
+      subject: `Draw request ${money(amount)} — ${loan.loan_number}, ${shortAddress(loan.property)}`,
+      html,
+    });
+
+    await logActivity('draw_request_sent_to_lender', req.loan_id, userId,
+      `${money(amount)} request sent to ${to.join(', ')}`);
+    revalidatePath(`/admin/loans/${req.loan_id}`);
+    return { message: `Sent to ${to.join(', ')}.` };
   });
 }
 
