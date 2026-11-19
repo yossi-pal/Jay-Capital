@@ -42,6 +42,7 @@ const KIND_LABEL: Record<string, string> = {
   draw_request_approved: 'Approved draw request',
   draw_request_declined: 'Declined draw request',
   draw_request_updated: 'Sent draw request update',
+  draw_request_sent_to_lender: 'Sent draw request to lender',
   payment_added: 'Recorded payment',
   payment_updated: 'Edited payment',
   payment_deleted: 'Deleted payment',
