@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
+import SendToLenderButton from '@/components/SendToLenderButton';
 import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate } from '@/lib/draw-request-actions';
 import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
@@ -22,9 +23,11 @@ function todayIso(): string {
  * admin can adjust the amount or date before the draw is recorded.
  */
 export function PendingDrawRequests({
-  requests, canEdit, available, hasEmail,
+  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [],
 }: {
   requests: DrawRequestRow[]; canEdit: boolean; available: number; hasEmail: boolean;
+  /** The loan's lender and its portal login addresses, for "Send to lender". */
+  lenderName?: string | null; lenderEmails?: string[];
 }) {
   const router = useRouter();
   const pending = requests.filter(r => r.status === 'pending');
@@ -96,6 +99,7 @@ export function PendingDrawRequests({
           </div>
           {canEdit ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <SendToLenderButton requestId={r.id} amount={Number(r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} />
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'update')}>Send update</button>
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'decline')}>Decline</button>
               <button className="btn" type="button" onClick={() => openFor(r, 'approve')}>Approve</button>
@@ -160,7 +164,11 @@ export function PendingDrawRequests({
 }
 
 /** Every request on the loan, oldest first, for the Draws tab. */
-export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] }) {
+export function DrawRequestHistory({
+  requests, canEdit = false, lenderName = null, lenderEmails = [],
+}: {
+  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[];
+}) {
   if (requests.length === 0) return null;
   const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
   return (
@@ -168,7 +176,7 @@ export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] })
       <h3 style={{ margin: '24px 0 10px', fontSize: 16, color: 'var(--navy)' }}>Draw requests from the borrower</h3>
       <div className="tablescroll">
         <table className="bordered">
-          <thead><tr><th>Requested</th><th>Status</th><th>For</th><th>Reply</th><th className="num">Asked</th><th className="num">Approved</th></tr></thead>
+          <thead><tr><th>Requested</th><th>Status</th><th>For</th><th>Reply</th><th className="num">Asked</th><th className="num">Approved</th>{canEdit && <th></th>}</tr></thead>
           <tbody>
             {list.map(r => (
               <tr key={r.id}>
@@ -178,6 +186,14 @@ export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] })
                 <td style={{ minWidth: 140 }}>{r.decision_note || ''}</td>
                 <td className="num">{money(r.amount)}</td>
                 <td className="num">{r.approved_amount != null ? money(r.approved_amount) : ''}</td>
+                {canEdit && (
+                  <td className="num">
+                    {r.status === 'approved' && (
+                      <SendToLenderButton small requestId={r.id}
+                        amount={Number(r.approved_amount ?? r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

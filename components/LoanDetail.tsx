@@ -30,7 +30,7 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false,
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false, lenderEmails = [],
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
@@ -43,6 +43,8 @@ export default function LoanDetail({
   fallbackOrder?: { id: string; label: string }[];
   /** Draw requests the borrower sent from the portal. */
   drawRequests?: DrawRequestRow[];
+  /** The lender's portal login addresses (admin only), to send a draw request to. */
+  lenderEmails?: string[];
   /** The lender portal's read-only copy of this page: links stay in /lender,
    *  the statement downloads from the lender route, and internal details
    *  (notes, lien position, draw requests) are left out. Pass canEdit and
@@ -199,6 +201,7 @@ export default function LoanDetail({
       <PendingDrawRequests
         requests={drawRequests} canEdit={canEdit}
         available={Number(summary.remaining_draw || 0)} hasEmail={!!summary.borrower_email}
+        lenderName={summary.lender_name} lenderEmails={lenderEmails}
       />
 
       {/* The four numbers that matter */}
@@ -437,7 +440,7 @@ export default function LoanDetail({
                 </tbody>
               </table>
             </div>
-            <DrawRequestHistory requests={drawRequests} />
+            <DrawRequestHistory requests={drawRequests} canEdit={canEdit} lenderName={summary.lender_name} lenderEmails={lenderEmails} />
             </>
           )}
         </div>
