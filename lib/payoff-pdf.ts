@@ -16,7 +16,7 @@ const WHITE = rgb(1, 1, 1);
 
 export interface PayoffPdfLoan {
   loan_number: string; property: string; loan_amount: number | string; annual_rate: number | string;
-  closing_date: string; borrower_name: string; borrower_phone?: string | null; borrower_email?: string | null;
+  closing_date: string; borrower_name: string;
   is_entity?: boolean | null; entity_name?: string | null; lender_name: string | null;
 }
 
@@ -91,9 +91,7 @@ export async function payoffPDF(
   text('Borrower: ', M, y, 9.5, bold, NAVY);
   text(borrowerDisplayName(loan), M + bold.widthOfTextAtSize('Borrower: ', 9.5), y, 9.5);
   y -= 13;
-  const entity = loan.is_entity && loan.entity_name;
-  const contact = [entity ? loan.borrower_name : '', loan.borrower_phone, loan.borrower_email].filter(Boolean).join('  ·  ');
-  if (contact) { text(fit(contact, 9.5, 340), M, y, 9.5, font, MUTED); y -= 13; }
+  // Names the borrower only: no personal name, phone or email on a letter that goes to third parties.
   let ry = top;
   rtext('Date Issued', R, ry, 8.5, font, MUTED); ry -= 14;
   rtext(longDate(issuedOn), R, ry, 10.5, bold, NAVY); ry -= 13;
