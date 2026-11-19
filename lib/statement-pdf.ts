@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import { MARK_PNG_BASE64, BRAND } from '@/lib/brand-assets';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { money, pct, fmtDate, statementPeriod, borrowerDisplayName } from '@/lib/format';
-import { buildLedger, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import type { StatementLoan, StatementDraw } from '@/lib/statement-html';
 
 export const SERVICER = 'Jay Capital Funding Inc.';
@@ -36,6 +36,7 @@ export async function statementPDF(
   const engineLoan = {
     loan_amount: Number(loan.loan_amount), acquisition: Number(loan.acquisition),
     annual_rate: rate, closing_date: loan.closing_date,
+    ...reserveFields(loan),
   };
   // The engine hands back the same draw objects it was given, so this map
   // recovers each period draw's method and note for the table below.
@@ -179,13 +180,17 @@ export async function statementPDF(
     ['Previous Balance', money(ledger.previousBalance)],
     ['Payments Received', ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)],
     ['Previous Open Balance', money(ledger.previousOpenBalance)],
+    ...(ledger.currentReserve > 0 ? [
+      ['Interest This Period', money(ledger.currentInterest)],
+      ['Less Interest Reserve', `(${money(ledger.currentReserve)})`],
+    ] as [string, string][] : []),
     ['Current Charges', money(ledger.currentCharge)],
   ];
   // When a statement bills two periods -- the first billed one, carrying the
   // deferred closing month -- show what makes up the figure.
   if (ledger.currentPeriods.length > 1) {
     for (const c of ledger.currentPeriods) {
-      rightRows.push([`   ${c.label} interest`, money(c.charge)]);
+      rightRows.push([`   ${c.label} interest${c.reserve > 0 ? ' after reserve' : ''}`, money(c.billed)]);
     }
   }
 
@@ -297,7 +302,7 @@ export async function statementPDF(
     for (const r of ledger.priorUnpaid) {
       ensure(18);
       text(fmtDate(r.statementDate), M + 6, y, 9);
-      rightText(money(r.charge), M + 300, y, 9);
+      rightText(money(r.billed), M + 300, y, 9);
       rightText(money(r.paid), M + 400, y, 9);
       rightText(money(r.balance), width - M - 6, y, 9);
       page.drawLine({ start: { x: M, y: y - 5 }, end: { x: width - M, y: y - 5 }, thickness: 0.4, color: rgb(0.93, 0.945, 0.97) });

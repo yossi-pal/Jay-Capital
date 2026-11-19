@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 /**
- * Refreshes the Supabase session cookie and guards /admin and /portal.
+ * Refreshes the Supabase session cookie and guards /admin, /portal and /lender.
  * Statement pages (/statement/[token]) are intentionally public -- they
  * authenticate by token, not by session.
  */
@@ -25,7 +25,7 @@ export async function middleware(req: NextRequest) {
   );
 
   const path = req.nextUrl.pathname;
-  // On /admin and /portal, getSession reads the sign-in cookie (refreshing it
+  // On /admin, /portal and /lender, getSession reads the sign-in cookie (refreshing it
   // when it has expired) without a round trip to Supabase on every click. That
   // is enough for this redirect, which is a convenience: the real checks are
   // getUser in the admin layout and the portal page, and row level security on
@@ -36,7 +36,7 @@ export async function middleware(req: NextRequest) {
     ? !!(await supabase.auth.getUser()).data.user
     : !!(await supabase.auth.getSession()).data.session;
 
-  if ((path.startsWith('/admin') || path.startsWith('/portal')) && !signedIn) {
+  if ((path.startsWith('/admin') || path.startsWith('/portal') || path.startsWith('/lender')) && !signedIn) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', path);
@@ -55,4 +55,4 @@ export async function middleware(req: NextRequest) {
 
 // /signup/[token] is deliberately NOT matched: that link must work for a
 // signed-out visitor arriving from their email.
-export const config = { matcher: ['/admin/:path*', '/portal/:path*', '/go', '/login', '/signup'] };
+export const config = { matcher: ['/admin/:path*', '/portal/:path*', '/lender/:path*', '/go', '/login', '/signup'] };

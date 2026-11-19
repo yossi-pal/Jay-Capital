@@ -140,6 +140,17 @@ function requireLoanFields(form: FormData, lenderId: string | null) {
 }
 
 /** Lien position is kept apart from `loans` so borrowers can never read it (migration 015). */
+/** The interest reserve fields from the new / edit loan form, checked. */
+function reserveFromForm(form: FormData) {
+  const months = Number(form.get('interest_reserve_months') || 0);
+  if (!Number.isInteger(months) || months < 0 || months > 60) {
+    throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
+  }
+  const total = months > 0 ? Math.round(Number(form.get('interest_reserve_total') || 0) * 100) / 100 : 0;
+  if (months > 0 && !(total > 0)) throw new Error('Please enter the total interest reserve collected at closing.');
+  return { interest_reserve_months: months, interest_reserve_total: total };
+}
+
 async function saveLienPosition(supabase: any, loanId: string, form: FormData) {
   const { error } = await supabase.from('loan_positions').upsert({
     loan_id: loanId, lien_position: Number(form.get('lien_position')),
@@ -180,6 +191,7 @@ export async function createLoan(form: FormData) {
       construction,
       annual_rate: Number(form.get('annual_rate') || 0) / 100,
       closing_date: String(form.get('closing_date') || ''),
+      ...reserveFromForm(form),
     }).select('id').single();
     if (error) throw new Error(error.message);
     await saveLienPosition(supabase, created.id, form);
@@ -197,22 +209,20 @@ export async function createLoan(form: FormData) {
  * only what the loan doesn't know is stored.
  */
 export async function saveClosingStatement(loanId: string, opts: {
-  lenderPointsPct: number; interestReserveMonths: number;
+  lenderPointsPct: number;
   brokerFeePct: number; processingFee: number; legalFee: number;
   otherFees: { label: string; amount: number }[]; notes: string; lenderNotes: string;
 }) {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: loan } = await supabase.from('loans')
-      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date').eq('id', loanId).maybeSingle();
+      .select('loan_number, loan_amount, acquisition, construction, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle();
     if (!loan) throw new Error('That loan could not be found.');
 
     const points = Number(opts.lenderPointsPct);
     if (!Number.isFinite(points) || points < 0 || points > 100) throw new Error('Points to the lender must be between 0 and 100.');
     const broker = Number(opts.brokerFeePct);
     if (!Number.isFinite(broker) || broker < 0 || broker > 100) throw new Error('The broker origination fee must be between 0 and 100 percent.');
-    const months = Number(opts.interestReserveMonths);
-    if (!Number.isInteger(months) || months < 0 || months > 60) throw new Error('Interest reserve must be a whole number of months, from 0 to 60.');
     for (const [name, v] of [['processing fee', opts.processingFee], ['legal fee', opts.legalFee]] as const) {
       if (!Number.isFinite(Number(v)) || Number(v) < 0) throw new Error(`The ${name} cannot be negative.`);
     }
@@ -223,13 +233,14 @@ export async function saveClosingStatement(loanId: string, opts: {
 
     const row = {
       lender_points_pct: points,
-      interest_reserve_months: months,
+      // Set on the loan; kept here only as a copy of what the statement used.
+      interest_reserve_months: Number(loan.interest_reserve_months) || 0,
       broker_fee_pct: broker,
       processing_fee: Number(opts.processingFee) || 0,
       legal_fee: Number(opts.legalFee) || 0,
       other_fees: cleanFees(opts.otherFees),
     };
-    const fig = closingFigures({ ...loan, ...row });
+    const fig = closingFigures({ ...row, ...loan });
     if (fig.netWire < 0) {
       throw new Error(`The lender deductions come to more than the loan amount, so the net wire would be ${fmtMoney(fig.netWire)}. Check the points and interest reserve.`);
     }
@@ -251,7 +262,7 @@ export async function saveClosingStatement(loanId: string, opts: {
 /** Everything a payoff letter's amounts are worked out from, read fresh. */
 async function payoffSources(supabase: any, loanId: string) {
   const [{ data: loan }, { data: draws }, { data: payments }, { data: allocations }] = await Promise.all([
-    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date').eq('id', loanId).maybeSingle(),
+    supabase.from('loans').select('loan_number, loan_amount, acquisition, annual_rate, closing_date, interest_reserve_months, interest_reserve_total').eq('id', loanId).maybeSingle(),
     supabase.from('draws').select('draw_date, amount, description').eq('loan_id', loanId),
     supabase.from('payments').select('id, payment_date, amount').eq('loan_id', loanId),
     supabase.from('payment_allocations').select('payment_id, period_month, amount').eq('loan_id', loanId),
@@ -435,6 +446,7 @@ export async function updateLoan(loanId: string, form: FormData) {
       construction,
       annual_rate: Number(form.get('annual_rate') || 0) / 100,
       closing_date: String(form.get('closing_date') || ''),
+      ...reserveFromForm(form),
       updated_at: new Date().toISOString(),
     }).eq('id', loanId);
     if (error) throw new Error(error.message);
@@ -549,7 +561,7 @@ export async function setLoanStatus(loanId: string, status: string, paidOffDate?
   });
 }
 
-export async function setUserRole(userId: string, role: 'admin' | 'staff' | 'borrower') {
+export async function setUserRole(userId: string, role: 'admin' | 'staff' | 'borrower' | 'lender') {
   return run(async () => {
     const supabase = await requireAdmin();
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
@@ -681,8 +693,130 @@ export async function setLenderActive(id: string, active: boolean) {
 }
 
 /* ============================================================
+ * Lender logins (read-only lender portal at /lender)
+ * ============================================================ */
+
+/**
+ * Give someone at a lender a login that shows that lender's loans.
+ *
+ * Access is the lender_logins row: my_lender_ids() (migration 026) matches it
+ * on both the account id and the signed-in email, so the row's email must be
+ * the account's email. A new account gets a set-password email over our SMTP;
+ * an existing account (a borrower, or someone already logging in for another
+ * lender) is simply connected and told so.
+ */
+export async function inviteLenderLogin(lenderId: string, opts: { email: string; fullName: string }) {
+  return run(async () => {
+    await requireAdmin();
+    const svc = serviceClient();
+    const site = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const email = opts.email.trim().toLowerCase();
+    const fullName = opts.fullName.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address.');
+
+    const { data: lender } = await svc.from('lenders').select('id, name').eq('id', lenderId).maybeSingle();
+    if (!lender) throw new Error('That lender no longer exists.');
+
+    const { data: dupe } = await svc.from('lender_logins')
+      .select('id').eq('lender_id', lenderId).ilike('email', email).maybeSingle();
+    if (dupe) throw new Error(`${email} already has a login for ${lender.name}.`);
+
+    let userId: string;
+    let message: string;
+    const existing = await findUserByEmail(svc, email);
+    if (existing) {
+      userId = existing.id;
+      message = `${email} already had an account, so it now also shows ${lender.name}'s loans. They sign in with their existing password.`;
+      await sendMail({
+        to: email,
+        subject: 'Lender access on Jay Capital Funding',
+        html: brandShell(
+          `<p style="margin:0 0 14px">Hi ${esc(fullName || 'there')},</p>
+           <p style="margin:0 0 14px">Your Jay Capital Funding login can now view the loans funded by <b>${esc(lender.name)}</b>. Sign in with your existing email and password.</p>
+           ${site ? button(`${site}/login?next=/lender`, 'Sign in') : ''}`
+        ),
+      });
+    } else {
+      userId = await createUserAndEmailInvite(svc, email, fullName, site, 'lender');
+      message = `Invitation emailed to ${email}.`;
+    }
+
+    // Only a plain borrower account with no borrower records becomes a lender
+    // account; admins and staff keep their role, and a real borrower stays a
+    // borrower (they reach the lender view from a link in their portal).
+    const { data: profile } = await svc.from('profiles').select('role').eq('id', userId).maybeSingle();
+    const { count: borrowerRecords } = await svc.from('borrowers')
+      .select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    const becomeLender = !profile || (profile.role === 'borrower' && !borrowerRecords);
+    await svc.from('profiles').upsert({
+      id: userId, email,
+      ...(becomeLender ? { role: 'lender' } : {}),
+      ...(fullName ? { full_name: fullName } : {}),
+    }, { onConflict: 'id' });
+
+    const { error } = await svc.from('lender_logins').insert({
+      lender_id: lenderId, email, full_name: fullName || null, user_id: userId,
+    });
+    if (error) throw new Error(error.message);
+
+    await logActivity('lender_login_created', null, await actorId(), `${email} · ${lender.name}`);
+    revalidatePath('/admin/lenders');
+    revalidatePath('/admin/users');
+    return { message };
+  });
+}
+
+/**
+ * Take away one person's view of one lender's loans. Their account itself is
+ * left alone (it may be a borrower login, or log in for another lender);
+ * block or delete it on the Users page if they should not sign in at all.
+ */
+export async function removeLenderLogin(loginId: string) {
+  return run(async () => {
+    await requireAdmin();
+    const svc = serviceClient();
+    const { data: row } = await svc.from('lender_logins')
+      .select('id, email, lenders(name)').eq('id', loginId).maybeSingle();
+    if (!row) throw new Error('That login was already removed.');
+    const { error } = await svc.from('lender_logins').delete().eq('id', loginId);
+    if (error) throw new Error(error.message);
+    const lenderName = (row as any).lenders?.name ?? 'lender';
+    await logActivity('lender_login_removed', null, await actorId(), `${row.email} · ${lenderName}`);
+    revalidatePath('/admin/lenders');
+    return { message: `${row.email} can no longer see ${lenderName}'s loans.` };
+  });
+}
+
+/** Minimal HTML escaping for names placed in an email. */
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+/* ============================================================
  * Payments
  * ============================================================ */
+
+/**
+ * Catch a mistyped payment date before it is saved. A year typed as "0206"
+ * instead of "2026" is a valid date to the browser, but it sorts before the
+ * loan closed, so every statement would treat the money as already paid on
+ * day one and the running balance would go wrong.
+ */
+async function assertSensiblePaymentDate(loanId: string, paymentDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error('Payment date is not a valid date.');
+  const { data: loan, error } = await serviceClient().from('loans')
+    .select('closing_date').eq('id', loanId).single();
+  if (error) throw new Error(error.message);
+  const t = todayInAppTz();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const closing = String(loan.closing_date).slice(0, 10);
+  if (paymentDate < closing) {
+    throw new Error(`The payment date ${paymentDate} is before this loan closed (${closing}). Please check the year.`);
+  }
+  if (paymentDate > today) {
+    throw new Error(`The payment date ${paymentDate} is in the future. Please check the date.`);
+  }
+}
 
 /**
  * Record a borrower payment and apply it to specific charge periods.
@@ -696,6 +830,7 @@ export async function addPayment(loanId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
@@ -748,6 +883,7 @@ export async function updatePayment(loanId: string, paymentId: string, opts: {
   return run(async () => {
     await requireAdmin();
     if (!opts.paymentDate) throw new Error('Payment date is required.');
+    await assertSensiblePaymentDate(loanId, opts.paymentDate);
     const amount = Number(opts.amount);
     if (!(amount > 0)) throw new Error('Payment amount must be greater than zero.');
 
@@ -814,7 +950,7 @@ export async function deletePayment(loanId: string, paymentId: string) {
  * User management
  * ============================================================ */
 
-export async function updateUserProfile(userId: string, opts: { fullName: string; email: string; role: 'admin' | 'staff' | 'borrower' }) {
+export async function updateUserProfile(userId: string, opts: { fullName: string; email: string; role: 'admin' | 'staff' | 'borrower' | 'lender' }) {
   return run(async () => {
     const supabase = await requireAdmin();
     const { data: { user: me } } = await supabase.auth.getUser();
@@ -836,6 +972,11 @@ export async function updateUserProfile(userId: string, opts: { fullName: string
       .update({ email, full_name: opts.fullName.trim() || null, role: opts.role })
       .eq('id', userId);
     if (error) throw new Error(error.message);
+    // Lender access matches on the account's email (migration 026), so it
+    // follows the account to its new address.
+    if (current && current.email !== email) {
+      await svc.from('lender_logins').update({ email }).eq('user_id', userId);
+    }
 
     await logActivity('user_updated', null, await actorId(), `${email} · role ${opts.role}`);
     revalidatePath('/admin/users');
@@ -960,7 +1101,7 @@ export async function deleteUser(userId: string) {
  * unguessable throwaway password and mail the recovery link ourselves.
  */
 async function createUserAndEmailInvite(
-  svc: any, email: string, fullName: string, site: string, kind: 'team' | 'borrower',
+  svc: any, email: string, fullName: string, site: string, kind: 'team' | 'borrower' | 'lender',
 ): Promise<string> {
   const throwaway = randomBytes(24).toString('base64url');
   const { data, error } = await svc.auth.admin.createUser({
@@ -981,7 +1122,9 @@ async function createUserAndEmailInvite(
 
   const intro = kind === 'borrower'
     ? 'An account has been created for you on the Jay Capital Funding borrower portal, where you can view your loan statements and construction draws.'
-    : 'You have been given access to the Jay Capital Funding portal.';
+    : kind === 'lender'
+      ? 'An account has been created for you on the Jay Capital Funding lender portal, where you can view the loans you funded, their draws and their payments.'
+      : 'You have been given access to the Jay Capital Funding portal.';
 
   await svc.from('profiles').update({ invited_at: new Date().toISOString() }).eq('id', userId);
   await logActivity('user_invited', null, await actorId(), `${email} (${kind})`);

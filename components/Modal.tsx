@@ -16,7 +16,14 @@ export function Modal({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Stop the page behind the modal from scrolling, so on phones and tablets
+    // swipes move the modal's own content instead of the page underneath.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -27,7 +34,8 @@ export function Modal({
       style={{
         position: 'fixed', inset: 0, background: 'rgba(31,56,100,.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20, zIndex: 1000,
+        padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))',
+        zIndex: 1000,
       }}
     >
       <div
@@ -35,14 +43,24 @@ export function Modal({
         style={{
           background: '#fff', borderRadius: 12, width: '100%', maxWidth,
           boxShadow: '0 12px 40px rgba(31,56,100,.28)', overflow: 'hidden',
+          // Never taller than the screen; the body below scrolls instead.
+          maxHeight: '100%', display: 'flex', flexDirection: 'column',
         }}
       >
         {title && (
-          <div style={{ background: 'var(--navy)', color: '#fff', padding: '14px 20px', fontWeight: 700, letterSpacing: '.02em' }}>
+          <div style={{ flexShrink: 0, background: 'var(--navy)', color: '#fff', padding: '14px 20px', fontWeight: 700, letterSpacing: '.02em' }}>
             {title}
           </div>
         )}
-        <div style={{ padding: 22 }}>{children}</div>
+        <div
+          className="modal-body"
+          style={{
+            padding: 22, overflowY: 'auto', overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch', minHeight: 0,
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

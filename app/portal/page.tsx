@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { serverClient } from '@/lib/supabase-server';
 import PortalTitle from '@/components/PortalTitle';
 import LiveRefresh from '@/components/LiveRefresh';
@@ -18,13 +19,19 @@ export default async function PortalPage() {
   const supabase = serverClient();
   // Read as the signed-in user, never the service role: row level security is
   // what guarantees a borrower only ever sees their own loans.
-  const [{ data: { user } }, { data: loans }] = await Promise.all([
+  const [{ data: { user } }, { data: loans }, { data: lenderIds }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('loan_summary').select('*').order('loan_number'),
+    // Lenders this login also signs in for (migration 026). Only used to show
+    // a link to the lender view; it grants nothing on this page.
+    supabase.rpc('my_lender_ids'),
   ]);
   // Middleware only checks that a sign-in cookie exists; this confirms it with Supabase.
   if (!user) redirect('/login?next=/portal');
   const list = loans ?? [];
+  const isLenderToo = Array.isArray(lenderIds) && lenderIds.length > 0;
+  // A lender with no loans of their own as a borrower belongs in the lender view.
+  if (!list.length && isLenderToo) redirect('/lender');
 
   // The person, not the entity: statements are the only place the entity leads.
   const borrowerName = list.length ? list[0].borrower_name : '';
@@ -41,6 +48,7 @@ export default async function PortalPage() {
           <span className="av" aria-hidden="true">{initials}</span>
           <span className="nm">{borrowerName || user?.email}</span>
         </span>
+        {isLenderToo && <Link className="btn secondary" href="/lender">Lender view</Link>}
         <ChangeEmailButton userEmail={user?.email ?? ''} />
         <form action="/auth/signout" method="post" style={{ margin: 0 }}>
           <button className="btn secondary">Sign out</button>
@@ -58,7 +66,7 @@ export default async function PortalPage() {
         fetchStatementExtras(loan.loan_id, { requireUserAccess: true }),
         // Read as the borrower: row level security returns only their own requests.
         supabase.from('draw_requests').select(DRAW_REQUEST_COLUMNS).eq('loan_id', loan.loan_id)
-          .order('requested_at', { ascending: false }),
+          .order('requested_at', { ascending: true }),
       ]);
       return {
         loan, draws: draws ?? [], drawRequests: (requests ?? []) as DrawRequestRow[],

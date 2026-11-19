@@ -1,4 +1,5 @@
 # Jay Capital portal — rules for Claude
+The `private-site/` folder is a separate personal site with its own rules: for any request about the private site (pv-vault, Vault, Ledger), follow `private-site/CLAUDE.md` instead and leave the Jay Capital site alone.
 The person asking for changes is not technical. Explain everything in plain English, never ask them to run commands or edit code, and walk them through any clicks needed on GitHub, Vercel or Supabase.
 - Stack: Next.js 14 (App Router) on Vercel; Supabase for database, auth and row-level security. Merging into main publishes to production.
 - lib/interest.ts and lib/ledger.ts are money-critical. Do not change them unless I explicitly ask for a change to how interest, balances or due dates work. Explain the effect on real statements before changing them.

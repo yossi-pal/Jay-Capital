@@ -13,8 +13,8 @@ import { ORDER_KEY } from '@/components/PortfolioTable';
  * the full list in loan-number order, passed in from the server.
  */
 export default function LoanPager({
-  currentId, fallbackOrder,
-}: { currentId: string; fallbackOrder: { id: string; label: string }[] }) {
+  currentId, fallbackOrder, basePath = '/admin/loans',
+}: { currentId: string; fallbackOrder: { id: string; label: string }[]; basePath?: string }) {
   const [order, setOrder] = useState<string[]>(() => fallbackOrder.map(l => l.id));
   const [fromDashboard, setFromDashboard] = useState(false);
 
@@ -42,7 +42,7 @@ export default function LoanPager({
 
   const btn = (id: string | null, text: string, title: string | undefined) =>
     id ? (
-      <Link className="btn secondary" href={`/admin/loans/${id}`} title={title} prefetch={false}>
+      <Link className="btn secondary" href={`${basePath}/${id}`} title={title} prefetch={false}>
         {text}
       </Link>
     ) : (

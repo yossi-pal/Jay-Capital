@@ -11,12 +11,13 @@ export type ActivityKind =
   // admin: draws and payments
   | 'draw_added' | 'draw_updated' | 'draw_deleted'
   // draw requests (borrower asks, admin decides)
-  | 'draw_requested' | 'draw_request_cancelled' | 'draw_request_approved' | 'draw_request_declined'
+  | 'draw_requested' | 'draw_request_cancelled' | 'draw_request_approved' | 'draw_request_declined' | 'draw_request_updated'
   | 'payment_added' | 'payment_updated' | 'payment_deleted'
   // admin: people and lenders
   | 'statement_emailed' | 'user_invited' | 'user_updated' | 'user_active_changed'
   | 'user_deleted' | 'password_reset_sent' | 'borrower_login_created'
   | 'lender_added' | 'lender_updated' | 'lender_active_changed'
+  | 'lender_login_created' | 'lender_login_removed' | 'lender_portal_view'
   | 'loans_imported';
 
 /**
@@ -32,6 +33,7 @@ export type ActivityKind =
  */
 const DEDUPE_MS: Partial<Record<ActivityKind, number>> = {
   portal_view: 15 * 60_000,
+  lender_portal_view: 15 * 60_000,
   statement_view: 15 * 60_000,
   pdf_download: 2 * 60_000,
   sign_in: 10 * 60_000,

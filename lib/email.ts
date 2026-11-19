@@ -7,7 +7,7 @@ import { statementPDF } from '@/lib/statement-pdf';
 import { statementHTML } from '@/lib/statement-html';
 import { firstOfMonth, monthName, money, fmtDate, borrowerDisplayName } from '@/lib/format';
 import { buildStatement, type Draw as EngineDraw } from '@/lib/interest';
-import { buildLedger } from '@/lib/ledger';
+import { buildLedger, reserveFields } from '@/lib/ledger';
 import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
 
@@ -57,6 +57,8 @@ export async function emailStatement(loanId: string, months: string[]) {
     const engineLoan = {
       loan_amount: Number(loan.loan_amount), acquisition: Number(loan.acquisition),
       annual_rate: Number(loan.annual_rate), closing_date: loan.closing_date,
+      paid_off_date: loan.paid_off_date ?? null,
+      ...reserveFields(loan),
     };
     const dues = cleanMonths.map(m => {
       const l = buildLedger(engineLoan, engineDraws, extras.payments, extras.allocations, m);

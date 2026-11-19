@@ -1,4 +1,4 @@
-import { pastDueAsOf, buildLedger } from '@/lib/ledger';
+import { pastDueAsOf, buildLedger, reserveFields } from '@/lib/ledger';
 import { todayInAppTz, clampMonth, defaultStatementMonth } from '@/lib/format';
 
 /**
@@ -16,6 +16,7 @@ function inputsFor(l: any, draws: any[], payments: any[], allocations: any[]) {
       loan_amount: Number(l.loan_amount), acquisition: Number(l.acquisition),
       annual_rate: Number(l.annual_rate), closing_date: l.closing_date,
       paid_off_date: l.paid_off_date ?? null,
+      ...reserveFields(l),
     },
     d: draws.filter((x: any) => x.loan_id === l.loan_id)
       .map((x: any) => ({ draw_date: x.draw_date, amount: Number(x.amount), description: x.description })),

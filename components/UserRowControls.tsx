@@ -7,7 +7,7 @@ import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 
 export interface UserRow {
   id: string; email: string; full_name: string | null;
-  role: 'admin' | 'staff' | 'borrower'; active: boolean;
+  role: 'admin' | 'staff' | 'borrower' | 'lender'; active: boolean;
   activatedAt?: string | null;
 }
 
@@ -106,6 +106,7 @@ export default function UserRowControls({ user, isSelf }: { user: UserRow; isSel
               <option value="admin">admin</option>
               <option value="staff">staff</option>
               <option value="borrower">borrower</option>
+              <option value="lender">lender</option>
             </select>
             {isSelf && <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>You can&apos;t change your own role.</p>}
           </div>

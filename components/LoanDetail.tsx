@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, todayInAppTz, defaultStatementMonth, lienPositionLabel, shortAddress } from '@/lib/format';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { deleteDraw, setLoanStatus, deletePayment } from '@/lib/actions';
-import { buildLedger, pastDueAsOf, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, pastDueAsOf, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import AddPaymentModal from '@/components/AddPaymentModal';
 import EmailStatementControls from '@/components/EmailStatementControls';
 import AddDrawModal from '@/components/AddDrawModal';
@@ -30,7 +30,7 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [],
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false,
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
@@ -43,6 +43,11 @@ export default function LoanDetail({
   fallbackOrder?: { id: string; label: string }[];
   /** Draw requests the borrower sent from the portal. */
   drawRequests?: DrawRequestRow[];
+  /** The lender portal's read-only copy of this page: links stay in /lender,
+   *  the statement downloads from the lender route, and internal details
+   *  (notes, lien position, draw requests) are left out. Pass canEdit and
+   *  canSend as false with it. */
+  lenderView?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -67,6 +72,7 @@ export default function LoanDetail({
     loan_amount: Number(summary.loan_amount), acquisition: Number(summary.acquisition),
     annual_rate: rate, closing_date: summary.closing_date,
     paid_off_date: summary.paid_off_date ?? null,
+    ...reserveFields(summary),
   };
   const engineDraws: EngineDraw[] = draws.map(d => ({ draw_date: d.draw_date, amount: Number(d.amount), description: d.description }));
   const stmt = buildStatement(engineLoan, engineDraws, stmtDate);
@@ -74,7 +80,10 @@ export default function LoanDetail({
   // Overdue as of today, independent of which statement month is on screen.
   const overdueNow = pastDueAsOf(engineLoan, engineDraws, payments, allocations, todayInAppTz());
 
-  const pdfHref = `/api/statement-pdf/${summary.loan_id}?month=${stmtDate}`;
+  const basePath = lenderView ? '/lender/loans' : '/admin/loans';
+  const pdfHref = lenderView
+    ? `/api/lender/statement-pdf/${summary.loan_id}?month=${stmtDate}`
+    : `/api/statement-pdf/${summary.loan_id}?month=${stmtDate}`;
   const go = (delta: number) => setStmtDate(cur => clampMonth(firstOfMonth(cur, delta), summary.closing_date));
 
   // months is newest-first; disable each arrow once there is nowhere to go.
@@ -103,6 +112,7 @@ export default function LoanDetail({
     ? Math.min(100, (Number(summary.total_disbursed) / Number(summary.loan_amount)) * 100) : 0;
   const statusChip = paidOff ? <span className="chip">Paid off</span>
     : summary.status === 'defaulted' ? <span className="chip late">Defaulted</span>
+    : lenderView ? <span className="chip ok">Active</span>
     : isLate ? <span className="chip late">Past due</span>
     : <span className="chip ok">Current</span>;
 
@@ -119,8 +129,8 @@ export default function LoanDetail({
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         gap: 12, flexWrap: 'wrap', marginBottom: 16,
       }}>
-        <Link href="/admin/loans" style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
-        <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} />
+        <Link href={lenderView ? '/lender' : '/admin/loans'} style={{ textDecoration: 'none', fontWeight: 600 }}>&larr; All loans</Link>
+        <LoanPager currentId={summary.loan_id} fallbackOrder={fallbackOrder} basePath={basePath} />
       </div>
 
       {/* Header: the property, who it belongs to, and what you can do */}
@@ -251,7 +261,9 @@ export default function LoanDetail({
                       <div className="row"><span className="k">Remaining draw</span><span className="v">{money(summary.remaining_draw)}</span></div>
                       <div className="row"><span className="k">Interest rate</span><span className="v">{pct(summary.annual_rate)}</span></div>
                       <div className="row"><span className="k">Closing date</span><span className="v">{fmtDate(summary.closing_date)}</span></div>
-                      <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      {!lenderView && (
+                        <div className="row"><span className="k">Lien position</span><span className="v">{lienPositionLabel(lienPosition) || 'Not set'}</span></div>
+                      )}
                       <div className="row"><span className="k">Lender</span><span className="v">{summary.lender_name ?? ''}</span></div>
                     </div>
                   </div>
@@ -306,6 +318,7 @@ export default function LoanDetail({
                     title={atNewest ? 'This is the most recent statement' : undefined}>
                     Next &rarr;
                   </button>
+                  <a className="btn secondary" href={`${pdfHref}&view=1`} target="_blank" rel="noopener">Preview PDF</a>
                   <a className="btn" href={pdfHref} target="_blank" rel="noopener">Download PDF</a>
                 </div>
               </div>
@@ -315,21 +328,24 @@ export default function LoanDetail({
                 {ledger.currentPeriods.length > 1 &&
                   ` · bills ${ledger.currentPeriods.map(c => c.label).join(' + ')}`}
               </p>
+              {/* Left: how this period's interest is made up. Right: the account,
+                  reading straight down to the Amount Due like the borrower's statement. */}
               <div className="summary">
                 <div className="col">
                   <div className="row"><span className="k">Total disbursed (as of period)</span><span className="v">{money(stmt.totalDisbursed)}</span></div>
-                  <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
-                  <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
-                  <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
-                </div>
-                <div className="col">
                   <div className="row"><span className="k">Total draws this period</span><span className="v">{money(stmt.periodDrawTotal)}</span></div>
+                  <div className="row"><span className="k">Base balance interest</span><span className="v">{money(stmt.baseInterest)}</span></div>
                   <div className="row"><span className="k">Interest accrued this period</span><span className="v">{money(stmt.periodDrawInterest)}</span></div>
-                  <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
-                  <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
                 </div>
-                {/* Its own grid cell: under the left column on a computer, last on a phone. */}
                 <div className="col">
+                  <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
+                  <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
+                  <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
+                  {ledger.currentReserve > 0 && <>
+                    <div className="row"><span className="k">Interest this period</span><span className="v">{money(ledger.currentInterest)}</span></div>
+                    <div className="row"><span className="k">Less interest reserve</span><span className="v">({money(ledger.currentReserve)})</span></div>
+                  </>}
+                  <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
                   <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
                 </div>
               </div>
@@ -359,15 +375,15 @@ export default function LoanDetail({
             <>
               <div className="tablescroll">
                 <table className="bordered">
-                  <thead><tr><th>Date</th><th>Method</th><th>Note</th><th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
+                  <thead><tr><th>Date</th><th>Method</th>{!lenderView && <th>Note</th>}<th>Applied To</th><th className="num">Amount</th>{canEdit && <th></th>}</tr></thead>
                   <tbody>
-                    {[...payments].reverse().map(p => {
+                    {payments.map(p => {
                       const mine = allocations.filter(a => a.payment_id === p.id);
                       return (
                         <tr key={p.id}>
                           <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(p.payment_date)}</td>
                           <td>{p.method || ''}</td>
-                          <td>{p.note || ''}</td>
+                          {!lenderView && <td>{p.note || ''}</td>}
                           <td>{mine.length ? mine.map(a => `${monthName(a.period_month)} ${money(a.amount)}`).join(', ') : <span className="muted">unapplied</span>}</td>
                           <td className="num" style={{ fontWeight: 600 }}>{money(p.amount)}</td>
                           {canEdit && (
@@ -386,11 +402,10 @@ export default function LoanDetail({
                         </tr>
                       );
                     })}
-                    {payments.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No payments recorded yet.</td></tr>}
+                    {payments.length === 0 && <tr><td colSpan={(canEdit ? 6 : 5) - (lenderView ? 1 : 0)} className="muted" style={{ textAlign: 'center', padding: 28 }}>No payments recorded yet.</td></tr>}
                   </tbody>
                 </table>
               </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Newest first.</p>
             </>
           )}
 
@@ -398,13 +413,13 @@ export default function LoanDetail({
             <>
             <div className="tablescroll">
               <table className="bordered">
-                <thead><tr><th>Date</th><th>Method</th><th>Note</th><th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
+                <thead><tr><th>Date</th><th>Method</th>{!lenderView && <th>Note</th>}<th className="num">Amount</th><th className="num">Interest Accrued</th>{canEdit && <th></th>}</tr></thead>
                 <tbody>
                   {construction.map(d => (
                     <tr key={d.id}>
                       <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.draw_date)}</td>
                       <td>{d.method || ''}</td>
-                      <td>{d.note || ''}</td>
+                      {!lenderView && <td>{d.note || ''}</td>}
                       <td className="num" style={{ fontWeight: 600 }}>{money(d.amount)}</td>
                       <td className="num">{money(drawInterest(Number(d.amount), rate, d.draw_date))}</td>
                       {canEdit && (
@@ -418,7 +433,7 @@ export default function LoanDetail({
                       )}
                     </tr>
                   ))}
-                  {construction.length === 0 && <tr><td colSpan={canEdit ? 6 : 5} className="muted" style={{ textAlign: 'center', padding: 28 }}>No draws yet.</td></tr>}
+                  {construction.length === 0 && <tr><td colSpan={(canEdit ? 6 : 5) - (lenderView ? 1 : 0)} className="muted" style={{ textAlign: 'center', padding: 28 }}>No draws yet.</td></tr>}
                 </tbody>
               </table>
             </div>

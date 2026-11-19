@@ -6,6 +6,7 @@ import { createLoan } from '@/lib/actions';
 import LenderSelect, { type LenderOption } from '@/components/LenderSelect';
 import EntityFields from '@/components/EntityFields';
 import LienPositionField from '@/components/LienPositionField';
+import InterestReserveFields from '@/components/InterestReserveFields';
 import { formatPhone, formatAddress } from '@/lib/formatting';
 import { Modal } from '@/components/Modal';
 
@@ -15,6 +16,7 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
   const [error, setError] = useState('');
   const [loanAmount, setLoanAmount] = useState(0);
   const [acquisition, setAcquisition] = useState(0);
+  const [ratePct, setRatePct] = useState('');
   const [phone, setPhone] = useState('');
   const [property, setProperty] = useState('');
   // Set once the loan is saved: offers the closing statement next.
@@ -64,8 +66,9 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
             <div className="field-wrap"><label>Loan Amount *</label><input className="field" type="number" step="0.01" name="loan_amount" value={loanAmount || ''} onChange={e => setLoanAmount(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Acquisition *</label><input className="field" type="number" step="0.01" name="acquisition" value={acquisition || ''} onChange={e => setAcquisition(Number(e.target.value))} required /></div>
             <div className="field-wrap"><label>Construction (auto)</label><input className="field" type="number" value={construction.toFixed(2)} readOnly style={{ background: 'var(--pale)' }} /></div>
-            <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" placeholder="12" required /></div>
+            <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" placeholder="12" value={ratePct} onChange={e => setRatePct(e.target.value)} required /></div>
             <div className="field-wrap"><label>Closing Date *</label><input className="field" type="date" name="closing_date" required /></div>
+            <InterestReserveFields loanAmount={loanAmount} acquisition={acquisition} ratePct={Number(ratePct)} />
           </div>
           <p className="muted" style={{ fontSize: 12 }}>
             All fields are required except the borrower&apos;s phone number. Construction is

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, ConfirmDialog, AlertDialog } from '@/components/Modal';
 import { requestDraw, cancelDrawRequest } from '@/lib/draw-request-actions';
-import { DRAW_REQUEST_LABEL, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
+import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
 import { money, fmtDateTime } from '@/lib/format';
 
 /**
@@ -31,7 +31,7 @@ export default function DrawRequestCard({
   const [showAll, setShowAll] = useState(false);
 
   const pending = requests.find(r => r.status === 'pending');
-  const list = [...requests].sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+  const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
 
   async function submit() {
     setErr('');
@@ -76,7 +76,9 @@ export default function DrawRequestCard({
       {canRequest && (
         pending ? (
           <p className="muted" style={{ fontSize: 13.5, margin: '6px 0 4px' }}>
-            Your request for <b>{money(pending.amount)}</b> is waiting for review. We&apos;ll email you once it&apos;s been looked at.
+            {pending.decision_note
+              ? <>We&apos;re reviewing your request for <b>{money(pending.amount)}</b>. See our message below.</>
+              : <>Your request for <b>{money(pending.amount)}</b> is waiting for review. We&apos;ll email you once it&apos;s been looked at.</>}
           </p>
         ) : (
           <button className="btn" type="button" style={{ margin: '6px 0 4px' }}
@@ -88,13 +90,15 @@ export default function DrawRequestCard({
 
       {list.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          {list.slice(0, showAll ? list.length : 4).map(r => (
+          {(showAll ? list : list.slice(-4)).map(r => (
             <div key={r.id} style={{ padding: '11px 0', borderTop: '1px solid var(--hair)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <b style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {money(r.status === 'approved' && r.approved_amount != null ? r.approved_amount : r.amount)}
                 </b>
-                <span className={drawRequestChip(r.status)}>{DRAW_REQUEST_LABEL[r.status]}</span>
+                <span className={drawRequestChip(r.status)}>
+                  {drawRequestStatusLabel(r)}
+                </span>
                 <span style={{ flex: 1 }} />
                 {r.status === 'pending' && (
                   <button type="button" className="btn secondary sm" disabled={busy}
@@ -107,7 +111,7 @@ export default function DrawRequestCard({
                   ? ` · you asked for ${money(r.amount)}` : ''}
               </div>
               {r.note && <div style={{ fontSize: 13.5, marginTop: 4, overflowWrap: 'anywhere' }}>{r.note}</div>}
-              {r.decision_note && (r.status === 'approved' || r.status === 'declined') && (
+              {r.decision_note && r.status !== 'cancelled' && (
                 <div className="alert info" style={{ margin: '8px 0 0', overflowWrap: 'anywhere' }}>
                   <b>From Jay Capital:</b> {r.decision_note}
                 </div>

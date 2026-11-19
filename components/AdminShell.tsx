@@ -12,7 +12,7 @@ import Monogram from '@/components/Monogram';
  * the « button, a tap outside it, or Escape.
  */
 
-type IconName = 'home' | 'loans' | 'chart' | 'plus' | 'upload' | 'bank' | 'users' | 'doc';
+type IconName = 'home' | 'loans' | 'chart' | 'plus' | 'upload' | 'bank' | 'users' | 'doc' | 'briefcase';
 
 function Icon({ name }: { name: IconName }) {
   const p = {
@@ -28,6 +28,7 @@ function Icon({ name }: { name: IconName }) {
     case 'upload': return <svg {...p}><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>;
     case 'bank':   return <svg {...p}><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" /></svg>;
     case 'doc':    return <svg {...p}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>;
+    case 'briefcase': return <svg {...p}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" /></svg>;
     case 'users':  return <svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.9.7 3.1 2.6 3.5 5.5" /></svg>;
   }
 }
@@ -41,6 +42,10 @@ const WORKSPACE: Item[] = [
   { href: '/admin/insights', label: 'Insights', icon: 'chart', match: p => p.startsWith('/admin/insights') },
   { href: '/admin/documents', label: 'Documents', icon: 'doc', match: p => p.startsWith('/admin/documents') },
 ];
+// A separate part of the system: deals funded elsewhere, kept for reference.
+const BROKERAGE: Item[] = [
+  { href: '/admin/brokerage', label: 'Brokerage', icon: 'briefcase', match: p => p.startsWith('/admin/brokerage') },
+];
 const MANAGE: Item[] = [
   { href: '/admin/loans/new', label: 'New loan', icon: 'plus', match: p => p.startsWith('/admin/loans/new') },
   { href: '/admin/import', label: 'Import', icon: 'upload', match: p => p.startsWith('/admin/import') },
@@ -48,9 +53,14 @@ const MANAGE: Item[] = [
   { href: '/admin/users', label: 'Users', icon: 'users', match: p => p.startsWith('/admin/users') },
 ];
 
-function Brand() {
+// The lender portal uses this same frame with only its loan list.
+const LENDER: Item[] = [
+  { href: '/lender', label: 'Loans', icon: 'loans', match: p => p.startsWith('/lender') },
+];
+
+function Brand({ home }: { home: string }) {
   return (
-    <Link href="/admin" className="side-brand">
+    <Link href={home} className="side-brand">
       <Monogram height={40} />
       <span className="wm"><b>JAY CAPITAL</b><span>FUNDING</span></span>
     </Link>
@@ -58,9 +68,10 @@ function Brand() {
 }
 
 export default function AdminShell({
-  isAdmin, role, name, children,
-}: { isAdmin: boolean; role: string; name: string; children: React.ReactNode }) {
-  const pathname = usePathname() || '/admin';
+  isAdmin, role, name, children, lender = false,
+}: { isAdmin: boolean; role: string; name: string; children: React.ReactNode; lender?: boolean }) {
+  const home = lender ? '/lender' : '/admin';
+  const pathname = usePathname() || home;
   const [open, setOpen] = useState(false);
 
   // Close the drawer whenever a link takes you somewhere.
@@ -105,25 +116,36 @@ export default function AdminShell({
         <button type="button" className="menu-btn" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
-        <Brand />
+        <Brand home={home} />
       </header>
 
       <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />
 
       <aside className="side" aria-label="Main menu">
         <div className="side-top">
-          <Brand />
+          <Brand home={home} />
           <button type="button" className="side-close" aria-label="Close menu" title="Close menu"
             onClick={() => setOpen(false)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
           </button>
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column' }}>
+          {lender ? (
+            <div className="side-group">
+              <span className="side-label">Lender portal</span>
+              {LENDER.map(link)}
+            </div>
+          ) : (<>
           <div className="side-group">
             <span className="side-label">Workspace</span>
             {WORKSPACE.map(link)}
           </div>
-          {isAdmin && (
+          <div className="side-group">
+            <span className="side-label" style={{ paddingTop: 14 }}>Brokerage</span>
+            {BROKERAGE.map(link)}
+          </div>
+          </>)}
+          {isAdmin && !lender && (
             <div className="side-group">
               <span className="side-label" style={{ paddingTop: 14 }}>Manage</span>
               {MANAGE.map(link)}

@@ -41,6 +41,7 @@ const KIND_LABEL: Record<string, string> = {
   draw_request_cancelled: 'Cancelled draw request',
   draw_request_approved: 'Approved draw request',
   draw_request_declined: 'Declined draw request',
+  draw_request_updated: 'Sent draw request update',
   payment_added: 'Recorded payment',
   payment_updated: 'Edited payment',
   payment_deleted: 'Deleted payment',
@@ -54,6 +55,9 @@ const KIND_LABEL: Record<string, string> = {
   lender_added: 'Added lender',
   lender_updated: 'Edited lender',
   lender_active_changed: 'Changed lender status',
+  lender_login_created: 'Created lender login',
+  lender_login_removed: 'Removed lender login',
+  lender_portal_view: 'Viewed lender portal',
   loans_imported: 'Imported loans',
 };
 
@@ -63,7 +67,7 @@ const WRITE_KINDS = new Set([
   'draw_added', 'draw_updated', 'draw_deleted', 'draw_request_approved', 'draw_request_declined',
   'payment_added', 'payment_updated', 'payment_deleted',
   'user_deleted', 'user_active_changed', 'borrower_login_created',
-  'lender_added', 'lender_updated', 'loans_imported',
+  'lender_added', 'lender_updated', 'loans_imported', 'lender_login_created', 'lender_login_removed',
 ]);
 
 /**
