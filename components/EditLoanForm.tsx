@@ -23,6 +23,8 @@ interface Loan {
   lien_position?: number | null;
   interest_reserve_months?: number | null;
   interest_reserve_total?: number | null;
+  /** Where this borrower's construction draws are wired (admin only). */
+  borrower_wire?: string;
 }
 
 export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: LenderOption[] }) {
@@ -58,6 +60,15 @@ export default function EditLoanForm({ loan, lenders }: { loan: Loan; lenders: L
             <div className="field-wrap"><label>Borrower Name *</label><input className="field" name="borrower_name" defaultValue={loan.borrower_name} required /></div>
             <div className="field-wrap"><label>Borrower Email *</label><input className="field" type="email" name="borrower_email" defaultValue={loan.borrower_email ?? ''} required /></div>
             <div className="field-wrap"><label>Borrower Phone</label><input className="field" name="borrower_phone" type="tel" inputMode="tel" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} placeholder="(555) 123-4567" /></div>
+            <div className="field-wrap" style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="borrower_wire">Borrower Wiring Instructions (for draws)</label>
+              <textarea id="borrower_wire" className="field" name="borrower_wire" rows={4} maxLength={2000}
+                defaultValue={loan.borrower_wire ?? ''}
+                placeholder={'Account name\nBank name, ABA # …\nAccount # …'} />
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                Used in the draw request email to the lender. Applies to all of this borrower&apos;s loans. Only admins can see it.
+              </span>
+            </div>
             <div className="field-wrap" style={{ gridColumn: '1 / -1' }}><label>Property Address (full)</label><input className="field" name="property" required value={property} onChange={e => setProperty(e.target.value)} onBlur={e => setProperty(formatAddress(e.target.value))} /></div>
             <EntityFields defaultIsEntity={!!loan.is_entity} defaultEntityName={loan.entity_name ?? ''} />
             <LenderSelect lenders={lenders} currentId={loan.lender_id ?? null} currentName={loan.lender_name} />

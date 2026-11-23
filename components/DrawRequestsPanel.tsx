@@ -23,11 +23,11 @@ function todayIso(): string {
  * admin can adjust the amount or date before the draw is recorded.
  */
 export function PendingDrawRequests({
-  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [],
+  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [], borrowerWire = '',
 }: {
   requests: DrawRequestRow[]; canEdit: boolean; available: number; hasEmail: boolean;
   /** The loan's lender and its portal login addresses, for "Send to lender". */
-  lenderName?: string | null; lenderEmails?: string[];
+  lenderName?: string | null; lenderEmails?: string[]; borrowerWire?: string;
 }) {
   const router = useRouter();
   const pending = requests.filter(r => r.status === 'pending');
@@ -135,7 +135,7 @@ export function PendingDrawRequests({
           </div>
           {canEdit ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <SendToLenderButton requestId={r.id} amount={Number(r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} />
+              <SendToLenderButton requestId={r.id} amount={Number(r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} borrowerWire={borrowerWire} />
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'update')}>Send update</button>
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'decline')}>Decline</button>
               <button className="btn" type="button" onClick={() => openFor(r, 'approve')}>Approve</button>
@@ -201,9 +201,9 @@ export function PendingDrawRequests({
 
 /** Every request on the loan, oldest first, for the Draws tab. */
 export function DrawRequestHistory({
-  requests, canEdit = false, lenderName = null, lenderEmails = [],
+  requests, canEdit = false, lenderName = null, lenderEmails = [], borrowerWire = '',
 }: {
-  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[];
+  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[]; borrowerWire?: string;
 }) {
   if (requests.length === 0) return null;
   const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
@@ -226,7 +226,7 @@ export function DrawRequestHistory({
                   <td className="num">
                     {r.status === 'approved' && (
                       <SendToLenderButton small requestId={r.id}
-                        amount={Number(r.approved_amount ?? r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} />
+                        amount={Number(r.approved_amount ?? r.amount)} lenderName={lenderName} lenderEmails={lenderEmails} borrowerWire={borrowerWire} />
                     )}
                   </td>
                 )}

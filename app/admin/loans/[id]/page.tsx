@@ -42,6 +42,11 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
     ? await supabase.from('lender_logins').select('email').eq('lender_id', summary.lender_id)
     : { data: [] as { email: string }[] };
   const lenderEmails = Array.from(new Set((lenderLogins ?? []).map((x: any) => String(x.email || '').trim()).filter(Boolean)));
+  // The borrower's wiring instructions for draws. Admins only (row level
+  // security); staff get nothing, and never see Send to lender anyway.
+  const { data: borrowerWire } = summary.borrower_id
+    ? await supabase.from('borrower_wires').select('instructions').eq('borrower_id', summary.borrower_id).maybeSingle()
+    : { data: null };
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
     id: l.loan_id, label: `${l.loan_number} · ${l.borrower_name}`,
   }));
@@ -67,6 +72,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       lienPosition={position?.lien_position ?? null}
       drawRequests={(drawRequests ?? []) as DrawRequestRow[]}
       lenderEmails={lenderEmails}
+      borrowerWire={borrowerWire?.instructions ?? ''}
     />
   );
 }

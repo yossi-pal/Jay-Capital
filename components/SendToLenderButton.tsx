@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
 import { sendDrawRequestToLender } from '@/lib/draw-request-actions';
 import { money } from '@/lib/format';
-import { STANDARD_WIRE } from '@/lib/payoff';
 
 /**
  * "Send to lender": emails the draw request (amount, what it is for, loan
@@ -13,9 +12,11 @@ import { STANDARD_WIRE } from '@/lib/payoff';
  * addresses and can be changed before sending.
  */
 export default function SendToLenderButton({
-  requestId, amount, lenderName, lenderEmails, small = false,
+  requestId, amount, lenderName, lenderEmails, borrowerWire = '', small = false,
 }: {
-  requestId: string; amount: number; lenderName: string | null; lenderEmails: string[]; small?: boolean;
+  requestId: string; amount: number; lenderName: string | null; lenderEmails: string[];
+  /** The borrower's own wiring instructions, from the loan's Edit page. */
+  borrowerWire?: string; small?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -29,7 +30,7 @@ export default function SendToLenderButton({
   function start() {
     setTo(lenderEmails.join(', '));
     setMessage('Please see the draw request below for your review and funding.');
-    setWire(STANDARD_WIRE);
+    setWire(borrowerWire);
     setErr(''); setOpen(true);
   }
 
@@ -76,7 +77,9 @@ export default function SendToLenderButton({
             <textarea id="stl-wire" className="field" rows={5} maxLength={2000} value={wire}
               onChange={e => setWire(e.target.value)} />
             <span className="muted" style={{ fontSize: 12.5 }}>
-              Starts with the standard wire details from the payoff letters. Change them for this email if needed, or clear the box to leave them out.
+              {borrowerWire
+                ? 'The borrower\u2019s wiring instructions from the loan\u2019s Edit page. Change them for this email if needed, or clear the box to leave them out.'
+                : 'No wiring instructions on file for this borrower. Type them here, or add them on the loan\u2019s Edit page so they fill in next time.'}
             </span>
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
