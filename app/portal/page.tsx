@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { serverClient } from '@/lib/supabase-server';
+import { serverClient, serviceClient } from '@/lib/supabase-server';
 import PortalTitle from '@/components/PortalTitle';
 import LiveRefresh from '@/components/LiveRefresh';
 import IdleTimeout from '@/components/IdleTimeout';
@@ -9,7 +9,7 @@ import PortalLoans, { type PortalLoan } from '@/components/PortalLoans';
 import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
 import ChangeEmailButton from '@/components/ChangeEmailButton';
-import { DRAW_REQUEST_COLUMNS, type DrawRequestRow } from '@/lib/draw-requests';
+import { DRAW_REQUEST_COLUMNS, wireHint, type DrawRequestRow } from '@/lib/draw-requests';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -57,6 +57,16 @@ export default async function PortalPage() {
     </header>
   );
 
+  // Whether we hold wiring instructions for the borrower, for the draw request
+  // form. Bank details are admin-only, so this reads with the service role,
+  // but only for borrowers whose loans row level security just returned to
+  // this user, and passes on nothing more than "on file, ending 1234".
+  const borrowerIds = Array.from(new Set(list.map((l: any) => l.borrower_id).filter(Boolean)));
+  const { data: wires } = borrowerIds.length
+    ? await serviceClient().from('borrower_wires').select('borrower_id, instructions').in('borrower_id', borrowerIds)
+    : { data: [] as { borrower_id: string; instructions: string }[] };
+  const wireByBorrower = new Map((wires ?? []).map((w: any) => [w.borrower_id, { hint: wireHint(w.instructions) }]));
+
   // Every loan is loaded at the same time (and the visit is recorded
   // alongside), instead of one loan after another.
   const [items] = await Promise.all([
@@ -70,6 +80,7 @@ export default async function PortalPage() {
       ]);
       return {
         loan, draws: draws ?? [], drawRequests: (requests ?? []) as DrawRequestRow[],
+        wireOnFile: wireByBorrower.get(loan.borrower_id) ?? null,
         payments: extras.payments, allocations: extras.allocations, payInfo: extras.payInfo,
       };
     })),

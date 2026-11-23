@@ -11,7 +11,7 @@ export type ActivityKind =
   // admin: draws and payments
   | 'draw_added' | 'draw_updated' | 'draw_deleted'
   // draw requests (borrower asks, admin decides)
-  | 'draw_requested' | 'draw_request_cancelled' | 'draw_request_approved' | 'draw_request_declined' | 'draw_request_updated' | 'draw_request_sent_to_lender'
+  | 'draw_requested' | 'draw_request_cancelled' | 'draw_request_approved' | 'draw_request_declined' | 'draw_request_updated' | 'draw_request_sent_to_lender' | 'draw_request_wire_confirmed'
   | 'payment_added' | 'payment_updated' | 'payment_deleted'
   // admin: people and lenders
   | 'statement_emailed' | 'user_invited' | 'user_updated' | 'user_active_changed'

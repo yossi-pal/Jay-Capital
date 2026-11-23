@@ -16,7 +16,7 @@ import LoanPager from '@/components/LoanPager';
 import MarkPaidOffModal, { signedMoney } from '@/components/MarkPaidOffModal';
 import type { PayoffQuote } from '@/lib/payoff';
 import { PendingDrawRequests, DrawRequestHistory } from '@/components/DrawRequestsPanel';
-import type { DrawRequestRow } from '@/lib/draw-requests';
+import type { DrawRequestRow, RequestWire } from '@/lib/draw-requests';
 
 interface Summary {
   loan_id: string; loan_number: string; property: string; loan_amount: number;
@@ -30,7 +30,7 @@ interface Summary {
 interface DrawRow { id: string; draw_date: string; description: string; amount: number; interest_accrued: number | null; method?: string | null; note?: string | null; }
 
 export default function LoanDetail({
-  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false, lenderEmails = [], borrowerWire = '',
+  summary, draws, payments = [], allocations = [], canEdit, canSend, hasClosingStatement = false, hasPayoffLetter = false, payoffQuote = null, payoffDefaults = null, loanPayoff = null, lienPosition = null, fallbackOrder = [], drawRequests = [], lenderView = false, lenderEmails = [], borrowerWire = '', requestWires = {},
 }: {
   summary: Summary; draws: DrawRow[];
   payments?: PaymentRow[]; allocations?: AllocationRow[];
@@ -47,6 +47,8 @@ export default function LoanDetail({
   lenderEmails?: string[];
   /** The borrower's wiring instructions for draws (admin only). */
   borrowerWire?: string;
+  /** New wiring borrowers sent with their requests, by request id (admin only). */
+  requestWires?: Record<string, RequestWire>;
   /** The lender portal's read-only copy of this page: links stay in /lender,
    *  the statement downloads from the lender route, and internal details
    *  (notes, lien position, draw requests) are left out. Pass canEdit and
@@ -205,7 +207,7 @@ export default function LoanDetail({
       <PendingDrawRequests
         requests={drawRequests} canEdit={canEdit}
         available={Number(summary.remaining_draw || 0)} hasEmail={!!summary.borrower_email}
-        lenderName={summary.lender_name} lenderEmails={lenderEmails} borrowerWire={borrowerWire}
+        lenderName={summary.lender_name} lenderEmails={lenderEmails} borrowerWire={borrowerWire} requestWires={requestWires}
       />
 
       {/* The four numbers that matter */}
@@ -444,7 +446,7 @@ export default function LoanDetail({
                 </tbody>
               </table>
             </div>
-            <DrawRequestHistory requests={drawRequests} canEdit={canEdit} lenderName={summary.lender_name} lenderEmails={lenderEmails} borrowerWire={borrowerWire} />
+            <DrawRequestHistory requests={drawRequests} canEdit={canEdit} lenderName={summary.lender_name} lenderEmails={lenderEmails} borrowerWire={borrowerWire} requestWires={requestWires} />
             </>
           )}
         </div>

@@ -47,6 +47,13 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
   const { data: borrowerWire } = summary.borrower_id
     ? await supabase.from('borrower_wires').select('instructions').eq('borrower_id', summary.borrower_id).maybeSingle()
     : { data: null };
+  // New wiring borrowers sent with their requests (admins only).
+  const requestIds = (drawRequests ?? []).map((r: any) => r.id);
+  const { data: reqWires } = requestIds.length
+    ? await supabase.from('draw_request_wires').select('request_id, instructions, confirmed_at').in('request_id', requestIds)
+    : { data: [] as any[] };
+  const requestWires: Record<string, { instructions: string; confirmed_at: string | null }> = {};
+  for (const w of reqWires ?? []) requestWires[w.request_id] = { instructions: w.instructions, confirmed_at: w.confirmed_at };
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
     id: l.loan_id, label: `${l.loan_number} · ${l.borrower_name}`,
   }));
@@ -73,6 +80,7 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       drawRequests={(drawRequests ?? []) as DrawRequestRow[]}
       lenderEmails={lenderEmails}
       borrowerWire={borrowerWire?.instructions ?? ''}
+      requestWires={requestWires}
     />
   );
 }

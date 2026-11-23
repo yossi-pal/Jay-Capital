@@ -16,6 +16,8 @@ export interface PortalLoan {
   allocations: AllocationRow[];
   payInfo: PayInfo | null;
   drawRequests?: DrawRequestRow[];
+  /** Wiring instructions on file for the borrower: only a hint, never the details. */
+  wireOnFile?: { hint: string } | null;
 }
 
 /** The loan as the interest engine wants it -- the same shape StatementView builds. */
@@ -291,6 +293,7 @@ export default function PortalLoans({
             available={Number(L.remaining_draw || 0)}
             canRequest={!paidOff && (L as any).status === 'active' && Number(L.remaining_draw || 0) > 0.005}
             requests={current.drawRequests ?? []}
+            wireOnFile={current.wireOnFile ?? null}
           />
 
           <section className="card bcard">

@@ -42,3 +42,16 @@ export function drawRequestChip(status: DrawRequestStatus): string {
 export function drawRequestStatusLabel(r: Pick<DrawRequestRow, 'status' | 'decision_note'>): string {
   return r.status === 'pending' && r.decision_note ? 'Under review' : DRAW_REQUEST_LABEL[r.status];
 }
+
+/**
+ * A safe hint for wiring instructions on file: the last four digits of the
+ * longest number in them (normally the account number), never the details.
+ */
+export function wireHint(instructions: string | null | undefined): string {
+  const runs = String(instructions || '').match(/\d{4,}/g) || [];
+  const longest = runs.sort((a, b) => b.length - a.length)[0];
+  return longest ? longest.slice(-4) : '';
+}
+
+/** New wiring instructions a borrower sent with a request (admin only). */
+export interface RequestWire { instructions: string; confirmed_at: string | null }

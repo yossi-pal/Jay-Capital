@@ -59,7 +59,7 @@ export async function requestDraw(loanId: string, form: FormData) {
 
     // Read as the borrower: if this comes back, the loan is theirs.
     const { data: loan } = await supabase.from('loan_summary')
-      .select('loan_id, loan_number, property, status, remaining_draw, borrower_name, paid_off_date')
+      .select('loan_id, loan_number, property, status, remaining_draw, borrower_name, borrower_id, paid_off_date')
       .eq('loan_id', loanId).maybeSingle();
     if (!loan) throw new Error('We could not find that loan on your account.');
     if (loan.status !== 'active' || loan.paid_off_date) throw new Error('Draws can only be requested on an active loan.');
@@ -75,16 +75,35 @@ export async function requestDraw(loanId: string, form: FormData) {
     if (!note) throw new Error('Please tell us briefly what the draw is for.');
     if (note.length > 1000) throw new Error('Please keep the description under 1,000 characters.');
 
+    // Wiring: the instructions already on file, or new ones that an admin
+    // must confirm by phone before they are used.
+    const svc = serviceClient();
+    const { data: onFile } = await svc.from('borrower_wires')
+      .select('borrower_id').eq('borrower_id', loan.borrower_id).maybeSingle();
+    const useNewWire = String(form.get('wire_choice') || '') === 'new' || !onFile;
+    const newWire = useNewWire ? String(form.get('wire') || '').trim() : '';
+    if (useNewWire && !newWire) throw new Error('Please enter your wiring instructions (bank name, ABA routing number, account name and number).');
+    if (newWire.length > 2000) throw new Error('Please keep the wiring instructions under 2,000 characters.');
+
     const { data: pending } = await supabase.from('draw_requests')
       .select('amount').eq('loan_id', loanId).eq('status', 'pending').limit(1);
     if (pending && pending.length) {
       throw new Error(`You already have a request for ${money(pending[0].amount)} waiting for review. Please wait for it, or cancel it to send a new one.`);
     }
 
-    const { error } = await serviceClient().from('draw_requests').insert({
+    const { data: created, error } = await svc.from('draw_requests').insert({
       loan_id: loanId, amount, note, status: 'pending', requested_by: user.id,
-    });
+    }).select('id').single();
     if (error) throw new Error(error.message);
+    if (newWire) {
+      const { error: wireErr } = await svc.from('draw_request_wires')
+        .insert({ request_id: created.id, instructions: newWire });
+      if (wireErr) {
+        // Never leave a request behind that silently lost its wiring.
+        await svc.from('draw_requests').delete().eq('id', created.id);
+        throw new Error('Your request could not be saved. Please try again.');
+      }
+    }
 
     await logActivity('draw_requested', loanId, user.id, `${money(amount)} requested`);
 
@@ -100,7 +119,10 @@ export async function requestDraw(loanId: string, form: FormData) {
           on loan ${esc(loan.loan_number)} (${esc(shortAddress(loan.property))}).
         </p>
         <p style="margin:0 0 6px;line-height:1.6"><b>What it is for:</b> ${esc(note)}</p>
-        <p style="margin:0 0 18px;line-height:1.6"><b>Left to draw before this:</b> ${esc(money(available))}</p>
+        <p style="margin:0 0 6px;line-height:1.6"><b>Left to draw before this:</b> ${esc(money(available))}</p>
+        <p style="margin:0 0 18px;line-height:1.6"><b>Wiring:</b> ${newWire
+          ? '<span style="color:#A12A22;font-weight:700">New wiring instructions sent. Confirm them with the borrower by phone before they go to the lender.</span>'
+          : 'Use the instructions on file.'}</p>
         ${button(link, 'Review the request')}
       `),
     });
@@ -280,6 +302,40 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
       `${money(amount)} request sent to ${to.join(', ')}`);
     revalidatePath(`/admin/loans/${req.loan_id}`);
     return { message: `Sent to ${to.join(', ')}.` };
+  });
+}
+
+/**
+ * An admin has phoned the borrower and confirmed the new wiring instructions
+ * sent with a draw request. Marks them confirmed and saves them as the
+ * borrower's instructions for future draws.
+ */
+export async function confirmDrawRequestWire(requestId: string) {
+  return run(async () => {
+    const { supabase, userId } = await requireAdmin();
+    const { data: wire } = await supabase.from('draw_request_wires')
+      .select('request_id, instructions, confirmed_at').eq('request_id', requestId).maybeSingle();
+    if (!wire) throw new Error('This request has no new wiring instructions to confirm.');
+    const { data: req } = await supabase.from('draw_requests')
+      .select('loan_id').eq('id', requestId).maybeSingle();
+    if (!req) throw new Error('That draw request no longer exists.');
+    const { data: loan } = await supabase.from('loans')
+      .select('borrower_id').eq('id', req.loan_id).maybeSingle();
+    if (!loan?.borrower_id) throw new Error('Loan not found.');
+
+    const { error: saveErr } = await supabase.from('borrower_wires').upsert(
+      { borrower_id: loan.borrower_id, instructions: wire.instructions, updated_by: userId },
+      { onConflict: 'borrower_id' });
+    if (saveErr) throw new Error(saveErr.message);
+    if (!wire.confirmed_at) {
+      const { error } = await supabase.from('draw_request_wires')
+        .update({ confirmed_by: userId, confirmed_at: new Date().toISOString() }).eq('request_id', requestId);
+      if (error) throw new Error(error.message);
+    }
+
+    await logActivity('draw_request_wire_confirmed', req.loan_id, userId, 'Borrower wiring confirmed and saved');
+    revalidatePath(`/admin/loans/${req.loan_id}`);
+    return { message: 'Wiring instructions confirmed and saved for this borrower\u2019s future draws.' };
   });
 }
 

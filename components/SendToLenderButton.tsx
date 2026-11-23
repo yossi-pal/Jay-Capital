@@ -12,11 +12,13 @@ import { money } from '@/lib/format';
  * addresses and can be changed before sending.
  */
 export default function SendToLenderButton({
-  requestId, amount, lenderName, lenderEmails, borrowerWire = '', small = false,
+  requestId, amount, lenderName, lenderEmails, borrowerWire = '', wireWarning, small = false,
 }: {
   requestId: string; amount: number; lenderName: string | null; lenderEmails: string[];
   /** The borrower's own wiring instructions, from the loan's Edit page. */
   borrowerWire?: string; small?: boolean;
+  /** Shown instead of the usual note, e.g. when the borrower's new wiring is unconfirmed. */
+  wireWarning?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -77,7 +79,9 @@ export default function SendToLenderButton({
             <textarea id="stl-wire" className="field" rows={5} maxLength={2000} value={wire}
               onChange={e => setWire(e.target.value)} />
             <span className="muted" style={{ fontSize: 12.5 }}>
-              {borrowerWire
+              {wireWarning
+                ? <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{wireWarning}</span>
+                : borrowerWire
                 ? 'The borrower\u2019s wiring instructions from the loan\u2019s Edit page. Change them for this email if needed, or clear the box to leave them out.'
                 : 'No wiring instructions on file for this borrower. Type them here, or add them on the loan\u2019s Edit page so they fill in next time.'}
             </span>

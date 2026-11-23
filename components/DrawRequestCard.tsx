@@ -12,19 +12,24 @@ import { money, fmtDateTime } from '@/lib/format';
  * the borrower's own requests with where each one stands.
  */
 export default function DrawRequestCard({
-  loanId, available, canRequest, requests,
+  loanId, available, canRequest, requests, wireOnFile = null,
 }: {
   loanId: string;
   available: number;
   /** False once the loan is paid off or nothing is left to draw. */
   canRequest: boolean;
   requests: DrawRequestRow[];
+  /** We already hold wiring instructions: only a hint (last four digits). */
+  wireOnFile?: { hint: string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [wireChoice, setWireChoice] = useState<'on_file' | 'new'>('on_file');
+  const [wire, setWire] = useState('');
+  const newWire = !wireOnFile || wireChoice === 'new';
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
@@ -39,15 +44,18 @@ export default function DrawRequestCard({
     if (!(n > 0)) { setErr('Please enter the amount you need.'); return; }
     if (n > available + 0.005) { setErr(`That is more than is left to draw (${money(available)}).`); return; }
     if (!note.trim()) { setErr('Please tell us briefly what the draw is for.'); return; }
+    if (newWire && !wire.trim()) { setErr('Please enter your wiring instructions.'); return; }
     setBusy(true);
     const fd = new FormData();
     fd.set('amount', String(n));
     fd.set('note', note);
+    fd.set('wire_choice', newWire ? 'new' : 'on_file');
+    if (newWire) fd.set('wire', wire);
     const res = await requestDraw(loanId, fd);
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'Your request could not be sent.'); return; }
     setOpen(false);
-    setAmount(''); setNote('');
+    setAmount(''); setNote(''); setWire(''); setWireChoice('on_file');
     setDone(res.message || 'Your draw request was sent.');
     router.refresh();
   }
@@ -141,6 +149,31 @@ export default function DrawRequestCard({
             <textarea id="dr-note" className="field" rows={3} maxLength={1000} value={note}
               onChange={e => setNote(e.target.value)} placeholder="e.g. Framing complete, roofing materials" />
           </div>
+          <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <legend style={{ fontWeight: 600, fontSize: 14, marginBottom: 6, padding: 0 }}>Where should the funds be wired?</legend>
+            {wireOnFile && (
+              <>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
+                  <input type="radio" name="dr-wire" checked={wireChoice === 'on_file'} onChange={() => setWireChoice('on_file')} />
+                  <span>The account we have on file{wireOnFile.hint ? <> (ending in <b>{wireOnFile.hint}</b>)</> : ''}</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
+                  <input type="radio" name="dr-wire" checked={wireChoice === 'new'} onChange={() => setWireChoice('new')} />
+                  <span>New wiring instructions</span>
+                </label>
+              </>
+            )}
+            {newWire && (
+              <>
+                <textarea aria-label="Wiring instructions" className="field" rows={4} maxLength={2000} value={wire}
+                  onChange={e => setWire(e.target.value)}
+                  placeholder={'Account name\nBank name\nABA routing #\nAccount #'} />
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  For your protection, we&apos;ll call you to confirm new wiring instructions before any funds are sent.
+                </span>
+              </>
+            )}
+          </fieldset>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
             <button className="btn secondary" type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
