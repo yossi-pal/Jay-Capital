@@ -69,6 +69,16 @@ export default function NewLoanForm({ lenders }: { lenders: LenderOption[] }) {
             <div className="field-wrap"><label>Interest Rate (%) *</label><input className="field" type="number" step="0.01" name="annual_rate" placeholder="12" value={ratePct} onChange={e => setRatePct(e.target.value)} required /></div>
             <div className="field-wrap"><label>Closing Date *</label><input className="field" type="date" name="closing_date" required /></div>
             <InterestReserveFields loanAmount={loanAmount} acquisition={acquisition} ratePct={Number(ratePct)} />
+            <div className="field-wrap" style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', textTransform: 'none', letterSpacing: 0 }}>
+                <input type="checkbox" name="pending" />
+                <span style={{ fontWeight: 700, color: 'var(--navy)' }}>Pending: this loan has not closed yet</span>
+              </label>
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                A pending loan works like any other loan here, but the borrower and the lender
+                cannot see it. Change its status to Active on the loan page once it closes.
+              </p>
+            </div>
           </div>
           <p className="muted" style={{ fontSize: 12 }}>
             All fields are required except the borrower&apos;s phone number. Construction is
