@@ -36,6 +36,19 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       .order('requested_at', { ascending: true }),
   ]);
   if (!summary) notFound();
+  // The lender's portal login addresses, to start "Send to lender" from.
+  // Admins only (row level security), so staff simply get an empty list.
+  const { data: lenderLogins } = summary.lender_id
+    ? await supabase.from('lender_logins').select('email').eq('lender_id', summary.lender_id)
+    : { data: [] as { email: string }[] };
+  const lenderEmails = Array.from(new Set((lenderLogins ?? []).map((x: any) => String(x.email || '').trim()).filter(Boolean)));
+  // The wiring stored with each draw request (admins only, row level security).
+  const requestIds = (drawRequests ?? []).map((r: any) => r.id);
+  const { data: reqWires } = requestIds.length
+    ? await supabase.from('draw_request_wires').select('request_id, instructions, is_new, confirmed_at').in('request_id', requestIds)
+    : { data: [] as any[] };
+  const requestWires: Record<string, { instructions: string; is_new: boolean; confirmed_at: string | null }> = {};
+  for (const w of reqWires ?? []) requestWires[w.request_id] = { instructions: w.instructions, is_new: !!w.is_new, confirmed_at: w.confirmed_at };
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
     id: l.loan_id, label: `${l.loan_number} · ${l.borrower_name}`,
   }));
@@ -60,6 +73,8 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       } : null}
       lienPosition={position?.lien_position ?? null}
       drawRequests={(drawRequests ?? []) as DrawRequestRow[]}
+      lenderEmails={lenderEmails}
+      requestWires={requestWires}
     />
   );
 }

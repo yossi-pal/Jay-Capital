@@ -1,11 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
-import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate } from '@/lib/draw-request-actions';
-import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow } from '@/lib/draw-requests';
+import SendToLenderButton from '@/components/SendToLenderButton';
+import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate, confirmDrawRequestWire } from '@/lib/draw-request-actions';
+import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow, type RequestWire } from '@/lib/draw-requests';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
+
+/** The wiring Send to lender will include, and whether it is still unconfirmed. */
+function lenderWireProps(id: string, requestWires: Record<string, RequestWire>): { wire: string; wireBlocked: boolean } {
+  const w = requestWires[id];
+  if (!w) return { wire: '', wireBlocked: false };
+  if (w.is_new && !w.confirmed_at) return { wire: '', wireBlocked: true };
+  return { wire: w.instructions, wireBlocked: false };
+}
 
 /** Starting text for "Send update"; the admin can change it before sending. */
 const REVIEWING_MESSAGE =
@@ -22,9 +31,13 @@ function todayIso(): string {
  * admin can adjust the amount or date before the draw is recorded.
  */
 export function PendingDrawRequests({
-  requests, canEdit, available, hasEmail,
+  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [], requestWires = {},
 }: {
   requests: DrawRequestRow[]; canEdit: boolean; available: number; hasEmail: boolean;
+  /** The loan's lender and its portal login addresses, for "Send to lender". */
+  lenderName?: string | null; lenderEmails?: string[];
+  /** The wiring stored with each request, by request id (admin only). */
+  requestWires?: Record<string, RequestWire>;
 }) {
   const router = useRouter();
   const pending = requests.filter(r => r.status === 'pending');
@@ -39,6 +52,33 @@ export function PendingDrawRequests({
   const [notify, setNotify] = useState(true);
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
+  const [confirmWireFor, setConfirmWireFor] = useState<string | null>(null);
+
+  async function doConfirmWire() {
+    const id = confirmWireFor; setConfirmWireFor(null);
+    if (!id) return;
+    setBusy(true);
+    const res = await confirmDrawRequestWire(id);
+    setBusy(false);
+    if (!res.ok) { setErr(''); setDone(null); setWireErr(res.error || 'Could not confirm the wiring.'); return; }
+    setDone(res.message || 'Confirmed.');
+    router.refresh();
+  }
+  const [wireErr, setWireErr] = useState<string | null>(null);
+
+  // Folded to one line by default so the loan itself stays near the top.
+  // The choice is remembered in this browser.
+  const FOLD_KEY = 'jcf:admin:drawRequestsOpen';
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    try { if (window.localStorage.getItem(FOLD_KEY) === '1') setExpanded(true); } catch { /* ignore */ }
+  }, []);
+  function toggle() {
+    setExpanded(v => {
+      try { window.localStorage.setItem(FOLD_KEY, v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+  }
 
   if (pending.length === 0) return null;
 
@@ -74,12 +114,34 @@ export function PendingDrawRequests({
   const over = mode === 'approve' && Number(amount) > available + 0.005;
 
   return (
-    <section className="card" style={{ borderColor: '#E9D6AE', marginBottom: 16 }} aria-label="Draw requests waiting">
-      <div className="panel-head">
-        <h2>Draw {pending.length === 1 ? 'request' : 'requests'} waiting</h2>
+    <section className="card" style={{ borderColor: '#E9D6AE', marginBottom: 16, padding: expanded ? undefined : '12px 20px' }}
+      aria-label="Draw requests waiting">
+      <button type="button" onClick={toggle} aria-expanded={expanded}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%',
+          background: 'none', border: 0, padding: 0, margin: 0, cursor: 'pointer', textAlign: 'left',
+          font: 'inherit', color: 'inherit',
+        }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round" aria-hidden="true"
+          style={{ flex: 'none', transition: 'transform .15s', transform: expanded ? 'rotate(90deg)' : 'none' }}>
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        <b style={{ fontSize: 16, color: 'var(--navy)' }}>Draw {pending.length === 1 ? 'request' : 'requests'} waiting</b>
         <span className="count">{pending.length}</span>
-      </div>
-      {pending.map(r => (
+        {!expanded && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 14 }}>
+            <b style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {money(pending.reduce((t, r) => t + Number(r.amount), 0))}
+            </b>
+            {pending.length === 1 && <span className={drawRequestChip(pending[0].status)}>{drawRequestStatusLabel(pending[0])}</span>}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {expanded && <div style={{ marginTop: 12 }} />}
+      {expanded && pending.map(r => (
         <div key={r.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '12px 0', borderTop: '1px solid var(--hair)' }}>
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <b style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{money(r.amount)}</b>
@@ -93,9 +155,26 @@ export function PendingDrawRequests({
                 <b>Update sent to the borrower:</b> {r.decision_note}
               </div>
             )}
+            {requestWires[r.id]?.is_new && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {requestWires[r.id].confirmed_at ? (
+                  <span className="chip ok">New wiring confirmed by phone</span>
+                ) : (
+                  <>
+                    <span className="chip late">New wiring, confirm by phone</span>
+                    {canEdit && (
+                      <button className="btn secondary sm" type="button" disabled={busy}
+                        onClick={() => setConfirmWireFor(r.id)}>Confirmed by phone</button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
           {canEdit ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <SendToLenderButton requestId={r.id} amount={Number(r.amount)} lenderName={lenderName} lenderEmails={lenderEmails}
+                {...lenderWireProps(r.id, requestWires)} />
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'update')}>Send update</button>
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'decline')}>Decline</button>
               <button className="btn" type="button" onClick={() => openFor(r, 'approve')}>Approve</button>
@@ -154,13 +233,32 @@ export function PendingDrawRequests({
           </div>
         </div>
       </Modal>
+      <Modal open={!!confirmWireFor} onClose={() => setConfirmWireFor(null)} title="Confirm new wiring by phone">
+        <p style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+          Call the borrower on a number you already had (never one from an email) and have them read back
+          the bank, routing and account numbers. Only confirm if they match:
+        </p>
+        <div style={{ whiteSpace: 'pre-line', overflowWrap: 'anywhere', padding: '10px 12px', background: 'var(--pale)', borderRadius: 8, fontSize: 14, lineHeight: 1.5 }}>
+          {confirmWireFor ? requestWires[confirmWireFor]?.instructions : ''}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+          <button className="btn secondary" type="button" onClick={() => setConfirmWireFor(null)}>Cancel</button>
+          <button className="btn" type="button" disabled={busy} onClick={doConfirmWire}>Yes, confirmed by phone</button>
+        </div>
+      </Modal>
+      <AlertDialog open={!!wireErr} title="That didn't work" message={wireErr || ''} tone="error" onClose={() => setWireErr(null)} />
       <AlertDialog open={!!done} title="Done" message={done || ''} tone="success" onClose={() => setDone(null)} />
     </section>
   );
 }
 
 /** Every request on the loan, oldest first, for the Draws tab. */
-export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] }) {
+export function DrawRequestHistory({
+  requests, canEdit = false, lenderName = null, lenderEmails = [], requestWires = {},
+}: {
+  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[];
+  requestWires?: Record<string, RequestWire>;
+}) {
   if (requests.length === 0) return null;
   const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
   return (
@@ -168,7 +266,7 @@ export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] })
       <h3 style={{ margin: '24px 0 10px', fontSize: 16, color: 'var(--navy)' }}>Draw requests from the borrower</h3>
       <div className="tablescroll">
         <table className="bordered">
-          <thead><tr><th>Requested</th><th>Status</th><th>For</th><th>Reply</th><th className="num">Asked</th><th className="num">Approved</th></tr></thead>
+          <thead><tr><th>Requested</th><th>Status</th><th>For</th><th>Reply</th><th className="num">Asked</th><th className="num">Approved</th>{canEdit && <th></th>}</tr></thead>
           <tbody>
             {list.map(r => (
               <tr key={r.id}>
@@ -178,6 +276,15 @@ export function DrawRequestHistory({ requests }: { requests: DrawRequestRow[] })
                 <td style={{ minWidth: 140 }}>{r.decision_note || ''}</td>
                 <td className="num">{money(r.amount)}</td>
                 <td className="num">{r.approved_amount != null ? money(r.approved_amount) : ''}</td>
+                {canEdit && (
+                  <td className="num">
+                    {r.status === 'approved' && (
+                      <SendToLenderButton small requestId={r.id}
+                        amount={Number(r.approved_amount ?? r.amount)} lenderName={lenderName} lenderEmails={lenderEmails}
+                        {...lenderWireProps(r.id, requestWires)} />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

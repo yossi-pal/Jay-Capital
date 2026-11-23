@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { serverClient } from '@/lib/supabase-server';
+import { serverClient, serviceClient } from '@/lib/supabase-server';
 import PortalTitle from '@/components/PortalTitle';
 import LiveRefresh from '@/components/LiveRefresh';
 import IdleTimeout from '@/components/IdleTimeout';
@@ -9,7 +9,8 @@ import PortalLoans, { type PortalLoan } from '@/components/PortalLoans';
 import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
 import ChangeEmailButton from '@/components/ChangeEmailButton';
-import { DRAW_REQUEST_COLUMNS, type DrawRequestRow } from '@/lib/draw-requests';
+import { DRAW_REQUEST_COLUMNS, wireHint, type DrawRequestRow } from '@/lib/draw-requests';
+import { latestTrustedWire } from '@/lib/draw-wires';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -57,6 +58,18 @@ export default async function PortalPage() {
     </header>
   );
 
+  // The wiring from the borrower's last draw, for "same as my last draw" on
+  // the request form. Bank details are admin-only, so this reads with the
+  // service role, but only for borrowers whose loans row level security just
+  // returned to this user, and passes on nothing more than "ending 1234".
+  const borrowerIds: string[] = Array.from(new Set(list.map((l: any) => String(l.borrower_id || '')).filter(Boolean)));
+  const svc = serviceClient();
+  const wireByBorrower = new Map<string, { hint: string }>();
+  await Promise.all(borrowerIds.map(async id => {
+    const w = await latestTrustedWire(svc, id);
+    if (w) wireByBorrower.set(id, { hint: wireHint(w.instructions) });
+  }));
+
   // Every loan is loaded at the same time (and the visit is recorded
   // alongside), instead of one loan after another.
   const [items] = await Promise.all([
@@ -70,6 +83,7 @@ export default async function PortalPage() {
       ]);
       return {
         loan, draws: draws ?? [], drawRequests: (requests ?? []) as DrawRequestRow[],
+        wireOnFile: wireByBorrower.get(loan.borrower_id) ?? null,
         payments: extras.payments, allocations: extras.allocations, payInfo: extras.payInfo,
       };
     })),
