@@ -12,27 +12,26 @@ import { money } from '@/lib/format';
  * addresses and can be changed before sending.
  */
 export default function SendToLenderButton({
-  requestId, amount, lenderName, lenderEmails, borrowerWire = '', wireWarning, small = false,
+  requestId, amount, lenderName, lenderEmails, wire = '', wireBlocked = false, small = false,
 }: {
   requestId: string; amount: number; lenderName: string | null; lenderEmails: string[];
-  /** The borrower's own wiring instructions, from the loan's Edit page. */
-  borrowerWire?: string; small?: boolean;
-  /** Shown instead of the usual note, e.g. when the borrower's new wiring is unconfirmed. */
-  wireWarning?: string;
+  /** The wiring stored with this request, which the email will include. */
+  wire?: string;
+  /** The borrower sent new wiring that is not confirmed by phone yet. */
+  wireBlocked?: boolean;
+  small?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [to, setTo] = useState('');
   const [message, setMessage] = useState('');
-  const [wire, setWire] = useState('');
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
 
   function start() {
     setTo(lenderEmails.join(', '));
     setMessage('Please see the draw request below for your review and funding.');
-    setWire(borrowerWire);
     setErr(''); setOpen(true);
   }
 
@@ -40,7 +39,7 @@ export default function SendToLenderButton({
     if (!to.trim()) { setErr('Please enter the lender’s email address.'); return; }
     setBusy(true); setErr('');
     const fd = new FormData();
-    fd.set('to', to); fd.set('message', message); fd.set('wire', wire);
+    fd.set('to', to); fd.set('message', message);
     const res = await sendDrawRequestToLender(requestId, fd);
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'The email could not be sent.'); return; }
@@ -75,21 +74,24 @@ export default function SendToLenderButton({
               onChange={e => setMessage(e.target.value)} />
           </div>
           <div className="field-wrap">
-            <label htmlFor="stl-wire">Wiring instructions</label>
-            <textarea id="stl-wire" className="field" rows={5} maxLength={2000} value={wire}
-              onChange={e => setWire(e.target.value)} />
-            <span className="muted" style={{ fontSize: 12.5 }}>
-              {wireWarning
-                ? <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{wireWarning}</span>
-                : borrowerWire
-                ? 'The borrower\u2019s wiring instructions from the loan\u2019s Edit page. Change them for this email if needed, or clear the box to leave them out.'
-                : 'No wiring instructions on file for this borrower. Type them here, or add them on the loan\u2019s Edit page so they fill in next time.'}
-            </span>
+            <label>Wiring instructions included in the email</label>
+            {wireBlocked ? (
+              <div className="alert error" style={{ margin: 0 }}>
+                The borrower sent new wiring instructions with this request. Call them to confirm the details and
+                click <b>Confirmed by phone</b> on the request before sending it to the lender.
+              </div>
+            ) : wire ? (
+              <div style={{ whiteSpace: 'pre-line', overflowWrap: 'anywhere', padding: '10px 12px', background: 'var(--pale)', borderRadius: 8, fontSize: 14, lineHeight: 1.5 }}>
+                {wire}
+              </div>
+            ) : (
+              <span className="muted" style={{ fontSize: 13 }}>No wiring instructions were sent with this request, so none will be included.</span>
+            )}
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
             <button className="btn secondary" type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
-            <button className="btn" type="button" disabled={busy} onClick={submit}>{busy ? 'Sending…' : 'Send email'}</button>
+            <button className="btn" type="button" disabled={busy || wireBlocked} onClick={submit}>{busy ? 'Sending…' : 'Send email'}</button>
           </div>
         </div>
       </Modal>

@@ -19,7 +19,7 @@ export default function DrawRequestCard({
   /** False once the loan is paid off or nothing is left to draw. */
   canRequest: boolean;
   requests: DrawRequestRow[];
-  /** We already hold wiring instructions: only a hint (last four digits). */
+  /** Wiring from the borrower's last draw: only a hint (last four digits). */
   wireOnFile?: { hint: string } | null;
 }) {
   const router = useRouter();
@@ -155,7 +155,7 @@ export default function DrawRequestCard({
               <>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
                   <input type="radio" name="dr-wire" checked={wireChoice === 'on_file'} onChange={() => setWireChoice('on_file')} />
-                  <span>The account we have on file{wireOnFile.hint ? <> (ending in <b>{wireOnFile.hint}</b>)</> : ''}</span>
+                  <span>Same account as my last draw{wireOnFile.hint ? <> (ending in <b>{wireOnFile.hint}</b>)</> : ''}</span>
                 </label>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
                   <input type="radio" name="dr-wire" checked={wireChoice === 'new'} onChange={() => setWireChoice('new')} />

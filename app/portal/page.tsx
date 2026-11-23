@@ -10,6 +10,7 @@ import { fetchStatementExtras } from '@/lib/statement-data';
 import { logActivity } from '@/lib/activity';
 import ChangeEmailButton from '@/components/ChangeEmailButton';
 import { DRAW_REQUEST_COLUMNS, wireHint, type DrawRequestRow } from '@/lib/draw-requests';
+import { latestTrustedWire } from '@/lib/draw-wires';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -57,15 +58,17 @@ export default async function PortalPage() {
     </header>
   );
 
-  // Whether we hold wiring instructions for the borrower, for the draw request
-  // form. Bank details are admin-only, so this reads with the service role,
-  // but only for borrowers whose loans row level security just returned to
-  // this user, and passes on nothing more than "on file, ending 1234".
-  const borrowerIds = Array.from(new Set(list.map((l: any) => l.borrower_id).filter(Boolean)));
-  const { data: wires } = borrowerIds.length
-    ? await serviceClient().from('borrower_wires').select('borrower_id, instructions').in('borrower_id', borrowerIds)
-    : { data: [] as { borrower_id: string; instructions: string }[] };
-  const wireByBorrower = new Map((wires ?? []).map((w: any) => [w.borrower_id, { hint: wireHint(w.instructions) }]));
+  // The wiring from the borrower's last draw, for "same as my last draw" on
+  // the request form. Bank details are admin-only, so this reads with the
+  // service role, but only for borrowers whose loans row level security just
+  // returned to this user, and passes on nothing more than "ending 1234".
+  const borrowerIds: string[] = Array.from(new Set(list.map((l: any) => String(l.borrower_id || '')).filter(Boolean)));
+  const svc = serviceClient();
+  const wireByBorrower = new Map<string, { hint: string }>();
+  await Promise.all(borrowerIds.map(async id => {
+    const w = await latestTrustedWire(svc, id);
+    if (w) wireByBorrower.set(id, { hint: wireHint(w.instructions) });
+  }));
 
   // Every loan is loaded at the same time (and the visit is recorded
   // alongside), instead of one loan after another.

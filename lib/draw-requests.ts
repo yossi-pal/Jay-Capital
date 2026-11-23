@@ -53,5 +53,5 @@ export function wireHint(instructions: string | null | undefined): string {
   return longest ? longest.slice(-4) : '';
 }
 
-/** New wiring instructions a borrower sent with a request (admin only). */
-export interface RequestWire { instructions: string; confirmed_at: string | null }
+/** The wiring stored with a request (admin only). is_new = the borrower typed new details. */
+export interface RequestWire { instructions: string; is_new: boolean; confirmed_at: string | null }

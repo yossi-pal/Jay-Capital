@@ -454,20 +454,6 @@ export async function updateLoan(loanId: string, form: FormData) {
     }).eq('id', loanId);
     if (error) throw new Error(error.message);
     await saveLienPosition(supabase, loanId, form);
-
-    // The borrower's wiring instructions for draws (admin-only table). Only
-    // touched when the edit form sent the field; an empty box removes them.
-    if (loan?.borrower_id && form.has('borrower_wire')) {
-      const wire = String(form.get('borrower_wire') || '').trim();
-      if (wire.length > 2000) throw new Error('Please keep the wiring instructions under 2,000 characters.');
-      const { error: wireErr } = wire
-        ? await supabase.from('borrower_wires').upsert(
-            { borrower_id: loan.borrower_id, instructions: wire, updated_by: await actorId() },
-            { onConflict: 'borrower_id' })
-        : await supabase.from('borrower_wires').delete().eq('borrower_id', loan.borrower_id);
-      if (wireErr) throw new Error(`The loan was saved, but the wiring instructions were not: ${wireErr.message}`);
-    }
-
     await logActivity('loan_updated', loanId, await actorId(),
       `${String(form.get('borrower_name') || '').trim()} · ${String(form.get('property') || '').trim()}`);
     revalidatePath('/admin');

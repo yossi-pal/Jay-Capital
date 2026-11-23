@@ -42,18 +42,13 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
     ? await supabase.from('lender_logins').select('email').eq('lender_id', summary.lender_id)
     : { data: [] as { email: string }[] };
   const lenderEmails = Array.from(new Set((lenderLogins ?? []).map((x: any) => String(x.email || '').trim()).filter(Boolean)));
-  // The borrower's wiring instructions for draws. Admins only (row level
-  // security); staff get nothing, and never see Send to lender anyway.
-  const { data: borrowerWire } = summary.borrower_id
-    ? await supabase.from('borrower_wires').select('instructions').eq('borrower_id', summary.borrower_id).maybeSingle()
-    : { data: null };
-  // New wiring borrowers sent with their requests (admins only).
+  // The wiring stored with each draw request (admins only, row level security).
   const requestIds = (drawRequests ?? []).map((r: any) => r.id);
   const { data: reqWires } = requestIds.length
-    ? await supabase.from('draw_request_wires').select('request_id, instructions, confirmed_at').in('request_id', requestIds)
+    ? await supabase.from('draw_request_wires').select('request_id, instructions, is_new, confirmed_at').in('request_id', requestIds)
     : { data: [] as any[] };
-  const requestWires: Record<string, { instructions: string; confirmed_at: string | null }> = {};
-  for (const w of reqWires ?? []) requestWires[w.request_id] = { instructions: w.instructions, confirmed_at: w.confirmed_at };
+  const requestWires: Record<string, { instructions: string; is_new: boolean; confirmed_at: string | null }> = {};
+  for (const w of reqWires ?? []) requestWires[w.request_id] = { instructions: w.instructions, is_new: !!w.is_new, confirmed_at: w.confirmed_at };
   const fallbackOrder = (allLoans ?? []).map((l: any) => ({
     id: l.loan_id, label: `${l.loan_number} · ${l.borrower_name}`,
   }));
@@ -79,7 +74,6 @@ export default async function LoanPage({ params }: { params: { id: string } }) {
       lienPosition={position?.lien_position ?? null}
       drawRequests={(drawRequests ?? []) as DrawRequestRow[]}
       lenderEmails={lenderEmails}
-      borrowerWire={borrowerWire?.instructions ?? ''}
       requestWires={requestWires}
     />
   );

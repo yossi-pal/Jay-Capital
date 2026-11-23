@@ -16,7 +16,7 @@ export interface PortalLoan {
   allocations: AllocationRow[];
   payInfo: PayInfo | null;
   drawRequests?: DrawRequestRow[];
-  /** Wiring instructions on file for the borrower: only a hint, never the details. */
+  /** Wiring from the borrower's last draw: only a hint, never the details. */
   wireOnFile?: { hint: string } | null;
 }
 

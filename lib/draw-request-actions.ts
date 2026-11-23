@@ -5,6 +5,7 @@ import { run } from '@/lib/result';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { sendMail, brandShell, button, BRAND } from '@/lib/mailer';
 import { logActivity } from '@/lib/activity';
+import { latestTrustedWire, isTrusted } from '@/lib/draw-wires';
 import { money, fmtDate, fmtDateTime, shortAddress } from '@/lib/format';
 
 /**
@@ -75,12 +76,11 @@ export async function requestDraw(loanId: string, form: FormData) {
     if (!note) throw new Error('Please tell us briefly what the draw is for.');
     if (note.length > 1000) throw new Error('Please keep the description under 1,000 characters.');
 
-    // Wiring: the instructions already on file, or new ones that an admin
-    // must confirm by phone before they are used.
+    // Wiring: the same as the borrower's last trusted instructions, or new
+    // ones that an admin must confirm by phone before they reach a lender.
     const svc = serviceClient();
-    const { data: onFile } = await svc.from('borrower_wires')
-      .select('borrower_id').eq('borrower_id', loan.borrower_id).maybeSingle();
-    const useNewWire = String(form.get('wire_choice') || '') === 'new' || !onFile;
+    const previous = await latestTrustedWire(svc, loan.borrower_id);
+    const useNewWire = String(form.get('wire_choice') || '') === 'new' || !previous;
     const newWire = useNewWire ? String(form.get('wire') || '').trim() : '';
     if (useNewWire && !newWire) throw new Error('Please enter your wiring instructions (bank name, ABA routing number, account name and number).');
     if (newWire.length > 2000) throw new Error('Please keep the wiring instructions under 2,000 characters.');
@@ -95,9 +95,10 @@ export async function requestDraw(loanId: string, form: FormData) {
       loan_id: loanId, amount, note, status: 'pending', requested_by: user.id,
     }).select('id').single();
     if (error) throw new Error(error.message);
-    if (newWire) {
-      const { error: wireErr } = await svc.from('draw_request_wires')
-        .insert({ request_id: created.id, instructions: newWire });
+    {
+      const { error: wireErr } = await svc.from('draw_request_wires').insert(newWire
+        ? { request_id: created.id, instructions: newWire, is_new: true }
+        : { request_id: created.id, instructions: previous!.instructions, is_new: false });
       if (wireErr) {
         // Never leave a request behind that silently lost its wiring.
         await svc.from('draw_requests').delete().eq('id', created.id);
@@ -122,7 +123,7 @@ export async function requestDraw(loanId: string, form: FormData) {
         <p style="margin:0 0 6px;line-height:1.6"><b>Left to draw before this:</b> ${esc(money(available))}</p>
         <p style="margin:0 0 18px;line-height:1.6"><b>Wiring:</b> ${newWire
           ? '<span style="color:#A12A22;font-weight:700">New wiring instructions sent. Confirm them with the borrower by phone before they go to the lender.</span>'
-          : 'Use the instructions on file.'}</p>
+          : 'Same as the borrower\u2019s last draw.'}</p>
         ${button(link, 'Review the request')}
       `),
     });
@@ -255,8 +256,14 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
     if (to.length > 10) throw new Error('Please send to 10 addresses or fewer.');
     const message = String(form.get('message') || '').trim();
     if (message.length > 2000) throw new Error('Please keep the message under 2,000 characters.');
-    const wire = String(form.get('wire') || '').trim();
-    if (wire.length > 2000) throw new Error('Please keep the wiring instructions under 2,000 characters.');
+    // The request's own wiring, never typed in here. New instructions must
+    // have been confirmed by phone first.
+    const { data: storedWire } = await supabase.from('draw_request_wires')
+      .select('instructions, is_new, confirmed_at').eq('request_id', requestId).maybeSingle();
+    if (storedWire && !isTrusted(storedWire)) {
+      throw new Error('The borrower sent new wiring instructions with this request. Call them to confirm the details, click Confirmed by phone, then send.');
+    }
+    const wire = storedWire?.instructions?.trim() || '';
     // Construction draws only: total paid out less what was funded at closing.
     const constructionDrawn = Math.max(0, Number(loan.total_disbursed || 0) - Number(loan.acquisition || 0));
 
@@ -307,8 +314,8 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
 
 /**
  * An admin has phoned the borrower and confirmed the new wiring instructions
- * sent with a draw request. Marks them confirmed and saves them as the
- * borrower's instructions for future draws.
+ * sent with a draw request. From then on they are trusted: included in the
+ * lender email, and offered to the borrower as "same as my last draw".
  */
 export async function confirmDrawRequestWire(requestId: string) {
   return run(async () => {
@@ -319,23 +326,16 @@ export async function confirmDrawRequestWire(requestId: string) {
     const { data: req } = await supabase.from('draw_requests')
       .select('loan_id').eq('id', requestId).maybeSingle();
     if (!req) throw new Error('That draw request no longer exists.');
-    const { data: loan } = await supabase.from('loans')
-      .select('borrower_id').eq('id', req.loan_id).maybeSingle();
-    if (!loan?.borrower_id) throw new Error('Loan not found.');
 
-    const { error: saveErr } = await supabase.from('borrower_wires').upsert(
-      { borrower_id: loan.borrower_id, instructions: wire.instructions, updated_by: userId },
-      { onConflict: 'borrower_id' });
-    if (saveErr) throw new Error(saveErr.message);
     if (!wire.confirmed_at) {
       const { error } = await supabase.from('draw_request_wires')
         .update({ confirmed_by: userId, confirmed_at: new Date().toISOString() }).eq('request_id', requestId);
       if (error) throw new Error(error.message);
     }
 
-    await logActivity('draw_request_wire_confirmed', req.loan_id, userId, 'Borrower wiring confirmed and saved');
+    await logActivity('draw_request_wire_confirmed', req.loan_id, userId, 'New wiring confirmed by phone');
     revalidatePath(`/admin/loans/${req.loan_id}`);
-    return { message: 'Wiring instructions confirmed and saved for this borrower\u2019s future draws.' };
+    return { message: 'Wiring confirmed. It will be included when you send this request to the lender, and the borrower can pick it as \u201csame as my last draw\u201d next time.' };
   });
 }
 

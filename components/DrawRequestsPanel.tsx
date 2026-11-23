@@ -2,19 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Modal, AlertDialog, ConfirmDialog } from '@/components/Modal';
+import { Modal, AlertDialog } from '@/components/Modal';
 import SendToLenderButton from '@/components/SendToLenderButton';
 import { approveDrawRequest, declineDrawRequest, sendDrawRequestUpdate, confirmDrawRequestWire } from '@/lib/draw-request-actions';
 import { drawRequestStatusLabel, drawRequestChip, type DrawRequestRow, type RequestWire } from '@/lib/draw-requests';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
 
-/** What Send to lender starts with: never wiring that is not yet confirmed. */
-function lenderWireProps(id: string, requestWires: Record<string, RequestWire>, borrowerWire: string): { borrowerWire: string; wireWarning?: string } {
+/** The wiring Send to lender will include, and whether it is still unconfirmed. */
+function lenderWireProps(id: string, requestWires: Record<string, RequestWire>): { wire: string; wireBlocked: boolean } {
   const w = requestWires[id];
-  if (w && !w.confirmed_at) {
-    return { borrowerWire: '', wireWarning: 'The borrower sent new wiring instructions that are not confirmed yet. Confirm them by phone first, or type verified details here.' };
-  }
-  return { borrowerWire };
+  if (!w) return { wire: '', wireBlocked: false };
+  if (w.is_new && !w.confirmed_at) return { wire: '', wireBlocked: true };
+  return { wire: w.instructions, wireBlocked: false };
 }
 
 /** Starting text for "Send update"; the admin can change it before sending. */
@@ -32,12 +31,12 @@ function todayIso(): string {
  * admin can adjust the amount or date before the draw is recorded.
  */
 export function PendingDrawRequests({
-  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [], borrowerWire = '', requestWires = {},
+  requests, canEdit, available, hasEmail, lenderName = null, lenderEmails = [], requestWires = {},
 }: {
   requests: DrawRequestRow[]; canEdit: boolean; available: number; hasEmail: boolean;
   /** The loan's lender and its portal login addresses, for "Send to lender". */
-  lenderName?: string | null; lenderEmails?: string[]; borrowerWire?: string;
-  /** New wiring sent with each request, by request id (admin only). */
+  lenderName?: string | null; lenderEmails?: string[];
+  /** The wiring stored with each request, by request id (admin only). */
   requestWires?: Record<string, RequestWire>;
 }) {
   const router = useRouter();
@@ -156,29 +155,26 @@ export function PendingDrawRequests({
                 <b>Update sent to the borrower:</b> {r.decision_note}
               </div>
             )}
-            {requestWires[r.id] && (requestWires[r.id].confirmed_at ? (
-              <div className="alert info" style={{ margin: '8px 0 0', overflowWrap: 'anywhere' }}>
-                <b>New wiring from the borrower, confirmed by phone and saved:</b>
-                <div style={{ whiteSpace: 'pre-line', marginTop: 4 }}>{requestWires[r.id].instructions}</div>
-              </div>
-            ) : (
-              <div className="alert error" style={{ margin: '8px 0 0', overflowWrap: 'anywhere' }}>
-                <b>New wiring instructions from the borrower. Not confirmed yet.</b>
-                <div style={{ whiteSpace: 'pre-line', margin: '4px 0 8px', color: 'var(--ink)' }}>{requestWires[r.id].instructions}</div>
-                <div style={{ fontSize: 13 }}>
-                  Call the borrower on a number you already have (not one from an email) and read these back before they go to the lender.
-                </div>
-                {canEdit && (
-                  <button className="btn sm" type="button" style={{ marginTop: 8 }} disabled={busy}
-                    onClick={() => setConfirmWireFor(r.id)}>Confirmed by phone</button>
+            {requestWires[r.id]?.is_new && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {requestWires[r.id].confirmed_at ? (
+                  <span className="chip ok">New wiring confirmed by phone</span>
+                ) : (
+                  <>
+                    <span className="chip late">New wiring, confirm by phone</span>
+                    {canEdit && (
+                      <button className="btn secondary sm" type="button" disabled={busy}
+                        onClick={() => setConfirmWireFor(r.id)}>Confirmed by phone</button>
+                    )}
+                  </>
                 )}
               </div>
-            ))}
+            )}
           </div>
           {canEdit ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <SendToLenderButton requestId={r.id} amount={Number(r.amount)} lenderName={lenderName} lenderEmails={lenderEmails}
-                {...lenderWireProps(r.id, requestWires, borrowerWire)} />
+                {...lenderWireProps(r.id, requestWires)} />
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'update')}>Send update</button>
               <button className="btn secondary" type="button" onClick={() => openFor(r, 'decline')}>Decline</button>
               <button className="btn" type="button" onClick={() => openFor(r, 'approve')}>Approve</button>
@@ -237,14 +233,19 @@ export function PendingDrawRequests({
           </div>
         </div>
       </Modal>
-      <ConfirmDialog
-        open={!!confirmWireFor}
-        title="Confirm wiring instructions"
-        message="Only confirm after you have called the borrower on a number you already had and they read back the same bank, routing and account numbers. Confirming also saves these as the borrower's wiring for future draws."
-        confirmLabel="Yes, confirmed by phone"
-        onConfirm={doConfirmWire}
-        onCancel={() => setConfirmWireFor(null)}
-      />
+      <Modal open={!!confirmWireFor} onClose={() => setConfirmWireFor(null)} title="Confirm new wiring by phone">
+        <p style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+          Call the borrower on a number you already had (never one from an email) and have them read back
+          the bank, routing and account numbers. Only confirm if they match:
+        </p>
+        <div style={{ whiteSpace: 'pre-line', overflowWrap: 'anywhere', padding: '10px 12px', background: 'var(--pale)', borderRadius: 8, fontSize: 14, lineHeight: 1.5 }}>
+          {confirmWireFor ? requestWires[confirmWireFor]?.instructions : ''}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+          <button className="btn secondary" type="button" onClick={() => setConfirmWireFor(null)}>Cancel</button>
+          <button className="btn" type="button" disabled={busy} onClick={doConfirmWire}>Yes, confirmed by phone</button>
+        </div>
+      </Modal>
       <AlertDialog open={!!wireErr} title="That didn't work" message={wireErr || ''} tone="error" onClose={() => setWireErr(null)} />
       <AlertDialog open={!!done} title="Done" message={done || ''} tone="success" onClose={() => setDone(null)} />
     </section>
@@ -253,9 +254,9 @@ export function PendingDrawRequests({
 
 /** Every request on the loan, oldest first, for the Draws tab. */
 export function DrawRequestHistory({
-  requests, canEdit = false, lenderName = null, lenderEmails = [], borrowerWire = '', requestWires = {},
+  requests, canEdit = false, lenderName = null, lenderEmails = [], requestWires = {},
 }: {
-  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[]; borrowerWire?: string;
+  requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[];
   requestWires?: Record<string, RequestWire>;
 }) {
   if (requests.length === 0) return null;
@@ -280,7 +281,7 @@ export function DrawRequestHistory({
                     {r.status === 'approved' && (
                       <SendToLenderButton small requestId={r.id}
                         amount={Number(r.approved_amount ?? r.amount)} lenderName={lenderName} lenderEmails={lenderEmails}
-                        {...lenderWireProps(r.id, requestWires, borrowerWire)} />
+                        {...lenderWireProps(r.id, requestWires)} />
                     )}
                   </td>
                 )}
