@@ -31,6 +31,7 @@ export async function emailStatement(loanId: string, months: string[]) {
 
     const { data: loan } = await supabase.from('loan_summary').select('*').eq('loan_id', loanId).single();
     if (!loan) throw new Error('Loan not found');
+    if (loan.status === 'pending') throw new Error('This loan is pending (not closed yet), so it is hidden from the borrower. Set it to Active before emailing a statement.');
     if (!loan.borrower_email) throw new Error('This borrower has no email on file.');
 
     const { data: draws } = await supabase.from('draw_details').select('*').eq('loan_id', loanId).order('draw_date', { ascending: true });
@@ -114,6 +115,7 @@ export async function sendPortalWelcome(loanId: string, toEmail: string) {
 
     const { data: loan } = await svc.from('loan_summary').select('*').eq('loan_id', loanId).single();
     if (!loan) throw new Error('Loan not found');
+    if (loan.status === 'pending') throw new Error('This loan is pending (not closed yet), so the borrower cannot see it in the portal. Set it to Active before sending the welcome email.');
 
     const site = process.env.NEXT_PUBLIC_SITE_URL || '';
     const signInLink = site ? `${site}/login` : '/login';

@@ -111,6 +111,7 @@ export default function LoanDetail({
   const drawnPct = Number(summary.loan_amount) > 0
     ? Math.min(100, (Number(summary.total_disbursed) / Number(summary.loan_amount)) * 100) : 0;
   const statusChip = paidOff ? <span className="chip">Paid off</span>
+    : summary.status === 'pending' ? <span className="chip" title="Not closed yet. Hidden from the borrower and the lender.">Pending</span>
     : summary.status === 'defaulted' ? <span className="chip late">Defaulted</span>
     : lenderView ? <span className="chip ok">Active</span>
     : isLate ? <span className="chip late">Past due</span>
@@ -167,6 +168,7 @@ export default function LoanDetail({
                 }
                 router.refresh();
               }}>
+              <option value="pending">Pending (not closed)</option>
               <option value="active">Active</option>
               <option value="paid_off">Paid off</option>
               <option value="defaulted">Defaulted</option>

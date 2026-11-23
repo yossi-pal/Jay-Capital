@@ -191,6 +191,9 @@ export async function createLoan(form: FormData) {
       construction,
       annual_rate: Number(form.get('annual_rate') || 0) / 100,
       closing_date: String(form.get('closing_date') || ''),
+      // Pending = not closed yet: hidden from the borrower and the lender
+      // (migration 027) until it is switched to Active.
+      status: String(form.get('pending') || '') === 'on' ? 'pending' : 'active',
       ...reserveFromForm(form),
     }).select('id').single();
     if (error) throw new Error(error.message);
@@ -535,6 +538,10 @@ export async function setLoanStatus(loanId: string, status: string, paidOffDate?
   return run(async () => {
     const supabase = await requireAdmin();
 
+    if (!['pending', 'active', 'paid_off', 'defaulted'].includes(status)) {
+      throw new Error('That is not a valid loan status.');
+    }
+
     // Paid off needs a date: interest has to stop somewhere, and without one
     // the ledger would keep accruing on a settled loan.
     if (status === 'paid_off' && !paidOffDate) {
@@ -555,7 +562,9 @@ export async function setLoanStatus(loanId: string, status: string, paidOffDate?
     // payoff statement) no longer applies.
     if (status !== 'paid_off') await supabase.from('loan_payoffs').delete().eq('loan_id', loanId);
     await logActivity('loan_status_changed', loanId, await actorId(),
-      status === 'paid_off' ? `Paid off ${paidOffDate}` : `Set to ${status.replace('_', ' ')}`);
+      status === 'paid_off' ? `Paid off ${paidOffDate}`
+        : status === 'pending' ? 'Set to pending (hidden from borrower and lender)'
+        : `Set to ${status.replace('_', ' ')}`);
     revalidatePath(`/admin/loans/${loanId}`);
     revalidatePath('/admin');
   });

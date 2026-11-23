@@ -34,7 +34,7 @@ export const ORDER_KEY = 'jcf:admin:loanOrder';
 
 type Row = LoanRow & {
   total_draw: number; late: number; due_amount: number; due_date: string;
-  state: 'late' | 'active' | 'paid_off' | 'defaulted' | 'other';
+  state: 'late' | 'active' | 'pending' | 'paid_off' | 'defaulted' | 'other';
   lender: string;
 };
 type SortKey = 'loan_number' | 'borrower_name' | 'state' | 'loan_amount' | 'total_disbursed'
@@ -51,11 +51,12 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
   { key: 'lender',          label: 'Lender' },
 ];
 
-const STATE_ORDER = { late: 0, active: 1, defaulted: 2, paid_off: 3, other: 4 };
+const STATE_ORDER = { late: 0, active: 1, pending: 2, defaulted: 3, paid_off: 4, other: 5 };
 
 const FILTERS: { value: string; label: string }[] = [
   { value: 'active',    label: 'Active' },
   { value: 'late',      label: 'Past due' },
+  { value: 'pending',   label: 'Pending' },
   { value: 'paid_off',  label: 'Paid off' },
   { value: 'defaulted', label: 'Defaulted' },
   { value: '',          label: 'All loans' },
@@ -126,6 +127,7 @@ export default function PortfolioTable({
     const d = due[l.loan_id];
     const state: Row['state'] =
       l.status === 'active' ? (late > 0.005 && !neutralStatus ? 'late' : 'active')
+        : l.status === 'pending' ? 'pending'
         : l.status === 'paid_off' ? 'paid_off'
         : l.status === 'defaulted' ? 'defaulted' : 'other';
     return {
@@ -144,10 +146,11 @@ export default function PortfolioTable({
   );
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { '': rows.length, active: 0, late: 0, paid_off: 0, defaulted: 0 };
+    const c: Record<string, number> = { '': rows.length, active: 0, late: 0, pending: 0, paid_off: 0, defaulted: 0 };
     for (const r of rows) {
       if (r.status === 'active') c.active++;
       if (r.state === 'late') c.late++;
+      if (r.status === 'pending') c.pending++;
       if (r.status === 'paid_off') c.paid_off++;
       if (r.status === 'defaulted') c.defaulted++;
     }
@@ -354,7 +357,7 @@ export default function PortfolioTable({
 
 function statusLabel(s: Row['state'], neutral = false) {
   return s === 'late' ? 'Past due' : s === 'active' ? (neutral ? 'Active' : 'Current') : s === 'paid_off' ? 'Paid off'
-    : s === 'defaulted' ? 'Defaulted' : 'Other';
+    : s === 'pending' ? 'Pending' : s === 'defaulted' ? 'Defaulted' : 'Other';
 }
 
 /** Status as a coloured label. A late active loan says so in red. */
