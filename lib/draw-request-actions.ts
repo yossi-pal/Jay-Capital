@@ -6,7 +6,8 @@ import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { sendMail, brandShell, button, BRAND } from '@/lib/mailer';
 import { logActivity } from '@/lib/activity';
 import { latestTrustedWire, isTrusted } from '@/lib/draw-wires';
-import { money, fmtDate, fmtDateTime, shortAddress } from '@/lib/format';
+import { lenderDrawEmailBody } from '@/lib/draw-emails';
+import { money, fmtDate, shortAddress } from '@/lib/format';
 
 /**
  * Draw requests: a borrower asks for a construction draw from the portal, an
@@ -271,32 +272,12 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
 
     const approved = req.status === 'approved' && req.approved_amount != null;
     const amount = approved ? Number(req.approved_amount) : Number(req.amount);
-    const borrower = loan.is_entity && loan.entity_name ? `${loan.entity_name} (${loan.borrower_name})` : loan.borrower_name;
-    const row = (k: string, v: string) =>
-      `<tr><td style="padding:7px 0;color:#6B7A90;border-top:1px solid #E4EAF3">${esc(k)}</td>`
-      + `<td style="padding:7px 0;text-align:right;font-weight:600;border-top:1px solid #E4EAF3">${esc(v)}</td></tr>`;
-
-    const html = brandShell(`
-      <h2 style="margin:0 0 12px;color:#04162A;font-size:18px">Draw request${approved ? ' (approved)' : ''}: ${esc(money(amount))}</h2>
-      ${message ? `<p style="margin:0 0 16px;line-height:1.6;white-space:pre-line">${esc(message)}</p>` : ''}
-      <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">
-        ${row('Loan', String(loan.loan_number))}
-        ${row('Property', String(loan.property || ''))}
-        ${row('Borrower', String(borrower || ''))}
-        ${row(approved ? 'Amount approved' : 'Amount requested', money(amount))}
-        ${approved && Math.abs(amount - Number(req.amount)) > 0.005 ? row('Amount requested', money(req.amount)) : ''}
-        ${row('Requested', fmtDateTime(req.requested_at))}
-        ${row('Loan amount', money(loan.loan_amount))}
-        ${row('Construction drawn so far', money(constructionDrawn))}
-        ${row('Construction left to draw', money(loan.remaining_draw))}
-      </table>
-      ${req.note ? `<p style="margin:0 0 6px;line-height:1.6"><b>What it is for:</b> ${esc(req.note)}</p>` : ''}
-      ${wire ? `<div style="margin:16px 0 0;padding:12px 14px;background:#F7F9FC;border:1px solid #E4EAF3;border-radius:8px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:.04em;color:#6B7A90;margin:0 0 6px">WIRING INSTRUCTIONS</div>
-        <div style="line-height:1.6;white-space:pre-line;font-size:14px">${esc(wire)}</div>
-      </div>` : ''}
-      <p style="margin:16px 0 0;line-height:1.6;color:#6B7A90;font-size:13px">Reply to this email with any questions.</p>
-    `);
+    const html = brandShell(lenderDrawEmailBody({
+      amount, requestedAmount: Number(req.amount), approved, requestedAt: req.requested_at, note: req.note,
+      message, wire, loanNumber: String(loan.loan_number), property: String(loan.property || ''),
+      borrower: loan.is_entity && loan.entity_name ? `${loan.entity_name} (${loan.borrower_name})` : String(loan.borrower_name || ''),
+      loanAmount: Number(loan.loan_amount), constructionDrawn, constructionLeft: Number(loan.remaining_draw),
+    }));
 
     await sendMail({
       to: to.join(', '),
