@@ -221,7 +221,7 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
       throw new Error('This request was declined or cancelled, so there is nothing to send to the lender.');
     }
     const { data: loan } = await supabase.from('loan_summary')
-      .select('loan_id, loan_number, property, borrower_name, entity_name, is_entity, lender_name, loan_amount, total_disbursed, remaining_draw')
+      .select('loan_id, loan_number, property, borrower_name, entity_name, is_entity, lender_name, loan_amount, acquisition, total_disbursed, remaining_draw')
       .eq('loan_id', req.loan_id).maybeSingle();
     if (!loan) throw new Error('Loan not found.');
 
@@ -233,6 +233,10 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
     if (to.length > 10) throw new Error('Please send to 10 addresses or fewer.');
     const message = String(form.get('message') || '').trim();
     if (message.length > 2000) throw new Error('Please keep the message under 2,000 characters.');
+    const wire = String(form.get('wire') || '').trim();
+    if (wire.length > 2000) throw new Error('Please keep the wiring instructions under 2,000 characters.');
+    // Construction draws only: total paid out less what was funded at closing.
+    const constructionDrawn = Math.max(0, Number(loan.total_disbursed || 0) - Number(loan.acquisition || 0));
 
     const { data: me } = await supabase.from('profiles').select('email, full_name').eq('id', userId).maybeSingle();
 
@@ -254,10 +258,14 @@ export async function sendDrawRequestToLender(requestId: string, form: FormData)
         ${approved && Math.abs(amount - Number(req.amount)) > 0.005 ? row('Amount requested', money(req.amount)) : ''}
         ${row('Requested', fmtDateTime(req.requested_at))}
         ${row('Loan amount', money(loan.loan_amount))}
-        ${row('Drawn so far', money(loan.total_disbursed))}
-        ${row('Left to draw', money(loan.remaining_draw))}
+        ${row('Construction drawn so far', money(constructionDrawn))}
+        ${row('Construction left to draw', money(loan.remaining_draw))}
       </table>
       ${req.note ? `<p style="margin:0 0 6px;line-height:1.6"><b>What it is for:</b> ${esc(req.note)}</p>` : ''}
+      ${wire ? `<div style="margin:16px 0 0;padding:12px 14px;background:#F7F9FC;border:1px solid #E4EAF3;border-radius:8px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.04em;color:#6B7A90;margin:0 0 6px">WIRING INSTRUCTIONS</div>
+        <div style="line-height:1.6;white-space:pre-line;font-size:14px">${esc(wire)}</div>
+      </div>` : ''}
       <p style="margin:16px 0 0;line-height:1.6;color:#6B7A90;font-size:13px">Reply to this email with any questions.</p>
     `);
 

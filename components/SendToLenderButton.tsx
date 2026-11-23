@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modal, AlertDialog } from '@/components/Modal';
 import { sendDrawRequestToLender } from '@/lib/draw-request-actions';
 import { money } from '@/lib/format';
+import { STANDARD_WIRE } from '@/lib/payoff';
 
 /**
  * "Send to lender": emails the draw request (amount, what it is for, loan
@@ -21,12 +22,14 @@ export default function SendToLenderButton({
   const [busy, setBusy] = useState(false);
   const [to, setTo] = useState('');
   const [message, setMessage] = useState('');
+  const [wire, setWire] = useState('');
   const [err, setErr] = useState('');
   const [done, setDone] = useState<string | null>(null);
 
   function start() {
     setTo(lenderEmails.join(', '));
     setMessage('Please see the draw request below for your review and funding.');
+    setWire(STANDARD_WIRE);
     setErr(''); setOpen(true);
   }
 
@@ -34,7 +37,7 @@ export default function SendToLenderButton({
     if (!to.trim()) { setErr('Please enter the lender’s email address.'); return; }
     setBusy(true); setErr('');
     const fd = new FormData();
-    fd.set('to', to); fd.set('message', message);
+    fd.set('to', to); fd.set('message', message); fd.set('wire', wire);
     const res = await sendDrawRequestToLender(requestId, fd);
     setBusy(false);
     if (!res.ok) { setErr(res.error || 'The email could not be sent.'); return; }
@@ -67,6 +70,14 @@ export default function SendToLenderButton({
             <label htmlFor="stl-msg">Message (optional)</label>
             <textarea id="stl-msg" className="field" rows={3} maxLength={2000} value={message}
               onChange={e => setMessage(e.target.value)} />
+          </div>
+          <div className="field-wrap">
+            <label htmlFor="stl-wire">Wiring instructions</label>
+            <textarea id="stl-wire" className="field" rows={5} maxLength={2000} value={wire}
+              onChange={e => setWire(e.target.value)} />
+            <span className="muted" style={{ fontSize: 12.5 }}>
+              Starts with the standard wire details from the payoff letters. Change them for this email if needed, or clear the box to leave them out.
+            </span>
           </div>
           {err && <div className="alert error" style={{ margin: 0 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
