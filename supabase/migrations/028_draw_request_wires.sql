@@ -1,6 +1,6 @@
 -- ============================================================
 -- 028  Wiring instructions for each draw request
--- NOT YET APPLIED -- waiting for approval.
+-- Already applied to production on 2026-11-23.
 --
 -- Every draw request remembers where its funds should be wired. When the
 -- borrower asks for a draw they pick "same as my last draw" (copied from
