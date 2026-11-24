@@ -259,11 +259,44 @@ export function DrawRequestHistory({
   requests: DrawRequestRow[]; canEdit?: boolean; lenderName?: string | null; lenderEmails?: string[];
   requestWires?: Record<string, RequestWire>;
 }) {
+  // Folded by default, like the waiting box; the choice is remembered here.
+  const FOLD_KEY = 'jcf:admin:drawRequestHistoryOpen';
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    try { if (window.localStorage.getItem(FOLD_KEY) === '1') setExpanded(true); } catch { /* ignore */ }
+  }, []);
+  function toggle() {
+    setExpanded(v => {
+      try { window.localStorage.setItem(FOLD_KEY, v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+  }
+
   if (requests.length === 0) return null;
   const list = [...requests].sort((a, b) => a.requested_at.localeCompare(b.requested_at));
+  const approvedTotal = list.reduce((t, r) => t + (r.status === 'approved' ? Number(r.approved_amount ?? 0) : 0), 0);
   return (
     <>
-      <h3 style={{ margin: '24px 0 10px', fontSize: 16, color: 'var(--navy)' }}>Draw requests from the borrower</h3>
+      <button type="button" onClick={toggle} aria-expanded={expanded}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', width: '100%',
+          margin: '24px 0 10px', padding: 0, background: 'none', border: 0, cursor: 'pointer',
+          textAlign: 'left', font: 'inherit', color: 'inherit',
+        }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round" aria-hidden="true"
+          style={{ flex: 'none', transition: 'transform .15s', transform: expanded ? 'rotate(90deg)' : 'none' }}>
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        <b style={{ fontSize: 16, color: 'var(--navy)' }}>Draw requests from the borrower</b>
+        <span className="count">{list.length}</span>
+        {!expanded && approvedTotal > 0 && (
+          <span className="muted" style={{ fontSize: 13.5 }}>{money(approvedTotal)} approved</span>
+        )}
+        <span style={{ flex: 1 }} />
+        <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {expanded && (
       <div className="tablescroll">
         <table className="bordered">
           <thead><tr><th>Requested</th><th>Status</th><th>For</th><th>Reply</th><th className="num">Asked</th><th className="num">Approved</th>{canEdit && <th></th>}</tr></thead>
@@ -290,6 +323,7 @@ export function DrawRequestHistory({
           </tbody>
         </table>
       </div>
+      )}
     </>
   );
 }
