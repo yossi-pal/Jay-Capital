@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
 import { MARK_PNG_BASE64, BRAND } from '@/lib/brand-assets';
 import { buildStatement, drawInterest, type Draw as EngineDraw } from '@/lib/interest';
 import { money, pct, fmtDate, statementPeriod, borrowerDisplayName } from '@/lib/format';
-import { buildLedger, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, reserveFields, DEFAULT_GRACE_DAY, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 import type { StatementLoan, StatementDraw } from '@/lib/statement-html';
 
 export const SERVICER = 'Jay Capital Funding Inc.';
@@ -180,9 +180,14 @@ export async function statementPDF(
     ['Previous Balance', money(ledger.previousBalance)],
     ['Payments Received', ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)],
     ['Previous Open Balance', money(ledger.previousOpenBalance)],
-    ...(ledger.currentReserve > 0 ? [
+    ...(ledger.currentReserve > 0 || ledger.currentDefault > 0 ? [
       ['Interest This Period', money(ledger.currentInterest)],
+    ] as [string, string][] : []),
+    ...(ledger.currentReserve > 0 ? [
       ['Less Interest Reserve', `(${money(ledger.currentReserve)})`],
+    ] as [string, string][] : []),
+    ...(ledger.currentDefault > 0 ? [
+      [`Default Interest (late past the ${DEFAULT_GRACE_DAY}th)`, money(ledger.currentDefault)],
     ] as [string, string][] : []),
     ['Current Charges', money(ledger.currentCharge)],
   ];
@@ -190,7 +195,7 @@ export async function statementPDF(
   // deferred closing month -- show what makes up the figure.
   if (ledger.currentPeriods.length > 1) {
     for (const c of ledger.currentPeriods) {
-      rightRows.push([`   ${c.label} interest${c.reserve > 0 ? ' after reserve' : ''}`, money(c.billed)]);
+      rightRows.push([`   ${c.label} interest${c.reserve > 0 ? ' after reserve' : ''}${c.defaultInterest > 0 ? ' and default' : ''}`, money(c.billed)]);
     }
   }
 

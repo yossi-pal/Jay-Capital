@@ -22,7 +22,7 @@
  */
 
 import {
-  chargeForPeriod, periodEndOf, reserveForPeriod, reservePeriods, reserveShareForPeriod,
+  billedForPeriod, chargeForPeriod, defaultForPeriod, periodEndOf, reserveForPeriod, reservePeriods, reserveShareForPeriod,
   type PaymentRow, type AllocationRow, type LedgerLoan,
 } from '@/lib/ledger';
 import { DRAW_DESCRIPTION, cents, type Draw } from '@/lib/interest';
@@ -162,9 +162,16 @@ export function payoffFigures(
   // Payments already applied to months inside the interest window (a part
   // payment on a month) come off, so nothing is charged twice.
   const fromMonth = firstOfMonth(from), throughMonth = firstOfMonth(through);
-  const alreadyPaid = from > through ? 0 : cents(allocations
-    .filter(a => { const k = firstOfMonth(a.period_month); return k >= fromMonth && k <= throughMonth; })
-    .reduce((s, a) => s + Number(a.amount), 0));
+  // Capped at each month's interest: anything applied beyond it paid that
+  // month's default interest, not the interest in this window.
+  const appliedByMonth = new Map<string, number>();
+  for (const a of allocations) {
+    const k = firstOfMonth(a.period_month);
+    appliedByMonth.set(k, (appliedByMonth.get(k) ?? 0) + Number(a.amount));
+  }
+  const alreadyPaid = from > through ? 0 : cents(Array.from(appliedByMonth.entries())
+    .filter(([k]) => k >= fromMonth && k <= throughMonth)
+    .reduce((s, [k, v]) => s + Math.min(v, chargeForPeriod(engineLoan(loan), draws, k)), 0));
   // Interest reserve the lender still holds: the reserve for months inside the
   // interest window, plus whole reserve months after it (never used).
   const eng = engineLoan(loan);
@@ -181,6 +188,17 @@ export function payoffFigures(
     if (balance > 0.005) openEarlier.push({ month: m, balance });
   }
   const unpaidEarlier = cents(openEarlier.reduce((s, x) => s + x.balance, 0));
+  // Default interest (lib/ledger.ts) not yet paid, through the through date.
+  // A payment applied to a month pays its interest first, then its default.
+  const openDefault: { month: string; balance: number }[] = [];
+  for (let m = firstOfMonth(loan.closing_date), i = 0; m <= throughMonth && i < 600; m = firstOfMonth(m, 1), i++) {
+    const dflt = defaultForPeriod(eng, draws, payments, allocations, m, through);
+    if (dflt <= 0.005) continue;
+    const towardDefault = Math.max(0, (appliedByMonth.get(m) ?? 0) - billedForPeriod(eng, draws, m));
+    const balance = cents(dflt - towardDefault);
+    if (balance > 0.005) openDefault.push({ month: m, balance });
+  }
+  const unpaidDefault = cents(openDefault.reduce((s, x) => s + x.balance, 0));
   const paidTotal = payments.reduce((s, x) => s + Number(x.amount), 0);
   const appliedTotal = allocations.reduce((s, a) => s + Number(a.amount), 0);
   const unapplied = cents(Math.max(0, paidTotal - appliedTotal));
@@ -203,6 +221,9 @@ export function payoffFigures(
   if (unpaidEarlier > 0) {
     lines.push({ label: `Unpaid Interest (${openEarlier.map(x => monthName(x.month)).join(', ')})`, amount: unpaidEarlier });
   }
+  if (unpaidDefault > 0) {
+    lines.push({ label: `Unpaid Default Interest (${openDefault.map(x => monthName(x.month)).join(', ')})`, amount: unpaidDefault });
+  }
   if (fees.demandPrep) lines.push({ label: 'Demand Prep Fee', amount: fees.demandPrep });
   if (fees.wiring) lines.push({ label: 'Wiring & Processing Fee', amount: fees.wiring });
   if (fees.discharge) lines.push({ label: 'Discharge Fee', amount: fees.discharge });
@@ -220,7 +241,7 @@ export function payoffFigures(
 
   return {
     through, from, autoFrom: auto.from, paidThrough: addDays(from, -1),
-    principal, drawCount: construction.length, grossInterest, alreadyPaid, reserveCredit, unpaidEarlier, unapplied,
+    principal, drawCount: construction.length, grossInterest, alreadyPaid, reserveCredit, unpaidEarlier, unpaidDefault, unapplied,
     fees, drawFee, prepaymentPct, lines, total, perDiem, validUntil: dayAfter,
   };
 }
