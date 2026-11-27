@@ -374,7 +374,7 @@ export default function LoanDetail({
               {canSend && (
                 <div style={{ marginTop: 28, paddingTop: 22, borderTop: '1px solid var(--hair)' }}>
                   <h2 className="tab-h">Email statement to borrower</h2>
-                  <EmailStatementControls loanId={summary.loan_id} closingDate={summary.closing_date} borrowerEmail={summary.borrower_email} />
+                  <EmailStatementControls loanId={summary.loan_id} closingDate={summary.closing_date} borrowerEmail={summary.borrower_email} statementDate={stmtDate} />
                 </div>
               )}
             </>

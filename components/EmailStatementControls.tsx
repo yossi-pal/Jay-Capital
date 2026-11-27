@@ -10,11 +10,18 @@ import { AlertDialog } from '@/components/Modal';
  * Months come from a multi-select dropdown (closing month .. next month).
  */
 export default function EmailStatementControls({
-  loanId, closingDate, borrowerEmail,
-}: { loanId: string; closingDate: string; borrowerEmail: string | null }) {
+  loanId, closingDate, borrowerEmail, statementDate,
+}: {
+  loanId: string; closingDate: string; borrowerEmail: string | null;
+  /** The statement on screen. It is the one selected to send, and selecting
+   *  another statement on the page moves the selection with it. */
+  statementDate?: string;
+}) {
   const months = statementMonths(closingDate);          // newest-first
-  const defaultMonth = months.includes(firstOfMonth(todayInAppTz())) ? firstOfMonth(todayInAppTz()) : months[0];
+  const fallback = months.includes(firstOfMonth(todayInAppTz())) ? firstOfMonth(todayInAppTz()) : months[0];
+  const defaultMonth = statementDate && months.includes(statementDate) ? statementDate : fallback;
   const [selected, setSelected] = useState<string[]>([defaultMonth]);
+  useEffect(() => { setSelected([defaultMonth]); }, [defaultMonth]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [alert, setAlert] = useState<{ msg: string; tone: 'info' | 'error' | 'success' } | null>(null);
