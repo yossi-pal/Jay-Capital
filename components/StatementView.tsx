@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { money, pct, fmtDate, firstOfMonth, monthName, clampMonth, statementMonths, statementPeriod, borrowerDisplayName, todayInAppTz, defaultStatementMonth } from '@/lib/format';
 import { drawInterest, buildStatement, type Draw as EngineDraw } from '@/lib/interest';
-import { buildLedger, reserveFields, type PaymentRow, type AllocationRow } from '@/lib/ledger';
+import { buildLedger, reserveFields, DEFAULT_GRACE_DAY, type PaymentRow, type AllocationRow } from '@/lib/ledger';
 
 export const SERVICER = 'Jay Capital Funding Inc.';
 
@@ -152,15 +152,17 @@ export default function StatementView({
             <div className="row"><span className="k">Previous Balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
             <div className="row"><span className="k">Payments Received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
             <div className="row"><span className="k">Previous Open Balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
-            {ledger.currentReserve > 0 && <>
-              <div className="row"><span className="k">Interest This Period</span><span className="v">{money(ledger.currentInterest)}</span></div>
-              <div className="row"><span className="k">Less Interest Reserve (prepaid at closing)</span><span className="v">({money(ledger.currentReserve)})</span></div>
-            </>}
+            {(ledger.currentReserve > 0 || ledger.currentDefault > 0) &&
+              <div className="row"><span className="k">Interest This Period</span><span className="v">{money(ledger.currentInterest)}</span></div>}
+            {ledger.currentReserve > 0 &&
+              <div className="row"><span className="k">Less Interest Reserve (prepaid at closing)</span><span className="v">({money(ledger.currentReserve)})</span></div>}
+            {ledger.currentDefault > 0 &&
+              <div className="row"><span className="k">Default Interest (late past the {DEFAULT_GRACE_DAY}th)</span><span className="v">{money(ledger.currentDefault)}</span></div>}
             <div className="row"><span className="k">Current Charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
             {ledger.currentPeriods.length > 1 && ledger.currentPeriods.map(c => (
               <div className="row" key={c.periodMonth} style={{ paddingLeft: 14 }}>
                 <span className="k" style={{ fontWeight: 400, color: 'var(--muted)' }}>
-                  &mdash; {c.label} interest{c.reserve > 0 ? ' after reserve' : ''}
+                  &mdash; {c.label} interest{c.reserve > 0 ? ' after reserve' : ''}{c.defaultInterest > 0 ? ' and default' : ''}
                 </span>
                 <span className="v" style={{ color: 'var(--muted)' }}>{money(c.billed)}</span>
               </div>

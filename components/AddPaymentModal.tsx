@@ -130,6 +130,7 @@ export default function AddPaymentModal({
                       <td>
                         {fmtDate(c.statementDate)}
                         {c.inProgress && <span className="muted" style={{ fontSize: 11 }}> &middot; in progress</span>}
+                        {c.defaultInterest > 0 && <span className="muted" style={{ fontSize: 11 }}> &middot; incl. {money(c.defaultInterest)} default</span>}
                       </td>
                       <td className="num">{money(c.billed)}</td>
                       <td className="num">{money(c.balance)}</td>

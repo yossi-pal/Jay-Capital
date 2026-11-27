@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { serverClient, serviceClient } from '@/lib/supabase-server';
 import { getMe } from '@/lib/session';
 import { money, fmtDateTime, todayInAppTz } from '@/lib/format';
-import { buildLedger, billedForPeriod, periodsThrough, reserveFields } from '@/lib/ledger';
+import { buildLedger, billedForPeriod, defaultForPeriod, periodsThrough, reserveFields } from '@/lib/ledger';
 import { firstOfMonth } from '@/lib/format';
 import InsightsCharts from '@/components/InsightsCharts';
 import ActivityFeed from '@/components/ActivityFeed';
@@ -73,7 +73,7 @@ export default async function InsightsPage() {
       .map((x: any) => ({ payment_id: x.payment_id, period_month: x.period_month, amount: Number(x.amount) }));
 
     for (const per of periodsThrough(l.closing_date, thisPeriod)) {
-      billed += billedForPeriod(engineLoan, d, per);
+      billed += billedForPeriod(engineLoan, d, per) + defaultForPeriod(engineLoan, d, p, a, per);
     }
     collected += p.reduce((s, x) => s + x.amount, 0);
 

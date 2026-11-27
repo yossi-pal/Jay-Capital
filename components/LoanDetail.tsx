@@ -348,10 +348,12 @@ export default function LoanDetail({
                   <div className="row"><span className="k">Previous balance</span><span className="v">{money(ledger.previousBalance)}</span></div>
                   <div className="row"><span className="k">Payments received</span><span className="v">{ledger.paymentsThisPeriod > 0 ? `(${money(ledger.paymentsThisPeriod)})` : money(0)}</span></div>
                   <div className="row"><span className="k">Previous open balance</span><span className="v">{money(ledger.previousOpenBalance)}</span></div>
-                  {ledger.currentReserve > 0 && <>
-                    <div className="row"><span className="k">Interest this period</span><span className="v">{money(ledger.currentInterest)}</span></div>
-                    <div className="row"><span className="k">Less interest reserve</span><span className="v">({money(ledger.currentReserve)})</span></div>
-                  </>}
+                  {(ledger.currentReserve > 0 || ledger.currentDefault > 0) &&
+                    <div className="row"><span className="k">Interest this period</span><span className="v">{money(ledger.currentInterest)}</span></div>}
+                  {ledger.currentReserve > 0 &&
+                    <div className="row"><span className="k">Less interest reserve</span><span className="v">({money(ledger.currentReserve)})</span></div>}
+                  {ledger.currentDefault > 0 &&
+                    <div className="row"><span className="k">Default interest (late past the 15th)</span><span className="v">{money(ledger.currentDefault)}</span></div>}
                   <div className="row"><span className="k">Current charges</span><span className="v">{money(ledger.currentCharge)}</span></div>
                   <div className="row due"><span className="k">Amount Due</span><span className="v">{money(ledger.amountDue)}</span></div>
                 </div>

@@ -44,6 +44,22 @@ import { firstOfMonth, monthName, todayInAppTz } from '@/lib/format';
  *   Every balance, past-due and payment figure works off billed(P), so a
  *   reserve is never entered as a payment and never shows as a credit. A loan
  *   with no reserve has reserve(P) = 0 everywhere, so nothing changes for it.
+ *
+ *   DEFAULT INTEREST
+ *   Interest is due on the 1st. If any of it is still unpaid after the 15th of
+ *   that month (month M), the borrower is in default for M and is charged
+ *   default interest equal to the late amount -- so the late amount is in
+ *   effect owed twice. It shows from the 16th, but it is only provisional
+ *   until M ends: if the late interest is paid in full by the last day of M
+ *   it falls back off, and if only part is paid, default is charged only on
+ *   what is still unpaid at month end.
+ *       default(M) = interest billed for periods due on or before the 1st of M
+ *                    - what payments dated by the end of M paid toward it
+ *                    - payments received by the end of M not yet applied
+ *   Only interest counts: an unpaid default charge does not itself attract
+ *   more default. default(M) is billed together with M's own interest, on the
+ *   statement dated the 1st of M+1, and a payment applied to M pays M's
+ *   interest first and then its default.
  */
 
 export interface PaymentRow {
@@ -67,7 +83,8 @@ export interface PeriodCharge {
   statementLabel: string;       // "August 2026" -- that statement's month
   charge: number;               // interest for the period, before any reserve
   reserve: number;              // covered by the interest reserve
-  billed: number;               // charge - reserve: what the borrower owes for it
+  defaultInterest: number;      // default interest for being late during this month
+  billed: number;               // charge - reserve + defaultInterest: what the borrower owes for it
   paid: number;
   balance: number;
   inProgress: boolean;          // period hasn't ended yet, so the figure can still move
@@ -82,6 +99,8 @@ export interface Ledger {
   currentInterest: number;
   /** The part of currentInterest the interest reserve covers. */
   currentReserve: number;
+  /** Default interest billed on this statement (see DEFAULT INTEREST above). */
+  currentDefault: number;
   previousBalance: number;
   paymentsThisPeriod: number;
   /** previousBalance - paymentsThisPeriod: what was still open before this
@@ -185,23 +204,75 @@ export function reserveForPeriod(loan: LedgerLoan, draws: Draw[], periodMonth: s
   return cents(Math.min(share, chargeForPeriod(loan, draws, firstOfMonth(periodMonth))));
 }
 
-/** What the borrower is billed for a period: its interest less any reserve. */
+/** The interest the borrower is billed for a period: its interest less any reserve. No default interest. */
 export function billedForPeriod(loan: LedgerLoan, draws: Draw[], periodMonth: string): number {
   return cents(chargeForPeriod(loan, draws, periodMonth) - reserveForPeriod(loan, draws, periodMonth));
 }
 
+/** Day of the month through which interest due on the 1st can still be paid without default. */
+export const DEFAULT_GRACE_DAY = 15;
+
+/**
+ * Default interest for month `periodMonth` (see DEFAULT INTEREST above).
+ * Nothing shows through the 15th of that month as of `asOf`; after that it is
+ * the late interest still unpaid, counting payments dated through the month's
+ * last day.
+ */
+export function defaultForPeriod(
+  loan: LedgerLoan,
+  draws: Draw[],
+  payments: PaymentRow[],
+  allocations: AllocationRow[],
+  periodMonth: string,
+  asOf: Date | string = todayInAppTz(),
+): number {
+  const m = firstOfMonth(periodMonth);
+  const today = typeof asOf === 'string' ? asOf.slice(0, 10) : iso(asOf);
+  if (today <= `${m.slice(0, 8)}${String(DEFAULT_GRACE_DAY).padStart(2, '0')}`) return 0;
+  if (loan.paid_off_date && m >= firstOfMonth(loan.paid_off_date)) return 0;
+
+  const end = periodEndOf(m);
+  const payDate = new Map(payments.map(p => [p.id, p.payment_date.slice(0, 10)]));
+  const counted = allocations.filter(a => {
+    const d = payDate.get(a.payment_id);
+    return d !== undefined && d <= end;
+  });
+  const paidByPeriod = new Map<string, number>();
+  for (const a of counted) {
+    const key = firstOfMonth(a.period_month);
+    paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
+  }
+
+  // Interest that fell due on or before the 1st of this month. A payment
+  // applied to a period pays its interest before its own default.
+  const late = periodsThrough(loan.closing_date, firstOfMonth(m, -1), loan.paid_off_date)
+    .filter(p => dueDateFor(p, loan.closing_date) <= m);
+  const unpaid = late.reduce(
+    (s, p) => cents(s + Math.max(0, billedForPeriod(loan, draws, p) - (paidByPeriod.get(p) ?? 0))), 0);
+  if (unpaid <= 0.005) return 0;
+
+  // Money received by month end but not yet applied to a month still counts.
+  const received = payments
+    .filter(p => p.payment_date.slice(0, 10) <= end)
+    .reduce((s, p) => cents(s + Number(p.amount)), 0);
+  const applied = counted.reduce((s, a) => cents(s + Number(a.amount)), 0);
+  const unapplied = Math.max(0, cents(received - applied));
+
+  return Math.max(0, cents(unpaid - unapplied));
+}
+
 /** One period's row, with what the reserve and the borrower's payments cover. */
 function periodRow(
-  loan: LedgerLoan, draws: Draw[], p: string, paid: number, inProgress = false,
+  loan: LedgerLoan, draws: Draw[], p: string, paid: number, inProgress = false, defaultInterest = 0,
 ): PeriodCharge {
   const charge = chargeForPeriod(loan, draws, p);
   const reserve = reserveForPeriod(loan, draws, p);
-  const billed = cents(charge - reserve);
+  const billed = cents(charge - reserve + defaultInterest);
   const due = dueDateFor(p, loan.closing_date);
   return {
     periodMonth: p, label: monthName(p),
     statementDate: due, statementLabel: monthName(due),
-    charge, reserve, billed, paid, balance: cents(billed - paid), inProgress,
+    charge, reserve, defaultInterest, billed, paid, balance: cents(billed - paid), inProgress,
   };
 }
 
@@ -243,14 +314,18 @@ export function buildLedger(
     .reduce((sum, p) => cents(sum + chargeForPeriod(loan, draws, p)), 0);
   const currentReserve = currentPeriodMonths
     .reduce((sum, p) => cents(sum + reserveForPeriod(loan, draws, p)), 0);
-  const currentCharge = cents(currentInterest - currentReserve);
+  const asOfToday = todayInAppTz();
+  const dflt = (p: string) => defaultForPeriod(loan, draws, payments, allocations, p, asOfToday);
+  const currentDefault = currentPeriodMonths.reduce((sum, p) => cents(sum + dflt(p)), 0);
+  const currentCharge = cents(currentInterest - currentReserve + currentDefault);
 
   // ---- date-based running balance
   const paidBefore = payments
     .filter(p => p.payment_date < periodStart)
     .reduce((s, p) => cents(s + Number(p.amount)), 0);
 
-  const priorCharges = priorPeriods.reduce((s, p) => cents(s + billedForPeriod(loan, draws, p)), 0);
+  const priorCharges = priorPeriods
+    .reduce((s, p) => cents(s + billedForPeriod(loan, draws, p) + dflt(p)), 0);
   const previousBalance = cents(priorCharges - paidBefore);
 
   const paymentsInPeriod = payments
@@ -275,10 +350,10 @@ export function buildLedger(
   }
 
   const currentPeriods: PeriodCharge[] = currentPeriodMonths
-    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0));
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, false, dflt(p)));
 
   const priorUnpaid: PeriodCharge[] = priorPeriods
-    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0))
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, false, dflt(p)))
     .filter(r => r.balance > 0.005);
 
   // Payments received but not applied to any month yet.
@@ -294,6 +369,7 @@ export function buildLedger(
     currentCharge,
     currentInterest,
     currentReserve,
+    currentDefault,
     currentPeriods,
     deferredToNext: currentPeriodMonths.length === 0,
     previousBalance,
@@ -347,10 +423,29 @@ export function pastDueAsOf(
 
   // Periods whose due date is on or before today.
   const thisMonth = firstOfMonth(today);
-  return periodsThrough(loan.closing_date, firstOfMonth(today, -1), (loan as LedgerLoan).paid_off_date)
+  const rows = periodsThrough(loan.closing_date, firstOfMonth(today, -1), (loan as LedgerLoan).paid_off_date)
     .filter(p => dueDateFor(p, loan.closing_date) <= thisMonth)
-    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0))
-    .filter(r => r.billed > 0.005 && r.balance > 0.005);
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, false,
+      defaultForPeriod(loan, draws, payments, allocations, p, today)));
+
+  // From the 16th, this month's default interest is owed straight away, even
+  // though the rest of this month's charge is not due until next month. It
+  // stands as its own row; a payment applied to this month pays its interest
+  // first, so only what is applied beyond that counts against the default.
+  const inPeriods = periodsThrough(loan.closing_date, thisMonth, (loan as LedgerLoan).paid_off_date).includes(thisMonth);
+  const nowDefault = inPeriods ? defaultForPeriod(loan, draws, payments, allocations, thisMonth, today) : 0;
+  if (nowDefault > 0.005) {
+    const interest = billedForPeriod(loan, draws, thisMonth);
+    const paid = Math.min(nowDefault, Math.max(0, cents((paidByPeriod.get(thisMonth) ?? 0) - interest)));
+    const due = dueDateFor(thisMonth, loan.closing_date);
+    rows.push({
+      periodMonth: thisMonth, label: `${monthName(thisMonth)} default interest`,
+      statementDate: due, statementLabel: monthName(due),
+      charge: 0, reserve: 0, defaultInterest: nowDefault, billed: nowDefault,
+      paid, balance: cents(nowDefault - paid), inProgress: true,
+    });
+  }
+  return rows.filter(r => r.billed > 0.005 && r.balance > 0.005);
 }
 
 /**
@@ -376,6 +471,7 @@ export function openCharges(
     paidByPeriod.set(key, cents((paidByPeriod.get(key) ?? 0) + Number(a.amount)));
   }
   return periodsThrough(loan.closing_date, throughPeriodMonth, (loan as LedgerLoan).paid_off_date)
-    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, p >= currentPeriod))
+    .map(p => periodRow(loan, draws, p, paidByPeriod.get(p) ?? 0, p >= currentPeriod,
+      defaultForPeriod(loan, draws, payments, allocations, p)))
     .filter(r => r.billed > 0.005 && r.balance > 0.005);
 }
